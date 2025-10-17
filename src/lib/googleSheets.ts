@@ -2,8 +2,8 @@ import { GoogleSheetsConfig, SheetData, Debt, Payment } from '@/types'
 
 // Configuración de Google Sheets
 const GOOGLE_SHEETS_CONFIG: GoogleSheetsConfig = {
-  spreadsheetId: process.env.VITE_GOOGLE_SHEETS_ID || '',
-  apiKey: process.env.VITE_GOOGLE_API_KEY || '',
+  spreadsheetId: '', // Se configurará con variables de entorno
+  apiKey: '', // Se configurará con variables de entorno
   range: 'FindIA_Data!A1:Z1000'
 }
 

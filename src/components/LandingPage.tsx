@@ -14,19 +14,25 @@ import {
   Trophy
 } from 'lucide-react'
 import { AuthModal } from '@/components/auth'
+import { Dashboard } from '@/components/Dashboard'
 
 export const LandingPage = () => {
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('register')
+  const [initialAuthMode, setInitialAuthMode] = useState<'login' | 'register'>('register')
+  const [showDemo, setShowDemo] = useState(false)
 
   const handleGetStarted = () => {
-    setAuthMode('register')
+    setInitialAuthMode('register')
     setShowAuthModal(true)
   }
 
   const handleLogin = () => {
-    setAuthMode('login')
+    setInitialAuthMode('login')
     setShowAuthModal(true)
+  }
+
+  const handleViewDemo = () => {
+    setShowDemo(true)
   }
 
   const features = [
@@ -83,8 +89,41 @@ export const LandingPage = () => {
     { number: "4.9★", label: "Calificación", icon: Star }
   ]
 
+  // Si está en modo demo, mostrar el dashboard
+  if (showDemo) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header del Demo */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="h-8 w-8 text-purple-600" />
+                <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                  FindIA
+                </span>
+              </div>
+              <div className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+                🚀 Modo Demo
+              </div>
+            </div>
+            <button
+              onClick={() => setShowDemo(false)}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200"
+            >
+              Salir de la DEMO
+            </button>
+          </div>
+        </div>
+        
+        {/* Dashboard Demo */}
+        <Dashboard />
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50">
       {/* Header */}
       <header className="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -144,7 +183,7 @@ export const LandingPage = () => {
                 Estrategias personalizadas, seguimiento motivador y IA que te guía paso a paso.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+              <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
                 <motion.button
                   onClick={handleGetStarted}
                   className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg"
@@ -155,8 +194,11 @@ export const LandingPage = () => {
                   <ArrowRight className="h-5 w-5" />
                 </motion.button>
                 
-                <button className="text-gray-600 hover:text-gray-800 font-semibold text-lg flex items-center space-x-2 transition-colors duration-200">
-                  <span>Ver Demo</span>
+                <button 
+                  onClick={handleViewDemo}
+                  className="text-gray-600 hover:text-gray-800 font-semibold text-lg flex items-center space-x-1 transition-colors duration-200"
+                >
+                  <span>Ver DEMO</span>
                   <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
                     ▶️
                   </motion.div>
@@ -385,7 +427,7 @@ export const LandingPage = () => {
       <AuthModal 
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        initialMode={authMode}
+        initialMode={initialAuthMode}
       />
     </div>
   )

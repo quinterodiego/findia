@@ -119,13 +119,24 @@ export interface User {
   id: string
   email: string
   name: string
+  picture?: string
+  provider?: 'email' | 'google' | 'facebook' | 'apple'
   createdAt: string
+}
+
+export interface GoogleUser {
+  id: string
+  email: string
+  name: string
+  picture?: string
+  provider: 'google'
 }
 
 export interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>
+  loginWithProvider: (providerData: GoogleUser) => Promise<{ success: boolean; message: string }>
   logout: () => void
   isLoading: boolean
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { User, AuthContextType } from '@/types'
+import { User, AuthContextType, GoogleUser } from '@/types'
 import { generateId, ValidationUtils, StorageUtils } from '@/lib/utils'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -144,6 +144,60 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
+  const loginWithProvider = async (providerData: GoogleUser): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true)
+    
+    try {
+      // Verificar si el usuario ya existe
+      const existingUsers = StorageUtils.loadFromLocalStorage<User[]>('findia_users') || []
+      let existingUser = existingUsers.find(u => u.email.toLowerCase() === providerData.email.toLowerCase())
+      
+      if (existingUser) {
+        // Usuario existe, actualizar información del provider
+        existingUser.picture = providerData.picture
+        existingUser.provider = providerData.provider
+        
+        // Actualizar en localStorage
+        const updatedUsers = existingUsers.map(u => 
+          u.id === existingUser!.id ? existingUser! : u
+        )
+        StorageUtils.saveToLocalStorage('findia_users', updatedUsers)
+      } else {
+        // Crear nuevo usuario desde provider
+        existingUser = {
+          id: generateId(),
+          email: providerData.email.toLowerCase(),
+          name: providerData.name,
+          picture: providerData.picture,
+          provider: providerData.provider,
+          createdAt: new Date().toISOString()
+        }
+        
+        // Agregar a la lista de usuarios
+        const updatedUsers = [...existingUsers, existingUser]
+        StorageUtils.saveToLocalStorage('findia_users', updatedUsers)
+      }
+
+      // Iniciar sesión
+      const sessionToken = generateId()
+      StorageUtils.saveToLocalStorage('findia_session', sessionToken)
+      StorageUtils.saveToLocalStorage('findia_user', existingUser)
+      
+      setUser(existingUser)
+
+      return { 
+        success: true, 
+        message: `¡Bienvenido ${existingUser.name}! Has iniciado sesión con ${providerData.provider} 🎉` 
+      }
+      
+    } catch (error) {
+      console.error('Provider login error:', error)
+      return { success: false, message: 'Error al iniciar sesión con el proveedor. Inténtalo de nuevo.' }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const logout = () => {
     // Limpiar datos de sesión
     StorageUtils.removeFromLocalStorage('findia_session')
@@ -156,6 +210,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     login,
     register,
+    loginWithProvider,
     logout,
     isLoading
   }
