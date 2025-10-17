@@ -24,23 +24,26 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
     setError(null)
 
     try {
-      // En producción, aquí inicializarías la librería de Google Auth
-      // Por ahora, simularemos el proceso
+      // Usar el servicio real de Google OAuth
+      const { GoogleAuthService } = await import('../../lib/googleAuth')
+      const authService = GoogleAuthService.getInstance()
       
-      // Simular delay de la ventana popup de Google
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Realizar login real con Google
+      const googleUserData = await authService.signIn()
       
-      // Simular respuesta de Google (en producción vendría de Google)
-      const mockGoogleResponse: GoogleUser = {
-        id: generateId(),
-        email: `usuario${Math.floor(Math.random() * 1000)}@gmail.com`,
-        name: 'Usuario Google',
-        picture: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+      // Formatear los datos para el contexto de autenticación
+      const googleUser: GoogleUser = {
+        id: googleUserData.id || generateId(),
+        email: googleUserData.email || 'usuario@gmail.com',
+        name: googleUserData.name || googleUserData.given_name || 'Usuario de Google',
+        picture: googleUserData.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c',
         provider: 'google'
       }
 
+      console.log('useGoogleAuth - Datos del usuario de Google:', googleUser)
+
       // Usar el contexto de auth para procesar el login
-      const result = await loginWithProvider(mockGoogleResponse)
+      const result = await loginWithProvider(googleUser)
       
       if (!result.success) {
         throw new Error(result.message)
@@ -48,6 +51,7 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
 
     } catch (err: any) {
       const errorMessage = err.message || 'Error al iniciar sesión con Google'
+      console.error('Error en useGoogleAuth:', errorMessage, err)
       setError(errorMessage)
       throw err
     } finally {

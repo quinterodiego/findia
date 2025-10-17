@@ -10,7 +10,6 @@ interface GoogleLoginButtonProps {
 }
 
 export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
-  onSuccess,
   onError,
   text = "Continúa con Google",
   disabled = false,
@@ -22,24 +21,23 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     setIsLoading(true)
     
     try {
-      // Simular llamada a Google Auth (en producción usarías @google/auth-library o similar)
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Usar el servicio real de Google OAuth (esto redirigirá a Google)
+      const { GoogleAuthService } = await import('../../lib/googleAuth')
+      const authService = GoogleAuthService.getInstance()
       
-      // Simular respuesta exitosa de Google
-      const mockGoogleUser = {
-        id: 'google_' + Math.random().toString(36).substr(2, 9),
-        email: 'usuario@gmail.com',
-        name: 'Usuario Google',
-        picture: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-        provider: 'google'
-      }
+      // Realizar login real con Google (redirige a Google OAuth)
+      await authService.signIn()
       
-      onSuccess(mockGoogleUser)
+      // Si llegamos aquí sin redirección, significa que hubo un error
+      console.log('Proceso de OAuth iniciado')
+      
     } catch (error) {
+      console.error('Error en autenticación con Google:', error)
       onError('Error al iniciar sesión con Google. Inténtalo de nuevo.')
-    } finally {
       setIsLoading(false)
     }
+    // Nota: setIsLoading(false) se omite intencionalmente aquí porque 
+    // habrá una redirección a Google y el componente se desmontará
   }
 
   return (
@@ -128,12 +126,17 @@ export const useGoogleAuth = () => {
       // Realizar login con Google
       const googleUser = await authService.signIn()
       
-      return {
+      // Formatear los datos del usuario para consistencia
+      const userData = {
         id: googleUser.sub || googleUser.id || 'google_' + Math.random().toString(36).substr(2, 9),
-        name: googleUser.name || 'Usuario de Google',
+        name: googleUser.name || googleUser.given_name || 'Usuario de Google',
         email: googleUser.email || 'usuario@gmail.com',
-        picture: googleUser.picture || 'https://via.placeholder.com/150'
+        picture: googleUser.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+        provider: 'google'
       }
+
+      console.log('useGoogleAuth - Datos del usuario:', userData)
+      return userData
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Error de autenticación con Google')
       setError(error)

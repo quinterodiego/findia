@@ -110,6 +110,189 @@ class FindiaGoogleSheetsService {
     }
   }
 
+  // Inicializar estructura de Google Sheets
+  async initializeSheetStructure(): Promise<{ success: boolean; message: string; instructions?: string[] }> {
+    try {
+      const config = this.validateConfiguration()
+      
+      if (!config.isValid) {
+        return {
+          success: false,
+          message: `❌ Configuración incompleta: ${config.missingVars.join(', ')}`
+        }
+      }
+
+      console.log('🏗️ Verificando estructura de Google Sheets...')
+      
+      // Verificar qué pestañas existen actualmente
+      const existingSheets = await this.getExistingSheets()
+      const requiredSheets = ['users', 'debts', 'payments', 'admin']
+      const missingSheets = requiredSheets.filter(sheet => !existingSheets.includes(sheet))
+      
+      if (missingSheets.length === 0) {
+        // Verificar si tienen headers correctos
+        const headersStatus = await this.verifyHeaders()
+        
+        if (headersStatus.allCorrect) {
+          return {
+            success: true,
+            message: '✅ Estructura completa - Todas las pestañas y headers están configurados correctamente'
+          }
+        } else {
+          return {
+            success: false,
+            message: '⚠️ Pestañas existen pero faltan headers. Ver instrucciones para completar.',
+            instructions: this.generateHeaderInstructions(headersStatus.missing)
+          }
+        }
+      }
+
+      // Generar instrucciones paso a paso
+      const instructions = this.generateCreationInstructions(missingSheets, existingSheets)
+
+      return {
+        success: false,
+        message: `📋 Estructura incompleta - Faltan ${missingSheets.length} pestañas: ${missingSheets.join(', ')}`,
+        instructions
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Error verificando estructura: ${error instanceof Error ? error.message : 'Error desconocido'}`
+      }
+    }
+  }
+
+  // Obtener lista de pestañas existentes
+  private async getExistingSheets(): Promise<string[]> {
+    try {
+      const sheetsInfo = await this.getSheetInfo()
+      return sheetsInfo.sheets?.map((sheet: any) => sheet.properties?.title).filter(Boolean) || []
+    } catch (error) {
+      console.error('Error obteniendo pestañas existentes:', error)
+      return []
+    }
+  }
+
+  // Verificar headers en las pestañas existentes
+  private async verifyHeaders(): Promise<{ allCorrect: boolean; missing: string[] }> {
+    const requiredSheets = ['users', 'debts', 'payments', 'admin']
+    const missing: string[] = []
+    
+    for (const sheetName of requiredSheets) {
+      try {
+        const range = `${sheetName}!1:1`
+        const data = await this.readSheet(range)
+        const headers = data[0] || []
+        const expectedHeaders = this.getSheetHeaders(sheetName)
+        
+        if (headers.length === 0 || !this.headersMatch(headers, expectedHeaders)) {
+          missing.push(sheetName)
+        }
+      } catch (error) {
+        missing.push(sheetName)
+      }
+    }
+    
+    return {
+      allCorrect: missing.length === 0,
+      missing
+    }
+  }
+
+  // Comparar headers
+  private headersMatch(actual: string[], expected: string[]): boolean {
+    if (actual.length !== expected.length) return false
+    return expected.every((header, index) => actual[index]?.toLowerCase() === header.toLowerCase())
+  }
+
+  // Generar instrucciones de creación paso a paso
+  private generateCreationInstructions(missingSheets: string[], existingSheets: string[]): string[] {
+    const instructions: string[] = []
+    
+    instructions.push('🔧 INSTRUCCIONES PASO A PASO:')
+    instructions.push('')
+    instructions.push('1. 📖 Abre tu Google Sheet en otra pestaña')
+    instructions.push(`   URL: https://docs.google.com/spreadsheets/d/${this.config.spreadsheetId}/edit`)
+    instructions.push('')
+    
+    if (existingSheets.length > 0) {
+      instructions.push(`2. ✅ Pestañas ya existentes: ${existingSheets.join(', ')}`)
+      instructions.push('')
+    }
+    
+    instructions.push('3. 📋 Crear las siguientes pestañas:')
+    missingSheets.forEach((sheet, index) => {
+      instructions.push(`   ${index + 1}. Clic derecho en pestaña → "Insertar hoja" → Nombrar: "${sheet}"`)
+    })
+    instructions.push('')
+    
+    instructions.push('4. 📝 Agregar headers en la fila 1 de cada pestaña:')
+    missingSheets.forEach(sheet => {
+      const headers = this.getSheetHeaders(sheet)
+      instructions.push(`   📊 ${sheet}: ${headers.join(' | ')}`)
+    })
+    instructions.push('')
+    
+    instructions.push('5. 🔄 Refrescar esta página y hacer clic en "Verificar Estructura" nuevamente')
+    
+    return instructions
+  }
+
+  // Generar instrucciones para headers faltantes
+  private generateHeaderInstructions(missingSheets: string[]): string[] {
+    const instructions: string[] = []
+    
+    instructions.push('📝 AGREGAR HEADERS FALTANTES:')
+    instructions.push('')
+    
+    missingSheets.forEach(sheet => {
+      const headers = this.getSheetHeaders(sheet)
+      instructions.push(`📊 En la pestaña "${sheet}", fila 1:`)
+      headers.forEach((header, index) => {
+        instructions.push(`   Celda ${String.fromCharCode(65 + index)}1: ${header}`)
+      })
+      instructions.push('')
+    })
+    
+    return instructions
+  }
+
+  // Obtener headers para cada tipo de pestaña
+  private getSheetHeaders(sheetName: string): string[] {
+    switch (sheetName) {
+      case 'users':
+        return ['id', 'name', 'email', 'createdAt', 'lastActiveAt', 'preferences', 'role']
+      case 'debts':
+        return ['id', 'userId', 'name', 'amount', 'currentAmount', 'minimumPayment', 'interestRate', 'category', 'createdAt', 'updatedAt']
+      case 'payments':
+        return ['id', 'debtId', 'userId', 'amount', 'paymentDate', 'notes']
+      case 'admin':
+        return ['email', 'role', 'permissions', 'addedAt', 'addedBy']
+      default:
+        return []
+    }
+  }
+
+  // Obtener información de la hoja de cálculo
+  private async getSheetInfo() {
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${this.config.spreadsheetId}?key=${this.config.apiKey}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    )
+    
+    if (!response.ok) {
+      throw new Error(`Error obteniendo info: ${response.status}`)
+    }
+    
+    return await response.json()
+  }
+
   // Probar conexión con Google Sheets
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {

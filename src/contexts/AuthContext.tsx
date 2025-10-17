@@ -20,10 +20,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Cargar usuario desde localStorage al inicializar
+  // Cargar usuario desde localStorage al inicializar y verificar OAuth return
   useEffect(() => {
-    const loadUser = () => {
+    const loadUser = async () => {
       try {
+        // Verificar si regresamos de Google OAuth
+        await checkOAuthReturn()
+        
+        // Cargar usuario almacenado
         const storedUser = StorageUtils.loadFromLocalStorage<User>('findia_user')
         const sessionToken = StorageUtils.loadFromLocalStorage<string>('findia_session')
         
@@ -39,6 +43,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     loadUser()
   }, [])
+
+  // Función para verificar si regresamos de Google OAuth
+  const checkOAuthReturn = async () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const code = urlParams.get('code')
+    const state = urlParams.get('state')
+    
+    if (code && state && state.startsWith('google_auth_')) {
+      console.log('Detectado retorno de Google OAuth, procesando código:', code)
+      
+      try {
+        // Importar dinámicamente el servicio de Google Auth
+        const { GoogleAuthService } = await import('../lib/googleAuth')
+        const authService = GoogleAuthService.getInstance()
+        
+        // Procesar DIRECTAMENTE el código sin llamar a signIn() de nuevo
+        const googleUser = await authService.processAuthCode(code)
+        
+        // Formatear los datos para el contexto de autenticación
+        const googleUserData: GoogleUser = {
+          id: googleUser.sub || googleUser.id || generateId(),
+          email: googleUser.email || 'usuario@gmail.com',
+          name: googleUser.name || googleUser.given_name || 'Usuario de Google',
+          picture: googleUser.picture || 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+          provider: 'google' as const
+        }
+
+        console.log('AuthContext - Procesando usuario de Google:', googleUserData)
+
+        // Usar el método loginWithProvider existente
+        const result = await loginWithProvider(googleUserData)
+        
+        if (result.success) {
+          console.log('✅ Autenticación OAuth completada exitosamente')
+          // La redirección la manejará el ProtectedRoute
+        } else {
+          console.error('❌ Error en loginWithProvider:', result.message)
+        }
+        
+      } catch (error) {
+        console.error('Error procesando retorno OAuth:', error)
+      }
+    }
+  }
 
   const register = async (name: string, email: string, password: string): Promise<{ success: boolean; message: string }> => {
     setIsLoading(true)

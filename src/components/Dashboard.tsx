@@ -6,6 +6,8 @@ import MotivationalMessages from '@/components/MotivationalMessages'
 import ProgressCelebration from '@/components/ProgressCelebration'
 import AiSuggestions from '@/components/AiSuggestions'
 import { DatabaseStatus, DatabaseSetupBanner } from '@/components/DatabaseStatus'
+import SheetSetupPanel from '@/components/SheetSetupPanel'
+import UserProfile from '@/components/UserProfile'
 import { useDebtManager, useCelebrations } from '@/lib/hooks'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -13,6 +15,7 @@ export const Dashboard = () => {
   const [showCelebration, setShowCelebration] = useState(false)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [, setCelebrationMilestone] = useState(0)
+  const [showUserProfile, setShowUserProfile] = useState(false)
 
   // Usar los hooks personalizados
   const { stats } = useDebtManager()
@@ -89,10 +92,28 @@ export const Dashboard = () => {
               </nav>
               
               <div className="flex items-center space-x-1 sm:space-x-2">
-                <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
-                  <User className="h-4 w-4" />
-                  <span>{user?.name}</span>
-                </div>
+                {/* Botón de perfil de usuario */}
+                <button
+                  onClick={() => setShowUserProfile(true)}
+                  className="
+                    flex items-center space-x-2 text-sm text-gray-600 
+                    hover:text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg
+                    transition-all duration-200 group
+                  "
+                >
+                  {user?.picture ? (
+                    <img
+                      src={user.picture}
+                      alt={user.name}
+                      className="w-6 h-6 rounded-full"
+                    />
+                  ) : (
+                    <User className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline group-hover:text-blue-600">
+                    {user?.name && user.name !== 'Usuario Google' ? user.name : 'Mi Perfil'}
+                  </span>
+                </button>
                 <button
                   onClick={handleLogout}
                   className="text-gray-600 hover:text-red-600 p-1.5 sm:p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
@@ -124,6 +145,27 @@ export const Dashboard = () => {
               <div className="flex justify-end">
                 <DatabaseStatus />
               </div>
+
+              {/* Panel de configuración inicial - Solo en desarrollo y para administradores */}
+              {(() => {
+                const adminEmails = ['coderflixarg@gmail.com', 'd86webs@gmail.com']
+                const isAdmin = adminEmails.includes(user?.email || '')
+                const isDev = import.meta.env.DEV
+                
+                // Debug logs
+                console.log('🔍 Panel Admin Debug:', {
+                  userEmail: user?.email,
+                  isAdmin,
+                  isDev,
+                  shouldShow: isDev && isAdmin
+                })
+                
+                return isDev && isAdmin && (
+                  <div className="mb-8">
+                    <SheetSetupPanel />
+                  </div>
+                )
+              })()}
               {/* Hero Section con Progreso */}
               <div className="text-center space-y-6">
                 <motion.div
@@ -252,6 +294,12 @@ export const Dashboard = () => {
         isVisible={showCelebration}
         milestone={Math.floor(progressPercentage / 25) * 25}
         onClose={() => setShowCelebration(false)}
+      />
+
+      {/* Modal de Perfil de Usuario */}
+      <UserProfile 
+        isOpen={showUserProfile}
+        onClose={() => setShowUserProfile(false)}
       />
 
       {/* Floating Action Button */}

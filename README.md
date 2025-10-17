@@ -171,7 +171,23 @@ npm run type-check   # Verificación de tipos TypeScript (si disponible)
 
 **Ideal para**: Uso personal real, datos importantes
 
-### 🔄 Detección Automática
+### � Sistema de Usuarios y Administradores
+
+FindIA incluye un sistema completo de gestión de usuarios:
+
+```typescript
+// Roles de usuario
+👤 Usuario Regular: Gestiona sus propias deudas
+👑 Administrador: Acceso completo + panel de configuración
+
+// Administradores predeterminados
+✅ coderflixarg@gmail.com
+✅ d86webs@gmail.com
+```
+
+**Registro automático**: Los usuarios se registran automáticamente al hacer login con Google OAuth.
+
+### �🔄 Detección Automática
 FindIA detecta automáticamente qué modo usar:
 
 ```typescript

@@ -61,7 +61,15 @@ Si usaste Service Account:
 
 ## 📋 Estructura de la Hoja
 
-FindIA creará automáticamente estas pestañas en tu hoja:
+### 🏗️ Inicialización Automática
+
+FindIA incluye una herramienta de configuración que creará automáticamente la estructura necesaria en tu Google Sheet. Esta herramienta aparecerá en el Dashboard para usuarios administradores.
+
+**Administradores configurados:**
+- coderflixarg@gmail.com 👑
+- d86webs@gmail.com 👑
+
+### 📊 Pestañas que se crearán:
 
 ### `users` (Usuarios)
 | A | B | C | D | E |
@@ -118,6 +126,8 @@ VITE_GOOGLE_SHEETS_RANGE=A1:Z1000
    📄 Sheet ID: 1lH_B8rkigbGjf... (parcialmente oculto)
    🔐 Credenciales válidas detectadas
    ```
+
+5. **Para administradores**: Aparecerá un panel adicional "🏗️ Configuración Inicial de Google Sheets" para crear la estructura automáticamente.
 
 Si ves errores, revisa:
 - ✅ Las credenciales están correctas
