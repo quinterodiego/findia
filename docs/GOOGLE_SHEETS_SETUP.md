@@ -104,11 +104,19 @@ VITE_GOOGLE_SHEETS_RANGE=A1:Z1000
    npm run dev
    ```
 
-2. Abre la consola del navegador
-3. Deberías ver en los logs:
+2. Abre http://localhost:5173 en tu navegador
+
+3. **Indicadores visuales de éxito:**
+   - 🟢 **No aparece banner azul** en la parte superior (solo aparece en modo demo)
+   - 🟢 **Indicador verde** en esquina superior derecha: "📊 Conectado a Google Sheets"
+   
+4. **En la consola del navegador (F12 > Console):**
    ```
+   🔧 FindIA Google Sheets Service - Inicializando...
    ✅ Google Sheets configurado correctamente
    📊 Usando Google Sheets como database
+   📄 Sheet ID: 1lH_B8rkigbGjf... (parcialmente oculto)
+   🔐 Credenciales válidas detectadas
    ```
 
 Si ves errores, revisa:

@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { LandingPage } from '@/components/LandingPage'
 import { Dashboard } from '@/components/Dashboard'
 import { ProtectedRoute, PublicRoute } from '@/components/ProtectedRoute'
+import '@/lib/findiaSheets' // Inicializar el servicio de Google Sheets
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
