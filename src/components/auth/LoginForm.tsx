@@ -163,7 +163,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword, onClose 
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-md mx-auto"
     >
-      <div className="bg-white rounded-2xl shadow-2xl p-8 pt-16">
+      <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 pt-12 sm:pt-16">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             ¡Bienvenido de vuelta! 👋

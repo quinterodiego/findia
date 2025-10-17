@@ -94,24 +94,25 @@ export const LandingPage = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Header del Demo */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="flex items-center space-x-2">
-                <Sparkles className="h-8 w-8 text-purple-600" />
-                <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
+                <span className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                   FindIA
                 </span>
               </div>
-              <div className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
-                🚀 Modo Demo
+              <div className="bg-yellow-100 text-yellow-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
+                🚀 Demo
               </div>
             </div>
             <button
               onClick={() => setShowDemo(false)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200"
+              className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm sm:text-base"
             >
-              Salir de la DEMO
+              <span className="hidden sm:inline">Salir de la DEMO</span>
+              <span className="sm:hidden">Salir</span>
             </button>
           </div>
         </div>
@@ -142,18 +143,20 @@ export const LandingPage = () => {
               </span>
             </motion.div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={handleLogin}
-                className="text-gray-600 hover:text-gray-900 font-medium transition-colors duration-200"
+                className="text-gray-600 hover:text-gray-900 font-medium transition-colors duration-200 text-sm sm:text-base"
               >
-                Iniciar Sesión
+                <span className="hidden sm:inline">Ingresar</span>
+                <span className="sm:hidden">Ingresar</span>
               </button>
               <button
                 onClick={handleGetStarted}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-200"
+                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 sm:px-6 py-2 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-200 text-sm sm:text-base"
               >
-                Empezar Gratis
+                <span className="hidden sm:inline">Empezar Gratis</span>
+                <span className="sm:hidden">Empezar</span>
               </button>
             </div>
           </div>
@@ -169,7 +172,7 @@ export const LandingPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
                 Tu{' '}
                 <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Libertad Financiera
@@ -178,25 +181,26 @@ export const LandingPage = () => {
                 Comienza Hoy 🚀
               </h1>
               
-              <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
+              <p className="text-lg sm:text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto px-4 sm:px-0">
                 FindIA es tu compañero inteligente para salir de las deudas. 
                 Estrategias personalizadas, seguimiento motivador y IA que te guía paso a paso.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center mb-12 px-4 sm:px-0">
                 <motion.button
                   onClick={handleGetStarted}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg"
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 sm:px-8 py-4 rounded-xl font-semibold text-base sm:text-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <span>Empezar Mi Transformación</span>
+                  <span className="hidden sm:inline">Empezar Mi Transformación</span>
+                  <span className="sm:hidden">Empezar Transformación</span>
                   <ArrowRight className="h-5 w-5" />
                 </motion.button>
                 
                 <button 
                   onClick={handleViewDemo}
-                  className="text-gray-600 hover:text-gray-800 font-semibold text-lg flex items-center space-x-1 transition-colors duration-200"
+                  className="w-full sm:w-auto text-gray-600 hover:text-gray-800 font-semibold text-base sm:text-lg flex items-center justify-center space-x-1 transition-colors duration-200"
                 >
                   <span>Ver DEMO</span>
                   <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>

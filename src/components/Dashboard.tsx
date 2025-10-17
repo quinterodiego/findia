@@ -46,55 +46,58 @@ export const Dashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <motion.div 
-              className="flex items-center space-x-3"
+              className="flex items-center space-x-2 sm:space-x-3"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 rounded-xl shadow-lg">
-                <Sparkles className="h-6 w-6 text-white" />
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-1.5 sm:p-2 rounded-xl shadow-lg">
+                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   FindIA
                 </h1>
-                <p className="text-sm text-gray-600">¡Hola, {user?.name}!</p>
+                <p className="text-xs sm:text-sm text-gray-600">¡Hola, {user?.name}!</p>
               </div>
             </motion.div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <nav className="flex space-x-1">
                 {[
-                  { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
-                  { id: 'tracker', label: 'Seguimiento', icon: Target },
-                  { id: 'ai', label: 'IA Coach', icon: Sparkles },
+                  { id: 'dashboard', label: 'Dashboard', short: 'Home', icon: TrendingUp },
+                  { id: 'tracker', label: 'Seguimiento', short: 'Track', icon: Target },
+                  { id: 'ai', label: 'IA Coach', short: 'IA', icon: Sparkles },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+                    className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-lg transition-all duration-200 ${
                       activeTab === tab.id
                         ? 'bg-blue-100 text-blue-700 shadow-sm'
                         : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                     }`}
                   >
                     <tab.icon className="h-4 w-4" />
-                    <span className="font-medium">{tab.label}</span>
+                    <span className="font-medium text-xs sm:text-sm">
+                      <span className="hidden sm:inline">{tab.label}</span>
+                      <span className="sm:hidden">{tab.short}</span>
+                    </span>
                   </button>
                 ))}
               </nav>
               
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
                   <User className="h-4 w-4" />
                   <span>{user?.name}</span>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="text-gray-600 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+                  className="text-gray-600 hover:text-red-600 p-1.5 sm:p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
                   title="Cerrar sesión"
                 >
-                  <LogOut className="h-5 w-5" />
+                  <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </div>
             </div>

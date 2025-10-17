@@ -59,7 +59,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4"
       onClick={onClose}
     >
       <motion.div
@@ -71,10 +71,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           ease: [0.16, 1, 0.3, 1] // Custom easing for smoother animation
         }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md"
+        className="relative w-full max-w-sm sm:max-w-md"
       >
         {/* Header with navigation */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
+        <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex justify-between items-center z-10">
           <div className="flex items-center space-x-2">
             {mode === 'forgot-password' ? (
               <button
