@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Debt, Payment, UserProfile } from '@/types'
 import { FinancialCalculator, StorageUtils, generateId } from '@/lib/utils'
-// import { useGoogleSheets, SyncService } from '@/lib/googleSheets' // Temporalmente deshabilitado
 
 // Hook principal para manejar datos de deudas
 export const useDebtManager = () => {

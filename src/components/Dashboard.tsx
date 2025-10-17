@@ -5,6 +5,7 @@ import DebtTracker from '@/components/DebtTracker'
 import MotivationalMessages from '@/components/MotivationalMessages'
 import ProgressCelebration from '@/components/ProgressCelebration'
 import AiSuggestions from '@/components/AiSuggestions'
+import { DatabaseStatus, DatabaseSetupBanner } from '@/components/DatabaseStatus'
 import { useDebtManager, useCelebrations } from '@/lib/hooks'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -105,6 +106,9 @@ export const Dashboard = () => {
         </div>
       </header>
 
+      {/* Banner de configuración de base de datos */}
+      <DatabaseSetupBanner />
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
@@ -116,6 +120,10 @@ export const Dashboard = () => {
               transition={{ duration: 0.3 }}
               className="space-y-8"
             >
+              {/* Estado de la base de datos */}
+              <div className="flex justify-end">
+                <DatabaseStatus />
+              </div>
               {/* Hero Section con Progreso */}
               <div className="text-center space-y-6">
                 <motion.div
