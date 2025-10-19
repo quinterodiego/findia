@@ -15,21 +15,25 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   pages: {
-    signIn: "/auth/signin",
-    error: "/auth/error",
+    signIn: "/",
+    error: "/",
   },
   callbacks: {
     async jwt({ token, account, user }) {
+      console.log('JWT Callback:', { hasAccount: !!account, hasUser: !!user, tokenSub: token.sub })
       if (account) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
+        console.log('Token updated with account data')
       }
       if (user) {
         token.user = user
+        console.log('Token updated with user data:', user.email)
       }
       return token
     },
     async session({ session, token }) {
+      console.log('Session Callback:', { tokenSub: token.sub, sessionUserEmail: session.user?.email })
       if (token.accessToken) {
         session.accessToken = token.accessToken as string
       }
@@ -37,6 +41,27 @@ export const authOptions: NextAuthOptions = {
         session.user = token.user as typeof session.user
       }
       return session
+    },
+    async redirect({ url, baseUrl }) {
+      console.log('NextAuth redirect called with:', { url, baseUrl })
+      
+      // For OAuth callback URLs, redirect to dashboard
+      if (url.includes('/api/auth/callback')) {
+        return `${baseUrl}/dashboard`
+      }
+      
+      // If it's a relative URL starting with /, use it
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`
+      }
+      
+      // If URL is from the same origin, allow it
+      if (new URL(url).origin === baseUrl) {
+        return url
+      }
+      
+      // Default: redirect to dashboard
+      return `${baseUrl}/dashboard`
     },
   },
   session: {

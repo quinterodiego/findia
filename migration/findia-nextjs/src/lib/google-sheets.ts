@@ -133,7 +133,7 @@ class GoogleSheetsService {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'Debts!A:M',
+        range: 'Debts!A:N',
       })
 
       const rows = response.data.values || []
@@ -150,9 +150,10 @@ class GoogleSheetsService {
         dueDate: row[7],
         priority: row[8] as 'high' | 'medium' | 'low',
         category: row[9],
-        notes: row[10] || '',
-        createdAt: row[11],
-        updatedAt: row[12],
+        type: row[10] as 'credit_card' | 'loan' | 'mortgage' | 'other' || 'credit_card',
+        notes: row[11] || '',
+        createdAt: row[12],
+        updatedAt: row[13],
       }))
     } catch (error) {
       console.error('Error getting user debts:', error)
@@ -166,7 +167,7 @@ class GoogleSheetsService {
 
     await this.sheets.spreadsheets.values.append({
       spreadsheetId: this.spreadsheetId,
-      range: 'Debts!A:M',
+      range: 'Debts!A:N',
       valueInputOption: 'RAW',
       requestBody: {
         values: [[
@@ -180,6 +181,7 @@ class GoogleSheetsService {
           newDebt.dueDate,
           newDebt.priority,
           newDebt.category,
+          newDebt.type,
           newDebt.notes || '',
           newDebt.createdAt,
           newDebt.updatedAt,
@@ -206,7 +208,7 @@ class GoogleSheetsService {
 
     await this.sheets.spreadsheets.values.update({
       spreadsheetId: this.spreadsheetId,
-      range: `Debts!A${rowIndex + 1}:M${rowIndex + 1}`,
+      range: `Debts!A${rowIndex + 1}:N${rowIndex + 1}`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [[
@@ -220,6 +222,7 @@ class GoogleSheetsService {
           debt.dueDate,
           debt.priority,
           debt.category,
+          debt.type,
           debt.notes || '',
           debt.createdAt,
           debt.updatedAt,

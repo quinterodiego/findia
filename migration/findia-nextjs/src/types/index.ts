@@ -29,6 +29,7 @@ export interface Debt {
   dueDate: string
   priority: 'high' | 'medium' | 'low'
   category: string
+  type: 'credit_card' | 'loan' | 'mortgage' | 'other'
   notes?: string
   createdAt: string
   updatedAt: string
