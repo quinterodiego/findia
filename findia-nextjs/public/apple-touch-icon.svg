@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <defs>
+    <linearGradient id="grad180" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded square for Apple touch icon -->
+  <rect x="15" y="15" width="150" height="150" rx="35" ry="35" fill="url(#grad180)" />
+  
+  <!-- Enhanced sparkles for large size -->
+  <g fill="white">
+    <!-- Main central sparkle -->
+    <path d="M90 35 L98 58 L121 66 L98 74 L90 97 L82 74 L59 66 L82 58 Z" opacity="0.9" />
+    
+    <!-- Secondary sparkles -->
+    <path d="M130 50 L134 62 L146 66 L134 70 L130 82 L126 70 L114 66 L126 62 Z" opacity="0.8" />
+    <path d="M50 98 L54 110 L66 114 L54 118 L50 130 L46 118 L34 114 L46 110 Z" opacity="0.8" />
+    <path d="M140 110 L143 118 L151 121 L143 124 L140 132 L137 124 L129 121 L137 118 Z" opacity="0.7" />
+    
+    <!-- Corner sparkles -->
+    <path d="M40 40 L42 45 L47 47 L42 49 L40 54 L38 49 L33 47 L38 45 Z" opacity="0.6" />
+    <path d="M140 140 L142 145 L147 147 L142 149 L140 154 L138 149 L133 147 L138 145 Z" opacity="0.6" />
+    
+    <!-- Tiny sparkles -->
+    <circle cx="65" cy="40" r="2.5" opacity="0.6" />
+    <circle cx="115" cy="35" r="2" opacity="0.5" />
+    <circle cx="30" cy="80" r="2" opacity="0.5" />
+    <circle cx="150" cy="90" r="2.5" opacity="0.6" />
+    <circle cx="35" cy="145" r="2" opacity="0.5" />
+    <circle cx="145" cy="145" r="2" opacity="0.5" />
+    <circle cx="80" cy="155" r="2" opacity="0.5" />
+    <circle cx="110" cy="25" r="1.5" opacity="0.4" />
+  </g>
+</svg>
