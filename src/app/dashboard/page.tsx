@@ -27,89 +27,214 @@ export default function Dashboard() {
     }
   }, [session, loadDebts])
 
-  // Cargar tema guardado
+  // Inicializar tema con light mode por defecto
   useEffect(() => {
     const savedTheme = localStorage.getItem('findia-theme');
-    const isDark = savedTheme === 'dark';
-    setIsDarkMode(isDark);
+    const shouldBeDark = savedTheme === 'dark';
     
-    if (isDark) {
+    setIsDarkMode(shouldBeDark);
+    
+    if (shouldBeDark) {
       document.documentElement.classList.remove('light');
       document.documentElement.classList.add('dark');
-      // Aplicar estilos dark mode con un pequeño delay para asegurar que el DOM esté listo
+      localStorage.setItem('findia-theme', 'dark');
       setTimeout(applyDarkModeStyles, 100);
     } else {
       document.documentElement.classList.remove('dark');
       document.documentElement.classList.add('light');
+      localStorage.setItem('findia-theme', 'light');
+      removeDarkModeStyles();
     }
-  }, []);
-
-  const applyDarkModeStyles = () => {
-    console.log('Aplicando estilos dark mode directos...');
+  }, []);  const applyDarkModeStyles = () => {
+    // Remover CSS de light mode si existe
+    const lightModeStyle = document.getElementById('findia-light-mode');
+    if (lightModeStyle) {
+      lightModeStyle.remove();
+    }
     
-    // Cambiar fondo del body
-    document.body.style.setProperty('background', 'linear-gradient(135deg, #111827 0%, #1f2937 50%, #1e3a8a 100%)', 'important');
+    // Remover CSS dark anterior si existe
+    const existingStyle = document.getElementById('findia-dark-mode');
+    if (existingStyle) {
+      existingStyle.remove();
+    }
     
-    // Buscar y forzar TODOS los elementos bg-white
-    const whiteElements = document.querySelectorAll('.bg-white');
-    console.log(`Encontrados ${whiteElements.length} elementos bg-white`);
+    // Aplicar dark mode
+    const style = document.createElement('style');
+    style.id = 'findia-dark-mode';
+    style.innerHTML = `
+      * {
+        transition: all 0.3s ease !important;
+      }
+      
+      body {
+        background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #1e3a8a 100%) !important;
+        color: #f9fafb !important;
+      }
+      
+      .bg-white,
+      .bg-gray-50,
+      .bg-gray-100,
+      div.bg-white,
+      header.bg-white,
+      [class*="bg-white"] {
+        background: #1f2937 !important;
+        background-color: #1f2937 !important;
+        background-image: none !important;
+        border-color: #374151 !important;
+        color: #f9fafb !important;
+      }
+      
+      .text-gray-900,
+      .text-gray-700,
+      .text-gray-600,
+      .text-gray-500,
+      .text-gray-400,
+      [class*="text-gray"] {
+        color: #d1d5db !important;
+      }
+      
+      .border-gray-100,
+      .border-gray-200,
+      .border-blue-100,
+      .border-green-100,
+      .border-purple-100 {
+        border-color: #374151 !important;
+      }
+      
+      .min-h-screen {
+        background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #1e3a8a 100%) !important;
+      }
+    `;
     
-    whiteElements.forEach((el, index) => {
-      const element = el as HTMLElement;
-      element.style.setProperty('background-color', '#1f2937', 'important');
-      element.style.setProperty('border-color', '#374151', 'important');
-      console.log(`Elemento ${index + 1} forzado a dark`);
-    });
-    
-    // Cambiar textos oscuros
-    const darkTexts = document.querySelectorAll('.text-gray-900, .text-gray-700, .text-gray-600');
-    darkTexts.forEach(el => {
-      const element = el as HTMLElement;
-      element.style.setProperty('color', '#d1d5db', 'important');
-    });
-    
-    // Forzar re-render
-    document.body.style.display = 'none';
-    document.body.offsetHeight;
-    document.body.style.display = '';
-    
-    console.log('Dark mode forzado aplicado');
+    document.head.appendChild(style);
   };
 
   const removeDarkModeStyles = () => {
-    console.log('Removiendo estilos dark mode...');
+    // Remover el CSS dinámico dark si existe
+    const darkModeStyle = document.getElementById('findia-dark-mode');
+    if (darkModeStyle) {
+      darkModeStyle.remove();
+    }
     
-    // Restaurar fondo del body
-    document.body.style.removeProperty('background');
+    // Aplicar light mode
+    const existingLightStyle = document.getElementById('findia-light-mode');
+    if (existingLightStyle) {
+      existingLightStyle.remove();
+    }
     
-    // Remover estilos forzados de TODOS los elementos
-    const allElements = document.querySelectorAll('*');
-    let removedCount = 0;
-    
-    allElements.forEach(el => {
-      const element = el as HTMLElement;
-      if (element.style.backgroundColor) {
-        element.style.removeProperty('background-color');
-        removedCount++;
+    const lightStyle = document.createElement('style');
+    lightStyle.id = 'findia-light-mode';
+    lightStyle.innerHTML = `
+      * {
+        transition: all 0.3s ease !important;
       }
-      if (element.style.color) {
-        element.style.removeProperty('color');
-        removedCount++;
+      
+      body {
+        background: linear-gradient(to bottom right, rgb(239, 246, 255), rgb(255, 255, 255), rgb(252, 231, 243)) !important;
+        color: rgb(17, 24, 39) !important;
       }
-      if (element.style.borderColor) {
-        element.style.removeProperty('border-color');
-        removedCount++;
+      
+      .bg-white,
+      .bg-gray-50,
+      .bg-gray-100,
+      div.bg-white,
+      header.bg-white,
+      [class*="bg-white"] {
+        background: rgb(255, 255, 255) !important;
+        background-color: rgb(255, 255, 255) !important;
+        background-image: none !important;
+        border-color: rgb(229, 231, 235) !important;
+        color: rgb(17, 24, 39) !important;
       }
-    });
+      
+      /* Arreglar textos - más oscuros y legibles */
+      .text-gray-900 {
+        color: rgb(17, 24, 39) !important;
+      }
+      .text-gray-700 {
+        color: rgb(55, 65, 81) !important;
+      }
+      .text-gray-600 {
+        color: rgb(75, 85, 99) !important;
+      }
+      .text-gray-500 {
+        color: rgb(107, 114, 128) !important;
+      }
+      .text-gray-400 {
+        color: rgb(156, 163, 175) !important;
+      }
+      
+      /* Arreglar iconos - hacer más visibles */
+      .bg-red-100 {
+        background-color: rgb(254, 226, 226) !important;
+        color: rgb(127, 29, 29) !important;
+      }
+      .bg-green-100 {
+        background-color: rgb(220, 252, 231) !important;
+        color: rgb(20, 83, 45) !important;
+      }
+      .bg-blue-100 {
+        background-color: rgb(219, 234, 254) !important;
+        color: rgb(30, 58, 138) !important;
+      }
+      .bg-purple-100 {
+        background-color: rgb(237, 233, 254) !important;
+        color: rgb(88, 28, 135) !important;
+      }
+      
+      /* Arreglar botones con degradé - general */
+      .bg-gradient-to-r:not(h1):not(.text-transparent) {
+        background: linear-gradient(to right, rgb(37, 99, 235), rgb(147, 51, 234)) !important;
+        color: white !important;
+        font-weight: 600 !important;
+        border: none !important;
+      }
+      
+      /* Arreglar botones específicos de agregar deuda */
+      button.bg-gradient-to-r,
+      .bg-gradient-to-r.from-blue-600.to-purple-600:not(h1) {
+        background: linear-gradient(to right, rgb(37, 99, 235), rgb(147, 51, 234)) !important;
+        color: white !important;
+        font-weight: 600 !important;
+        border: none !important;
+      }
+      
+      /* Arreglar logo FindIA en light mode */
+      h1.bg-gradient-to-r.from-blue-600.to-purple-600 {
+        background: linear-gradient(to right, rgb(37, 99, 235), rgb(147, 51, 234)) !important;
+        background-clip: text !important;
+        -webkit-background-clip: text !important;
+        color: transparent !important;
+        font-weight: bold !important;
+      }
+      
+      /* Asegurar que los iconos dentro de las cards sean visibles */
+      .text-red-600,
+      .text-green-600,
+      .text-blue-600,
+      .text-purple-600 {
+        opacity: 1 !important;
+      }
+      
+      .border-gray-100,
+      .border-gray-200,
+      .border-blue-100,
+      .border-green-100,
+      .border-purple-100 {
+        border-color: rgb(229, 231, 235) !important;
+      }
+      
+      .min-h-screen {
+        background: linear-gradient(to bottom right, rgb(239, 246, 255), rgb(255, 255, 255), rgb(252, 231, 243)) !important;
+      }
+    `;
     
-    console.log(`Removidos ${removedCount} estilos forzados`);
+    document.head.appendChild(lightStyle);
   };
 
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
-    
-    console.log('Toggling dark mode:', newDarkMode);
     
     const html = document.documentElement;
     
@@ -117,13 +242,11 @@ export default function Dashboard() {
       html.classList.remove('light');
       html.classList.add('dark');
       localStorage.setItem('findia-theme', 'dark');
-      // Aplicar estilos forzados
       setTimeout(applyDarkModeStyles, 50);
     } else {
       html.classList.remove('dark');
       html.classList.add('light');
       localStorage.setItem('findia-theme', 'light');
-      // Remover estilos forzados
       removeDarkModeStyles();
     }
   };
@@ -143,7 +266,10 @@ export default function Dashboard() {
   const totalDebt = debts.reduce((sum, debt) => sum + debt.currentAmount, 0)
   const totalPaid = debts.reduce((sum, debt) => sum + (debt.originalAmount - debt.currentAmount), 0)
   const monthlyPayments = debts.reduce((sum, debt) => sum + debt.minimumPayment, 0)
-  const progressPercentage = totalPaid / (totalPaid + totalDebt) * 100
+  
+  // Evitar NaN cuando no hay deudas
+  const totalAmount = totalPaid + totalDebt
+  const progressPercentage = totalAmount > 0 ? (totalPaid / totalAmount) * 100 : 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
@@ -158,41 +284,21 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center space-x-4">
               {/* BOTÓN DARK MODE TOGGLE */}
-              <button 
+              <button
                 onClick={toggleDarkMode}
-                className={`px-4 py-2 rounded-lg font-bold cursor-pointer transition-all duration-200 ${
-                  isDarkMode 
-                    ? 'bg-yellow-500 hover:bg-yellow-600 text-gray-900' 
-                    : 'bg-purple-500 hover:bg-purple-600 text-white'
-                }`}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer"
                 title={isDarkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
               >
-                {isDarkMode ? '☀️ LIGHT' : '🌙 DARK'}
-              </button>
-
-              {/* BOTÓN FORZAR DARK MODE - DIRECTO */}
-              <button 
-                onClick={() => {
-                  console.log('Force direct styling');
-                  const html = document.documentElement;
-                  const currentlyDark = html.classList.contains('dark');
-                  
-                  if (currentlyDark) {
-                    html.classList.remove('dark');
-                    html.classList.add('light');
-                    removeDarkModeStyles();
-                  } else {
-                    html.classList.add('dark');
-                    html.classList.remove('light');
-                    applyDarkModeStyles();
-                  }
-                }}
-                className="px-3 py-2 bg-red-500 text-white rounded-lg text-sm cursor-pointer hover:bg-red-600"
-              >
-                FORCE JS
-              </button>
-
-              <span className="text-gray-700 dark:text-gray-300">
+                {isDarkMode ? (
+                  <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                  </svg>
+                )}
+              </button>              <span className="text-gray-700 dark:text-gray-300">
                 Hola, {session.user?.name?.split(' ')[0]}!
               </span>
               <Button
@@ -257,7 +363,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Progreso</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {progressPercentage.toFixed(1)}%
+                  {(progressPercentage || 0).toFixed(1)}%
                 </p>
               </div>
               <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-full">
@@ -272,13 +378,13 @@ export default function Dashboard() {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Progreso General</h3>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {progressPercentage.toFixed(1)}% completado
+              {(progressPercentage || 0).toFixed(1)}% completado
             </span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
             <div 
               className="bg-gradient-to-r from-blue-500 to-purple-600 h-4 rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+              style={{ width: `${Math.min(progressPercentage || 0, 100)}%` }}
             ></div>
           </div>
         </div>
@@ -363,41 +469,7 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* BOTÓN DE PRUEBA TEMPORAL */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <button
-          onClick={() => {
-            alert('¡JavaScript funciona!');
-            console.log('=== INICIANDO DEBUG ===');
-            
-            // Test 1: Cambiar color del botón para confirmar que funciona
-            const button = document.querySelector('.bg-red-600') as HTMLElement;
-            if (button) {
-              button.style.backgroundColor = 'green';
-              console.log('Botón cambiado a verde');
-            }
-            
-            // Test 2: Cambiar fondo del body de forma muy simple
-            document.body.style.backgroundColor = 'red';
-            console.log('Fondo del body cambiado a rojo');
-            
-            // Test 3: Buscar elementos bg-white
-            const whiteElements = document.querySelectorAll('.bg-white');
-            console.log(`Encontrados ${whiteElements.length} elementos bg-white`);
-            
-            if (whiteElements.length > 0) {
-              const firstElement = whiteElements[0] as HTMLElement;
-              firstElement.style.backgroundColor = 'blue';
-              console.log('Primer elemento bg-white cambiado a azul');
-            }
-            
-            console.log('=== DEBUG COMPLETO ===');
-          }}
-          className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full shadow-lg cursor-pointer font-bold"
-        >
-          🔥 FORCE DARK
-        </button>
-      </div>
+
 
     </div>
   )

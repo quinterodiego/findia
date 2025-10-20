@@ -211,7 +211,7 @@ export default function Dashboard() {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Progreso General</h3>
                     <span className="text-sm text-gray-500 dark:text-gray-400">{progressPercentage}% completado</span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                  <div className="w-full bg-gray-00 dark:bg-gray-700 rounded-full h-3">
                     <motion.div
                       className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full"
                       initial={{ width: 0 }}
