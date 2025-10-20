@@ -351,7 +351,7 @@ export const LandingPage = () => {
                     <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-6 italic">"{testimonial.text}"</p>
+                <p className="text-gray-700 mb-6 italic">&quot;{testimonial.text}&quot;</p>
                 <div className="flex items-center">
                   <div className="text-3xl mr-3">{testimonial.avatar}</div>
                   <div>

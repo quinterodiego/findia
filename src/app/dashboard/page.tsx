@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { useDebtStore } from "@/store"
 import { Button } from "@/components/ui/button"
 import { PlusCircle, DollarSign, TrendingDown, Target, Calendar } from "lucide-react"
+import TourGuide from "@/components/TourGuide"
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [showTour, setShowTour] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -45,7 +47,15 @@ export default function Dashboard() {
       localStorage.setItem('findia-theme', 'light');
       removeDarkModeStyles();
     }
-  }, []);  const applyDarkModeStyles = () => {
+  }, []);
+
+  // Verificar si es la primera visita para mostrar el tour
+  useEffect(() => {
+    const hasSeenTour = localStorage.getItem('findia-tour-completed');
+    if (!hasSeenTour && debts.length === 0 && !loading) {
+      setShowTour(true);
+    }
+  }, [debts, loading]);  const applyDarkModeStyles = () => {
     // Remover CSS de light mode si existe
     const lightModeStyle = document.getElementById('findia-light-mode');
     if (lightModeStyle) {
@@ -251,6 +261,16 @@ export default function Dashboard() {
     }
   };
 
+  const handleTourComplete = () => {
+    setShowTour(false);
+    localStorage.setItem('findia-tour-completed', 'true');
+  };
+
+  const handleTourSkip = () => {
+    setShowTour(false);
+    localStorage.setItem('findia-tour-completed', 'true');
+  };
+
   if (status === "loading" || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -283,11 +303,23 @@ export default function Dashboard() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
+              {/* BOTÓN TOUR */}
+              <button
+                onClick={() => setShowTour(true)}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer"
+                title="Iniciar tour guiado"
+              >
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+
               {/* BOTÓN DARK MODE TOGGLE */}
               <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer"
                 title={isDarkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+                data-tour="theme-toggle"
               >
                 {isDarkMode ? (
                   <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
@@ -315,17 +347,18 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-blue-100 dark:border-gray-700">
+                {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" data-tour="stats">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-red-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Deuda Total</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Deudas</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   ${totalDebt.toLocaleString()}
                 </p>
               </div>
               <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-full">
-                <DollarSign className="h-6 w-6 text-red-600 dark:text-red-400" />
+                <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
             </div>
           </div>
@@ -339,7 +372,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-full">
-                <TrendingDown className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
@@ -374,7 +407,7 @@ export default function Dashboard() {
         </div>
 
         {/* Progress Bar */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700 mb-8" data-tour="progress">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Progreso General</h3>
             <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -397,6 +430,7 @@ export default function Dashboard() {
               <Button
                 onClick={() => router.push("/debt/new")}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                data-tour="add-debt"
               >
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Agregar Deuda
@@ -404,7 +438,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-6" data-tour="debt-list">
             {debts.length === 0 ? (
               <div className="text-center py-12">
                 <DollarSign className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
@@ -469,8 +503,13 @@ export default function Dashboard() {
         </div>
       </main>
 
-
-
+      {/* Tour Guide */}
+      <TourGuide
+        isVisible={showTour}
+        onComplete={handleTourComplete}
+        onSkip={handleTourSkip}
+        hasDebts={debts.length > 0}
+      />
     </div>
   )
 }
