@@ -20,6 +20,28 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const savedTheme = localStorage.getItem('findia-theme');
+                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+                
+                if (shouldUseDark) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (e) {
+                // Fallback en caso de error
+                console.log('Error loading theme:', e);
+              }
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} antialiased font-sans`}>
         <Providers>
           {children}

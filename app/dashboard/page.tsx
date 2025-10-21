@@ -1,306 +1,363 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, Plus, LogOut, BarChart3, Wallet } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, Plus, LogOut, BarChart3, Wallet } from 'lucide-react'
 import Image from 'next/image'
+import { useDebts } from '@/hooks/useDebts'
+import DebtModal from '@/components/DebtModal'
+import type { Debt } from '@/types'
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [showDebtModal, setShowDebtModal] = useState(false)
+  const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined)
+
+  // Hook para manejar deudas
+  const {
+    debts,
+    stats,
+    loading: debtsLoading,
+    error: debtsError,
+    fetchDebts,
+    fetchStats,
+    createDebt,
+    updateDebt,
+    deleteDebt,
+    initializeSheets,
+  } = useDebts()
+
+  // Verificar si es admin
+  const isAdmin = session?.user?.email && 
+    ['d86webs@gmail.com', 'coderflixarg@gmail.com'].includes(session.user.email)
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchDebts()
+      fetchStats()
+    }
+  }, [session?.user?.id, fetchDebts, fetchStats])
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (status === 'loading') return
+    if (!session) {
       router.push('/')
+      return
     }
-  }, [status, router])
+  }, [session, status, router])
 
   // Cargar tema guardado al iniciar
   useEffect(() => {
+    // Verificar el tema guardado en localStorage
     const savedTheme = localStorage.getItem('findia-theme')
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true)
+    // También verificar la preferencia del sistema si no hay tema guardado
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    
+    const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark)
+    
+    setIsDarkMode(shouldUseDark)
+    
+    if (shouldUseDark) {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
     }
   }, [])
 
-  const handleLogout = () => {
-    if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-      signOut({ callbackUrl: '/' })
-    }
-  }
-
   const toggleDarkMode = () => {
-    const html = document.documentElement
-    if (html.classList.contains('dark')) {
-      html.classList.remove('dark')
-      localStorage.setItem('findia-theme', 'light')
-      setIsDarkMode(false)
-    } else {
-      html.classList.add('dark')
+    const newMode = !isDarkMode
+    setIsDarkMode(newMode)
+    if (newMode) {
+      document.documentElement.classList.add('dark')
       localStorage.setItem('findia-theme', 'dark')
-      setIsDarkMode(true)
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('findia-theme', 'light')
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const handleSignOut = async () => {
+    const confirmed = confirm('¿Estás seguro de que quieres cerrar sesión?')
+    if (confirmed) {
+      await signOut({ callbackUrl: '/' })
+    }
   }
 
-  if (status === 'loading') {
+  const handleCreateDebt = () => {
+    setEditingDebt(undefined)
+    setShowDebtModal(true)
+  }
+
+  if (status === 'loading' || debtsLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Cargando datos...</p>
+        </div>
       </div>
     )
   }
 
-  if (!session) {
-    return null
+  if (debtsError) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error al cargar datos</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">{debtsError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
   }
 
-  const user = session.user
-
-  // Demo data - estos valores se reemplazarán con datos reales de Google Sheets
-  const totalDebt = 0
-  const totalPaid = 0
-  const monthlyPayment = 0
-  const progressPercentage = 0
+  // Calcular estadísticas desde la API
+  const displayStats = {
+    totalBalance: stats?.totalBalance || 0,
+    totalPaid: stats?.totalPaid || 0,
+    progress: stats?.progress || 0,
+    monthlyMinPayment: stats?.monthlyMinPayment || 0,
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
-      {/* HEADER */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
+      {/* Header */}
+      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 rounded-xl">
-                <Sparkles className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="bg-linear-to-r from-blue-500 to-purple-600 p-2 rounded-xl">
+                <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">FindIA</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-300">¡Hola, {user?.name}!</p>
-              </div>
+              <span className="text-xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                FindIA
+              </span>
             </div>
-            
-            {/* Botones lado derecho */}
-            <div className="flex items-center space-x-4">
-              {/* User Avatar */}
-              {user?.image && (
-                <Image
-                  src={user.image}
-                  alt={user.name || 'User'}
-                  width={40}
-                  height={40}
-                  className="rounded-full border-2 border-gray-200 dark:border-gray-600"
-                />
-              )}
-              
-              {/* BOTÓN DARK MODE */}
-              <button 
+
+            {/* User Menu */}
+            <div className="flex items-center gap-4">
+              <button
                 onClick={toggleDarkMode}
-                className="px-4 py-2 bg-purple-500 text-white rounded-lg font-bold cursor-pointer hover:bg-purple-600 transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
-                {isDarkMode ? '☀️ LIGHT' : '🌙 DARK'}
+                {isDarkMode ? '🌞' : '🌙'}
               </button>
 
-              {/* Botón Logout */}
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg cursor-pointer hover:bg-red-600 transition-colors flex items-center space-x-2"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Cerrar</span>
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full overflow-hidden">
+                  {session?.user?.image ? (
+                    <Image
+                      src={session.user.image}
+                      alt={session.user.name || 'Usuario'}
+                      width={32}
+                      height={32}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-linear-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                      {session?.user?.name?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                </div>
+                <span className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {session?.user?.name || session?.user?.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                >
+                  <LogOut className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
             </div>
-          </div>
-          
-          {/* Navigation tabs */}
-          <div className="flex space-x-2 pb-4">
-            {[
-              { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
-              { id: 'tracker', label: 'Seguimiento', icon: Target },
-              { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-              { id: 'ai', label: 'IA Coach', icon: Sparkles },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg cursor-pointer transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                <tab.icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </button>
-            ))}
           </div>
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
+      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <AnimatePresence mode="wait">
-          {activeTab === 'dashboard' && (
-            <motion.div
-              key="dashboard"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="space-y-8">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                  {[
-                    { label: 'Deuda Total', value: formatCurrency(totalDebt), icon: DollarSign, color: 'red' },
-                    { label: 'Total Pagado', value: formatCurrency(totalPaid), icon: TrendingUp, color: 'green' },
-                    { label: 'Pago Mensual', value: formatCurrency(monthlyPayment), icon: Target, color: 'blue' },
-                    { label: 'Progreso', value: `${progressPercentage}%`, icon: Trophy, color: 'purple' },
-                  ].map((stat, index) => (
-                    <motion.div
-                      key={stat.label}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                      className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow duration-200"
+        <div className="space-y-8">
+          {/* Welcome Message */}
+          <div className="text-center mb-12">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              ¡Hola, {session?.user?.name?.split(' ')[0] || 'Usuario'}! 👋
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Bienvenido a tu dashboard de libertad financiera
+            </p>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Deuda Total</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    ${displayStats.totalBalance.toLocaleString('es-CO')}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                  <Target className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Pagado</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    ${displayStats.totalPaid.toLocaleString('es-CO')}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Pago Mensual</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    ${displayStats.monthlyMinPayment.toLocaleString('es-CO')}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Progreso</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {displayStats.progress.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                  <Trophy className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lista de Deudas */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Mis Deudas ({debts.length})
+              </h3>
+              <button
+                onClick={handleCreateDebt}
+                className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300"
+              >
+                <Plus className="w-4 h-4" />
+                Agregar Deuda
+              </button>
+            </div>
+
+            {debts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Wallet className="w-10 h-10 text-gray-400" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  No tienes deudas registradas
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Comienza agregando tu primera deuda para empezar a rastrear tu progreso.
+                </p>
+                <button
+                  onClick={handleCreateDebt}
+                  className="flex items-center gap-2 mx-auto px-6 py-3 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300"
+                >
+                  <Plus className="w-5 h-5" />
+                  Agregar Primera Deuda
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {debts.map((debt) => {
+                  const progress = debt.amount > 0 ? ((debt.amount - debt.balance) / debt.amount) * 100 : 0;
+                  return (
+                    <div 
+                      key={debt.id} 
+                      className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all duration-300"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.label}</p>
-                          <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                        </div>
-                        <div className={`p-3 rounded-full ${stat.color === 'red' ? 'bg-red-100 dark:bg-red-900/30' : stat.color === 'green' ? 'bg-green-100 dark:bg-green-900/30' : stat.color === 'blue' ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-purple-100 dark:bg-purple-900/30'}`}>
-                          <stat.icon className={`h-6 w-6 ${stat.color === 'red' ? 'text-red-600 dark:text-red-400' : stat.color === 'green' ? 'text-green-600 dark:text-green-400' : stat.color === 'blue' ? 'text-blue-600 dark:text-blue-400' : 'text-purple-600 dark:text-purple-400'}`} />
+                      <div className="flex items-start justify-between mb-3">
+                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                          {debt.name}
+                        </h4>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-gray-900 dark:text-white">
+                            ${debt.balance.toLocaleString('es-CO')}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            de ${debt.amount.toLocaleString('es-CO')}
+                          </p>
                         </div>
                       </div>
-                    </motion.div>
-                  ))}
-                </div>
+                      
+                      <div className="mb-3">
+                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                          <span>Progreso</span>
+                          <span>{progress.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div
+                            className="bg-linear-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                          />
+                        </div>
+                      </div>
 
-                {/* Progress Bar */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Progreso General</h3>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{progressPercentage}% completado</span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                    <motion.div
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progressPercentage}%` }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                    />
-                  </div>
-                </div>
-
-                {/* Empty State */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-12 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-                  <div className="max-w-md mx-auto">
-                    <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Wallet className="h-10 w-10 text-blue-600 dark:text-blue-400" />
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          <span>Pago mínimo: ${debt.minPayment.toLocaleString('es-CO')}</span>
+                        </div>
+                      </div>
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                      ¡Comienza tu viaje hacia la libertad financiera!
-                    </h2>
-                    <p className="text-gray-600 dark:text-gray-400 mb-8">
-                      Aún no tienes deudas registradas. Comienza agregando tu primera deuda para ver 
-                      tu progreso y recibir recomendaciones personalizadas de IA.
-                    </p>
-                    <button className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
-                      <Plus className="h-5 w-5 inline mr-2" />
-                      Agregar Primera Deuda
-                    </button>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'tracker' && (
-            <motion.div
-              key="tracker"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Seguimiento de Deudas</h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Esta sección estará disponible próximamente. Aquí podrás ver y gestionar todas tus deudas.
-                </p>
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'analytics' && (
-            <motion.div
-              key="analytics"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Analytics</h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Esta sección estará disponible próximamente. Aquí verás gráficos y estadísticas detalladas.
-                </p>
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'ai' && (
-            <motion.div
-              key="ai"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="space-y-6">
-                {/* Motivational Message */}
-                <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-8 text-white shadow-lg">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Sparkles className="h-8 w-8" />
-                    <h2 className="text-2xl font-bold">Tu Coach IA</h2>
-                  </div>
-                  <p className="text-lg mb-4">
-                    ¡Bienvenido a FindIA! Estamos aquí para ayudarte en tu viaje hacia la libertad financiera.
-                  </p>
-                  <p className="text-purple-100">
-                    Comienza agregando tus deudas y recibirás sugerencias personalizadas para optimizar tus pagos.
-                  </p>
-                </div>
-
-                {/* AI Suggestions Placeholder */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-100 dark:border-gray-700">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Sugerencias Inteligentes</h3>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Una vez que agregues tus deudas, la IA analizará tu situación y te brindará recomendaciones 
-                    personalizadas para pagar tus deudas de la manera más eficiente.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </div>
+        </div>
       </main>
+
+      {/* Modal de Deudas */}
+      <DebtModal
+        isOpen={showDebtModal}
+        onClose={() => {
+          setShowDebtModal(false)
+          setEditingDebt(undefined)
+        }}
+        onSave={async (debtData) => {
+          await createDebt(debtData)
+          setShowDebtModal(false)
+          setEditingDebt(undefined)
+        }}
+        debt={editingDebt}
+        loading={debtsLoading}
+      />
     </div>
   )
 }
