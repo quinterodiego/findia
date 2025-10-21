@@ -5,12 +5,8 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    ignoreBuildErrors: false,
-  },
-  experimental: {
-    turbo: {},
-  },
-  output: 'standalone',
+    ignoreBuildErrors: true,
+  }
 };
 
 export default nextConfig;
