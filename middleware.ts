@@ -1,53 +1,35 @@
-import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 
-export default withAuth(
-  function middleware(req) {
-    const { pathname } = req.nextUrl
-    const token = req.nextauth.token
-
-    console.log('Middleware called:', { 
-      pathname, 
-      hasToken: !!token, 
-      tokenSub: token?.sub,
-      url: req.url 
-    })
-
-    // Redirect authenticated users from root to dashboard
-    if (token && pathname === '/') {
-      console.log('Redirecting authenticated user from home to dashboard')
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+export function middleware(request: NextRequest) {
+  try {
+    const { pathname } = request.nextUrl
+    
+    // Skip middleware for API routes, static files, etc.
+    if (
+      pathname.startsWith('/api/') ||
+      pathname.startsWith('/_next/') ||
+      pathname.startsWith('/favicon.ico') ||
+      pathname.startsWith('/manifest.json') ||
+      pathname.includes('.')
+    ) {
+      return NextResponse.next()
     }
 
-    // Redirect unauthenticated users from protected routes
-    if (!token && pathname.startsWith('/dashboard')) {
-      console.log('Redirecting unauthenticated user from dashboard to home')
-      return NextResponse.redirect(new URL('/', req.url))
-    }
-
+    // For now, let all requests pass through
+    // We'll handle authentication redirects in the client side
     return NextResponse.next()
-  },
-  {
-    callbacks: {
-      authorized: () => {
-        // This callback determines if the request is authorized
-        // For our use case, we want to run middleware for all requests
-        return true
-      },
-    },
+  } catch {
+    // If anything fails, just continue
+    return NextResponse.next()
   }
-)
+}
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api/auth (NextAuth.js routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder files
+     * Match all request paths except API routes, static files, and assets
      */
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json).*)',
   ],
 }
