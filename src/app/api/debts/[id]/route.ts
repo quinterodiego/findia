@@ -6,7 +6,7 @@ import type { Debt } from '@/types'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,7 +16,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const debtId = params.id
+    const { id: debtId } = await params
 
     // Get user
     const user = await googleSheetsService.getUser(session.user.email)
@@ -51,7 +51,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -60,7 +60,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const debtId = params.id
+    const { id: debtId } = await params
 
     // Get user
     const user = await googleSheetsService.getUser(session.user.email)

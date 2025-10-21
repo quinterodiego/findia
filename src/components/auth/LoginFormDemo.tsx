@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock, AlertCircle, User } from 'lucide-react'
-import { signIn } from 'next-auth/react'
 
 interface LoginFormProps {
   onForgotPassword?: () => void
@@ -28,10 +27,6 @@ export default function LoginFormDemo({ onForgotPassword, onClose }: LoginFormPr
   const [showPassword, setShowPassword] = useState(false)
   const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-  const [touched, setTouched] = useState<{ email: boolean; password: boolean }>({
-    email: false,
-    password: false
-  })
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
@@ -54,9 +49,6 @@ export default function LoginFormDemo({ onForgotPassword, onClose }: LoginFormPr
     e.preventDefault()
     setMessage(null)
     setIsLoading(true)
-
-    // Marcar todos los campos como tocados para mostrar errores
-    setTouched({ email: true, password: true })
 
     // Validar todos los campos
     const emailError = validateEmail(formData.email)
@@ -107,10 +99,14 @@ export default function LoginFormDemo({ onForgotPassword, onClose }: LoginFormPr
   }
 
   const handleBlur = (field: 'email' | 'password') => {
-    setTouched(prev => ({
-      ...prev,
-      [field]: true
-    }))
+    // Validar el campo cuando pierde el foco
+    if (field === 'email') {
+      const error = validateEmail(formData.email)
+      setFieldErrors(prev => ({ ...prev, email: error }))
+    } else if (field === 'password') {
+      const error = validatePassword(formData.password)
+      setFieldErrors(prev => ({ ...prev, password: error }))
+    }
   }
 
   const handleFocus = () => {

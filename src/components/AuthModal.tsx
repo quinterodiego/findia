@@ -5,7 +5,6 @@ import { motion } from 'framer-motion'
 import { X, ArrowLeft } from 'lucide-react'
 import LoginForm from './auth/LoginForm'
 import RegisterForm from './auth/RegisterForm'
-import ForgotPasswordForm from './auth/ForgotPasswordForm'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -26,7 +25,7 @@ function AuthModal({
     if (isOpen) {
       setMode(initialMode)
     }
-  }, [isOpen]) // Solo depende de isOpen, no de initialMode
+  }, [isOpen, initialMode]) // Incluir initialMode en las dependencias
 
   // Función para cambiar modo sin animación compleja
   const switchMode = (newMode: 'login' | 'register' | 'forgot-password') => {

@@ -232,7 +232,7 @@ export default function Dashboard() {
                   onCreateDebt={createDebt}
                   onUpdateDebt={updateDebt}
                   onDeleteDebt={deleteDebt}
-                  onMakePayment={makePayment}
+                  onMakePayment={(id: string, amount: number) => makePayment(id, amount, new Date().toISOString())}
                   onRefresh={refreshData}
                 />
               </div>
@@ -257,7 +257,7 @@ export default function Dashboard() {
                 onCreateDebt={createDebt}
                 onUpdateDebt={updateDebt}
                 onDeleteDebt={deleteDebt}
-                onMakePayment={makePayment}
+                onMakePayment={(id: string, amount: number) => makePayment(id, amount, new Date().toISOString())}
                 onRefresh={refreshData}
               />
             </motion.div>

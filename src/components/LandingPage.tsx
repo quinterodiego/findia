@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { useRouter } from 'next/navigation'
 import { 
   Sparkles, 
   Target, 
@@ -16,7 +15,6 @@ import {
   Heart,
   Trophy
 } from 'lucide-react'
-import Dashboard from '@/components/Dashboard'
 import { DemoDashboard } from '@/components/DemoDashboard'
 import AuthModal from '@/components/AuthModal'
 
@@ -24,7 +22,6 @@ export const LandingPage = () => {
   const [showDemo, setShowDemo] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [initialAuthMode, setInitialAuthMode] = useState<'login' | 'register'>('register')
-  const router = useRouter()
 
   const handleGetStarted = () => {
     setInitialAuthMode('register')
