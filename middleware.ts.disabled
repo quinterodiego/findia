@@ -1,0 +1,13 @@
+import { NextResponse } from "next/server"
+
+export function middleware() {
+  // Temporarily disable all middleware logic
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: [
+    // Temporarily match nothing to disable middleware
+    '/middleware-disabled'
+  ],
+}
