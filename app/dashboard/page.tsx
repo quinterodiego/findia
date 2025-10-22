@@ -3,22 +3,40 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, Plus, LogOut, BarChart3, Wallet, Sun, Moon } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon } from 'lucide-react'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
-import { useCategories } from '@/hooks/useCategories'
-import { useSubcategories } from '@/hooks/useSubcategories'
-import DebtModal from '@/components/DebtModal'
-import type { Debt } from '@/types'
+import FloatingActionButton from '@/components/FloatingActionButton'
+import TransactionModal from '@/components/TransactionModal'
+
+type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
+
+interface TransactionData {
+  name: string
+  amount: number
+  date: string
+  category?: string
+  notes?: string
+  // Campos específicos para deudas
+  balance?: number
+  interestRate?: number
+  minPayment?: number
+  dueDate?: string
+  priority?: 'high' | 'medium' | 'low'
+  // Campos específicos para metas
+  targetDate?: string
+  currentAmount?: number
+  // Campos específicos para gastos/ingresos
+  isRecurring?: boolean
+  frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly'
+}
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('dashboard')
   const [isDarkMode, setIsDarkMode] = useState(false)
-  const [showDebtModal, setShowDebtModal] = useState(false)
-  const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined)
+  const [showTransactionModal, setShowTransactionModal] = useState(false)
+  const [transactionType, setTransactionType] = useState<TransactionType>('debt')
 
   // Hook para manejar deudas
   const {
@@ -29,38 +47,15 @@ export default function Dashboard() {
     fetchDebts,
     fetchStats,
     createDebt,
-    updateDebt,
-    deleteDebt,
-    initializeSheets,
   } = useDebts()
-
-  // Hook para manejar categorías
-  const {
-    categories,
-    loading: categoriesLoading,
-    error: categoriesError,
-    fetchCategories,
-  } = useCategories()
-
-  // Hook para manejar subcategorías
-  const {
-    subcategories,
-    fetchSubcategories,
-  } = useSubcategories()
-
-  // Verificar si es admin
-  const isAdmin = session?.user?.email && 
-    ['d86webs@gmail.com', 'coderflixarg@gmail.com'].includes(session.user.email)
 
   // Cargar datos al montar el componente
   useEffect(() => {
     if (session?.user?.id) {
       fetchDebts()
       fetchStats()
-      fetchCategories()
-      fetchSubcategories()
     }
-  }, [session?.user?.id, fetchDebts, fetchStats, fetchCategories, fetchSubcategories])
+  }, [session?.user?.id, fetchDebts, fetchStats])
 
   useEffect(() => {
     if (status === 'loading') return
@@ -111,9 +106,34 @@ export default function Dashboard() {
     }
   }
 
-  const handleCreateDebt = () => {
-    setEditingDebt(undefined)
-    setShowDebtModal(true)
+  const handleTransactionAction = (type: TransactionType) => {
+    setTransactionType(type)
+    setShowTransactionModal(true)
+  }
+
+  const handleSaveTransaction = async (data: TransactionData) => {
+    switch (transactionType) {
+      case 'debt':
+        // Asegurar que dueDate esté presente para deudas
+        const debtData = {
+          ...data,
+          dueDate: data.dueDate || data.date, // Usar date como fallback
+        }
+        await createDebt(debtData)
+        break
+      case 'expense':
+        // TODO: Implementar función de gastos
+        console.log('Guardando gasto:', data)
+        break
+      case 'income':
+        // TODO: Implementar función de ingresos
+        console.log('Guardando ingreso:', data)
+        break
+      case 'goal':
+        // TODO: Implementar función de metas
+        console.log('Guardando meta:', data)
+        break
+    }
   }
 
   if (status === 'loading' || debtsLoading) {
@@ -285,15 +305,11 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Mis Deudas ({debts.length})
+                Mis Transacciones Financieras
               </h3>
-              <button
-                onClick={handleCreateDebt}
-                className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                Agregar Deuda
-              </button>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {debts.length} {debts.length === 1 ? 'deuda registrada' : 'deudas registradas'}
+              </div>
             </div>
 
             {debts.length === 0 ? (
@@ -302,18 +318,14 @@ export default function Dashboard() {
                   <Wallet className="w-10 h-10 text-gray-400" />
                 </div>
                 <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No tienes deudas registradas
+                  No tienes transacciones registradas
                 </h4>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Comienza agregando tu primera deuda para empezar a rastrear tu progreso.
+                  Usa el botón + para agregar deudas, gastos, ingresos o metas de ahorro.
                 </p>
-                <button
-                  onClick={handleCreateDebt}
-                  className="flex items-center gap-2 mx-auto px-6 py-3 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 cursor-pointer"
-                >
-                  <Plus className="w-5 h-5" />
-                  Agregar Primera Deuda
-                </button>
+                <div className="text-center text-gray-400">
+                  <p className="text-sm">👇 Mira el botón flotante en la esquina inferior derecha</p>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -365,22 +377,16 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Modal de Deudas */}
-      <DebtModal
-        isOpen={showDebtModal}
-        onClose={() => {
-          setShowDebtModal(false)
-          setEditingDebt(undefined)
-        }}
-        onSave={async (debtData) => {
-          await createDebt(debtData)
-          setShowDebtModal(false)
-          setEditingDebt(undefined)
-        }}
-        debt={editingDebt}
+      {/* Botón Flotante Mejorado */}
+      <FloatingActionButton onAction={handleTransactionAction} />
+
+      {/* Modal Unificado de Transacciones */}
+      <TransactionModal
+        isOpen={showTransactionModal}
+        onClose={() => setShowTransactionModal(false)}
+        type={transactionType}
+        onSave={handleSaveTransaction}
         loading={debtsLoading}
-        categories={categories}
-        subcategories={subcategories}
       />
     </div>
   )
