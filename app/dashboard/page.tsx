@@ -56,6 +56,12 @@ export default function Dashboard() {
   useEffect(() => {
     // Verificar el tema guardado en localStorage
     const savedTheme = localStorage.getItem('findia-theme')
+    
+    // Si no hay tema guardado, establecer light por defecto
+    if (!savedTheme) {
+      localStorage.setItem('findia-theme', 'light')
+    }
+    
     // Default to light mode if no saved theme
     const shouldUseDark = savedTheme === 'dark'
     

@@ -2,3 +2,5 @@
   --default-transition-duration: 150ms;
   --default-font-family: var(--font-inter), system-ui, sans-serif;
 }
+
+@variant dark (&:where(.dark, .dark *));
