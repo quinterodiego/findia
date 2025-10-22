@@ -40,8 +40,19 @@ export default function Dashboard() {
 
   // Hook para manejar deudas
   const {
-    debts,
-    stats,
+    debts = [],
+    stats = {
+      totalDebt: 0,
+      totalBalance: 0,
+      totalPaid: 0,
+      progress: 0,
+      activeDebts: 0,
+      paidDebts: 0,
+      overdueDebts: 0,
+      monthlyMinPayment: 0,
+      totalPaidThisMonth: 0,
+      paymentsThisMonth: 0,
+    },
     loading: debtsLoading,
     error: debtsError,
     fetchDebts,
@@ -308,11 +319,11 @@ export default function Dashboard() {
                 Mis Transacciones Financieras
               </h3>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                {debts.length} {debts.length === 1 ? 'deuda registrada' : 'deudas registradas'}
+                {(debts ?? []).length} {(debts ?? []).length === 1 ? 'deuda registrada' : 'deudas registradas'}
               </div>
             </div>
 
-            {debts.length === 0 ? (
+            {(debts ?? []).length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Wallet className="w-10 h-10 text-gray-400" />
@@ -329,7 +340,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {debts.map((debt) => {
+                {(debts ?? []).map((debt) => {
                   const progress = debt.amount > 0 ? ((debt.amount - debt.balance) / debt.amount) * 100 : 0;
                   return (
                     <div 

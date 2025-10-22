@@ -18,7 +18,18 @@ interface DebtStats {
 
 export function useDebts() {
   const [debts, setDebts] = useState<Debt[]>([]);
-  const [stats, setStats] = useState<DebtStats | null>(null);
+  const [stats, setStats] = useState<DebtStats>({
+    totalDebt: 0,
+    totalBalance: 0,
+    totalPaid: 0,
+    progress: 0,
+    activeDebts: 0,
+    paidDebts: 0,
+    overdueDebts: 0,
+    monthlyMinPayment: 0,
+    totalPaidThisMonth: 0,
+    paymentsThisMonth: 0,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +48,8 @@ export function useDebts() {
         throw new Error(data.error || 'Error al obtener deudas');
       }
       
-      setDebts(data.debts);
-      return data.debts;
+  setDebts(Array.isArray(data.debts) ? data.debts : []);
+  return Array.isArray(data.debts) ? data.debts : [];
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error desconocido';
       setError(message);
@@ -63,8 +74,30 @@ export function useDebts() {
         throw new Error(data.error || 'Error al obtener estadísticas');
       }
       
-      setStats(data.stats);
-      return data.stats;
+      setStats(data.stats || {
+        totalDebt: 0,
+        totalBalance: 0,
+        totalPaid: 0,
+        progress: 0,
+        activeDebts: 0,
+        paidDebts: 0,
+        overdueDebts: 0,
+        monthlyMinPayment: 0,
+        totalPaidThisMonth: 0,
+        paymentsThisMonth: 0,
+      });
+      return data.stats || {
+        totalDebt: 0,
+        totalBalance: 0,
+        totalPaid: 0,
+        progress: 0,
+        activeDebts: 0,
+        paidDebts: 0,
+        overdueDebts: 0,
+        monthlyMinPayment: 0,
+        totalPaidThisMonth: 0,
+        paymentsThisMonth: 0,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error desconocido';
       setError(message);
