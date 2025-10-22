@@ -31,6 +31,27 @@ export interface User {
   updatedAt: string
 }
 
+export interface Category {
+  id: string
+  userId: string
+  name: string
+  color: string
+  icon: string
+  type: 'income' | 'expense' | 'saving' | 'custom'
+  isDefault: boolean
+  createdAt: string
+}
+
+export interface Subcategory {
+  id: string
+  userId: string
+  categoryId: string
+  name: string
+  icon: string
+  isDefault: boolean
+  createdAt: string
+}
+
 export interface Debt {
   id: string
   userId: string
@@ -42,7 +63,8 @@ export interface Debt {
   dueDate: string
   priority: 'high' | 'medium' | 'low'
   status: 'active' | 'paid' | 'overdue'
-  category: string
+  categoryId: string
+  subcategoryId: string // Nuevo campo
   notes: string
   createdAt: string
   updatedAt: string

@@ -36,7 +36,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error en GET /api/debts:', error);
     return NextResponse.json(
-      { error: 'Error al obtener deudas' },
+      { error: 'Error al obtener gastos' },
       { status: 500 }
     );
   }
@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
       dueDate: body.dueDate,
       priority: body.priority || 'medium',
       status: body.status || 'active',
-      category: body.category || 'other',
+      categoryId: body.categoryId || '',
+      subcategoryId: body.subcategoryId || '',
       notes: body.notes || '',
     });
     

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Error en GET /api/debts/[id]:', error);
     return NextResponse.json(
-      { error: 'Error al obtener deuda' },
+      { error: 'Error al obtener gasto' },
       { status: 500 }
     );
   }
@@ -90,7 +90,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error('Error en PUT /api/debts/[id]:', error);
     return NextResponse.json(
-      { error: 'Error al actualizar deuda' },
+      { error: 'Error al actualizar gasto' },
       { status: 500 }
     );
   }
@@ -116,12 +116,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     
     return NextResponse.json({
       success: true,
-      message: 'Deuda eliminada correctamente',
+      message: 'Gasto eliminado correctamente',
     });
   } catch (error) {
     console.error('Error en DELETE /api/debts/[id]:', error);
     return NextResponse.json(
-      { error: 'Error al eliminar deuda' },
+      { error: 'Error al eliminar gasto' },
       { status: 500 }
     );
   }

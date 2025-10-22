@@ -45,7 +45,7 @@ export default function Home() {
     {
       icon: Target,
       title: "Seguimiento Inteligente",
-      description: "Rastrea tus deudas y pagos con visualizaciones claras y progreso en tiempo real."
+      description: "Rastrea tus gastos y pagos con visualizaciones claras y progreso en tiempo real."
     },
     {
       icon: Sparkles,
@@ -258,8 +258,8 @@ export default function Home() {
             {[
               {
                 step: 1,
-                title: "Registra tus Deudas",
-                description: "Añade todas tus deudas y obtén un panorama claro de tu situación actual",
+                title: "Registra tus Gastos y Deudas",
+                description: "Añade todos tus gastos y deudas y obtén un panorama claro de tu situación actual",
                 icon: BarChart3,
                 color: "from-blue-500 to-cyan-500"
               },

@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, Plus, LogOut, BarChart3, Wallet } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, Plus, LogOut, BarChart3, Wallet, Sun, Moon } from 'lucide-react'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
+import { useCategories } from '@/hooks/useCategories'
+import { useSubcategories } from '@/hooks/useSubcategories'
 import DebtModal from '@/components/DebtModal'
 import type { Debt } from '@/types'
 
@@ -32,6 +34,20 @@ export default function Dashboard() {
     initializeSheets,
   } = useDebts()
 
+  // Hook para manejar categorías
+  const {
+    categories,
+    loading: categoriesLoading,
+    error: categoriesError,
+    fetchCategories,
+  } = useCategories()
+
+  // Hook para manejar subcategorías
+  const {
+    subcategories,
+    fetchSubcategories,
+  } = useSubcategories()
+
   // Verificar si es admin
   const isAdmin = session?.user?.email && 
     ['d86webs@gmail.com', 'coderflixarg@gmail.com'].includes(session.user.email)
@@ -41,8 +57,10 @@ export default function Dashboard() {
     if (session?.user?.id) {
       fetchDebts()
       fetchStats()
+      fetchCategories()
+      fetchSubcategories()
     }
-  }, [session?.user?.id, fetchDebts, fetchStats])
+  }, [session?.user?.id, fetchDebts, fetchStats, fetchCategories, fetchSubcategories])
 
   useEffect(() => {
     if (status === 'loading') return
@@ -118,7 +136,7 @@ export default function Dashboard() {
           <p className="text-gray-600 dark:text-gray-300 mb-4">{debtsError}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
           >
             Reintentar
           </button>
@@ -155,9 +173,9 @@ export default function Dashboard() {
             <div className="flex items-center gap-4">
               <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
               >
-                {isDarkMode ? '🌞' : '🌙'}
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-gray-600" />}
               </button>
 
               <div className="flex items-center gap-3">
@@ -181,7 +199,7 @@ export default function Dashboard() {
                 </span>
                 <button
                   onClick={handleSignOut}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -271,7 +289,7 @@ export default function Dashboard() {
               </h3>
               <button
                 onClick={handleCreateDebt}
-                className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300"
+                className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 Agregar Deuda
@@ -291,7 +309,7 @@ export default function Dashboard() {
                 </p>
                 <button
                   onClick={handleCreateDebt}
-                  className="flex items-center gap-2 mx-auto px-6 py-3 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300"
+                  className="flex items-center gap-2 mx-auto px-6 py-3 bg-linear-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 cursor-pointer"
                 >
                   <Plus className="w-5 h-5" />
                   Agregar Primera Deuda
@@ -361,6 +379,8 @@ export default function Dashboard() {
         }}
         debt={editingDebt}
         loading={debtsLoading}
+        categories={categories}
+        subcategories={subcategories}
       />
     </div>
   )
