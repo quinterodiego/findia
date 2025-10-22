@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Google Service Account credentials - NEVER commit these!
+*-service-account.json
+**/service-account*.json
+findia-*-*.json
