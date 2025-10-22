@@ -56,10 +56,8 @@ export default function Dashboard() {
   useEffect(() => {
     // Verificar el tema guardado en localStorage
     const savedTheme = localStorage.getItem('findia-theme')
-    // También verificar la preferencia del sistema si no hay tema guardado
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    
-    const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark)
+    // Default to light mode if no saved theme
+    const shouldUseDark = savedTheme === 'dark'
     
     setIsDarkMode(shouldUseDark)
     

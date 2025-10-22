@@ -26,8 +26,8 @@ export default function RootLayout({
             __html: `
               try {
                 const savedTheme = localStorage.getItem('findia-theme');
-                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+                // Default to light mode if no saved theme
+                const shouldUseDark = savedTheme === 'dark';
                 
                 if (shouldUseDark) {
                   document.documentElement.classList.add('dark');
