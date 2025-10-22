@@ -36,7 +36,15 @@ export async function GET() {
   } catch (error) {
     console.error('Error en GET /api/debts:', error);
     return NextResponse.json(
-      { error: 'Error al obtener gastos' },
+      { 
+        error: 'Error al obtener gastos',
+        details: error instanceof Error ? error.message : 'Error desconocido',
+        env_check: {
+          sheets_id: !!process.env.GOOGLE_SHEETS_ID,
+          service_email: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+          private_key: !!process.env.GOOGLE_PRIVATE_KEY
+        }
+      },
       { status: 500 }
     );
   }
