@@ -146,16 +146,58 @@ export default function Dashboard() {
         }
         break
       case 'expense':
-        // TODO: Implementar función de gastos
-        console.log('Guardando gasto:', data)
+        console.log('💰 Datos de gasto preparados:', data);
+        try {
+          const response = await fetch('/api/expenses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          const result = await response.json();
+          if (response.ok) {
+            console.log('✅ Gasto creado exitosamente:', result);
+          } else {
+            console.error('❌ Error creando gasto:', result);
+          }
+        } catch (error) {
+          console.error('❌ Error creando gasto:', error);
+        }
         break
       case 'income':
-        // TODO: Implementar función de ingresos
-        console.log('Guardando ingreso:', data)
+        console.log('💵 Datos de ingreso preparados:', data);
+        try {
+          const response = await fetch('/api/incomes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          const result = await response.json();
+          if (response.ok) {
+            console.log('✅ Ingreso creado exitosamente:', result);
+          } else {
+            console.error('❌ Error creando ingreso:', result);
+          }
+        } catch (error) {
+          console.error('❌ Error creando ingreso:', error);
+        }
         break
       case 'goal':
-        // TODO: Implementar función de metas
-        console.log('Guardando meta:', data)
+        console.log('🎯 Datos de meta preparados:', data);
+        try {
+          const response = await fetch('/api/goals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          const result = await response.json();
+          if (response.ok) {
+            console.log('✅ Meta creada exitosamente:', result);
+          } else {
+            console.error('❌ Error creando meta:', result);
+          }
+        } catch (error) {
+          console.error('❌ Error creando meta:', error);
+        }
         break
     }
   }

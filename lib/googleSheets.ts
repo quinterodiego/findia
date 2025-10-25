@@ -18,6 +18,9 @@ const SHEETS = {
   DEBTS: 'Debts',
   PAYMENTS: 'Payments',
   USERS: 'Users',
+  EXPENSES: 'Expenses',
+  INCOMES: 'Incomes',
+  GOALS: 'Goals',
 } as const;
 
 // ============================================================================
@@ -652,6 +655,273 @@ export async function saveUser(user: {
     }
   } catch (error) {
     console.error('Error guardando usuario:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// OPERACIONES CRUD - EXPENSES
+// ============================================================================
+
+/**
+ * Obtiene todos los gastos de un usuario
+ */
+export async function getExpensesByUser(userId: string): Promise<any[]> {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.EXPENSES}!A2:H`,
+    });
+    
+    const rows = response.data.values || [];
+    const expenses = rows
+      .filter(row => row[1] === userId)
+      .map(row => ({
+        id: row[0],
+        userId: row[1],
+        name: row[2],
+        amount: parseFloat(row[3] || '0'),
+        date: row[4],
+        category: row[5] || 'other',
+        notes: row[6] || '',
+        isRecurring: row[7] === 'true',
+        frequency: row[8] || 'monthly',
+        createdAt: row[9] || new Date().toISOString(),
+      }));
+    
+    return expenses;
+  } catch (error) {
+    console.error('Error obteniendo gastos:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crea un nuevo gasto
+ */
+export async function createExpense(
+  userId: string,
+  expenseData: {
+    name: string;
+    amount: number;
+    date: string;
+    category?: string;
+    notes?: string;
+    isRecurring?: boolean;
+    frequency?: string;
+  }
+): Promise<any> {
+  try {
+    const now = new Date().toISOString();
+    const newExpense = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      userId,
+      ...expenseData,
+      createdAt: now,
+    };
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.EXPENSES}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          newExpense.id,
+          newExpense.userId,
+          newExpense.name,
+          newExpense.amount,
+          newExpense.date,
+          newExpense.category || 'other',
+          newExpense.notes || '',
+          newExpense.isRecurring || false,
+          newExpense.frequency || 'monthly',
+          newExpense.createdAt,
+        ]],
+      },
+    });
+    
+    console.log('✅ Gasto creado:', newExpense.id);
+    return newExpense;
+  } catch (error) {
+    console.error('Error creando gasto:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// OPERACIONES CRUD - INCOMES
+// ============================================================================
+
+/**
+ * Obtiene todos los ingresos de un usuario
+ */
+export async function getIncomesByUser(userId: string): Promise<any[]> {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.INCOMES}!A2:H`,
+    });
+    
+    const rows = response.data.values || [];
+    const incomes = rows
+      .filter(row => row[1] === userId)
+      .map(row => ({
+        id: row[0],
+        userId: row[1],
+        name: row[2],
+        amount: parseFloat(row[3] || '0'),
+        date: row[4],
+        category: row[5] || 'other',
+        notes: row[6] || '',
+        isRecurring: row[7] === 'true',
+        frequency: row[8] || 'monthly',
+        createdAt: row[9] || new Date().toISOString(),
+      }));
+    
+    return incomes;
+  } catch (error) {
+    console.error('Error obteniendo ingresos:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crea un nuevo ingreso
+ */
+export async function createIncome(
+  userId: string,
+  incomeData: {
+    name: string;
+    amount: number;
+    date: string;
+    category?: string;
+    notes?: string;
+    isRecurring?: boolean;
+    frequency?: string;
+  }
+): Promise<any> {
+  try {
+    const now = new Date().toISOString();
+    const newIncome = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      userId,
+      ...incomeData,
+      createdAt: now,
+    };
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.INCOMES}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          newIncome.id,
+          newIncome.userId,
+          newIncome.name,
+          newIncome.amount,
+          newIncome.date,
+          newIncome.category || 'other',
+          newIncome.notes || '',
+          newIncome.isRecurring || false,
+          newIncome.frequency || 'monthly',
+          newIncome.createdAt,
+        ]],
+      },
+    });
+    
+    console.log('✅ Ingreso creado:', newIncome.id);
+    return newIncome;
+  } catch (error) {
+    console.error('Error creando ingreso:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// OPERACIONES CRUD - GOALS
+// ============================================================================
+
+/**
+ * Obtiene todas las metas de un usuario
+ */
+export async function getGoalsByUser(userId: string): Promise<any[]> {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.GOALS}!A2:I`,
+    });
+    
+    const rows = response.data.values || [];
+    const goals = rows
+      .filter(row => row[1] === userId)
+      .map(row => ({
+        id: row[0],
+        userId: row[1],
+        name: row[2],
+        amount: parseFloat(row[3] || '0'),
+        currentAmount: parseFloat(row[4] || '0'),
+        targetDate: row[5],
+        date: row[6],
+        category: row[7] || 'savings',
+        notes: row[8] || '',
+        createdAt: row[9] || new Date().toISOString(),
+      }));
+    
+    return goals;
+  } catch (error) {
+    console.error('Error obteniendo metas:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crea una nueva meta
+ */
+export async function createGoal(
+  userId: string,
+  goalData: {
+    name: string;
+    amount: number;
+    currentAmount?: number;
+    targetDate: string;
+    date: string;
+    category?: string;
+    notes?: string;
+  }
+): Promise<any> {
+  try {
+    const now = new Date().toISOString();
+    const newGoal = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      userId,
+      ...goalData,
+      createdAt: now,
+    };
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.GOALS}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          newGoal.id,
+          newGoal.userId,
+          newGoal.name,
+          newGoal.amount,
+          newGoal.currentAmount || 0,
+          newGoal.targetDate,
+          newGoal.date,
+          newGoal.category || 'savings',
+          newGoal.notes || '',
+          newGoal.createdAt,
+        ]],
+      },
+    });
+    
+    console.log('✅ Meta creada:', newGoal.id);
+    return newGoal;
+  } catch (error) {
+    console.error('Error creando meta:', error);
     throw error;
   }
 }
