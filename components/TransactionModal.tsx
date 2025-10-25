@@ -68,7 +68,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
 
   // Resetear formulario cuando cambia el tipo
   useEffect(() => {
+    console.log('🔄 TransactionModal useEffect - isOpen:', isOpen, 'type:', type);
     if (isOpen) {
+      console.log('🔄 Reseteando formulario para tipo:', type);
       setFormData({
         name: '',
         amount: 0,

@@ -118,8 +118,12 @@ export default function Dashboard() {
   }
 
   const handleTransactionAction = (type: TransactionType) => {
+    console.log('🎯 handleTransactionAction llamado con type:', type);
+    console.log('🎯 transactionType actual antes de cambiar:', transactionType);
     setTransactionType(type)
     setShowTransactionModal(true)
+    console.log('🎯 transactionType establecido a:', type);
+    console.log('🎯 Modal abierto:', true);
   }
 
   const handleSaveTransaction = async (data: TransactionData) => {
