@@ -123,6 +123,8 @@ export default function Dashboard() {
   }
 
   const handleSaveTransaction = async (data: TransactionData) => {
+    console.log('🔍 handleSaveTransaction llamado con:', { transactionType, data });
+    
     switch (transactionType) {
       case 'debt':
         // Asegurar que dueDate esté presente para deudas
@@ -130,7 +132,14 @@ export default function Dashboard() {
           ...data,
           dueDate: data.dueDate || data.date, // Usar date como fallback
         }
-        await createDebt(debtData)
+        console.log('💳 Datos de deuda preparados:', debtData);
+        
+        try {
+          const result = await createDebt(debtData);
+          console.log('✅ Deuda creada exitosamente:', result);
+        } catch (error) {
+          console.error('❌ Error creando deuda:', error);
+        }
         break
       case 'expense':
         // TODO: Implementar función de gastos

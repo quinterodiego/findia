@@ -122,28 +122,35 @@ export function useDebts() {
     category?: string;
     notes?: string;
   }) => {
+    console.log('🔄 useDebts.createDebt llamado con:', debtData);
     setLoading(true);
     setError(null);
     
     try {
+      console.log('📤 Enviando petición a /api/debts...');
       const response = await fetch('/api/debts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(debtData),
       });
       
+      console.log('📥 Respuesta recibida:', response.status, response.statusText);
       const data = await response.json();
+      console.log('📋 Datos de respuesta:', data);
       
       if (!response.ok) {
         throw new Error(data.error || 'Error al crear deuda');
       }
       
+      console.log('🔄 Actualizando lista de deudas y estadísticas...');
       // Actualizar lista de deudas
       await fetchDebts();
       await fetchStats();
       
+      console.log('✅ Deuda creada y datos actualizados');
       return data.debt;
     } catch (err) {
+      console.error('❌ Error en useDebts.createDebt:', err);
       const message = err instanceof Error ? err.message : 'Error desconocido';
       setError(message);
       throw err;
