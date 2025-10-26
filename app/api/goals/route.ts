@@ -41,6 +41,37 @@ export async function GET() {
 }
 
 /**
+ * GET /api/goals
+ * Obtiene todas las metas del usuario
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'No autorizado' },
+        { status: 401 }
+      );
+    }
+    
+    const goals = await getGoalsByUser(session.user.id);
+    
+    return NextResponse.json({
+      success: true,
+      goals,
+      totalGoals: goals.length,
+    });
+  } catch (error) {
+    console.error('Error en GET /api/goals:', error);
+    return NextResponse.json(
+      { error: 'Error al obtener metas' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * POST /api/goals
  * Crea una nueva meta
  */

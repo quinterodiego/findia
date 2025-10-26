@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation'
 import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon } from 'lucide-react'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
+import { useIncomes } from '@/hooks/useIncomes'
+import { useExpenses } from '@/hooks/useExpenses'
+import { useGoals } from '@/hooks/useGoals'
 import FloatingActionButton from '@/components/FloatingActionButton'
 import TransactionModal from '@/components/TransactionModal'
 
@@ -59,6 +62,28 @@ export default function Dashboard() {
     fetchStats,
     createDebt,
   } = useDebts()
+
+  // Hooks para manejar otras transacciones
+  const {
+    incomes = [],
+    loading: incomesLoading,
+    error: incomesError,
+    createIncome,
+  } = useIncomes()
+
+  const {
+    expenses = [],
+    loading: expensesLoading,
+    error: expensesError,
+    createExpense,
+  } = useExpenses()
+
+  const {
+    goals = [],
+    loading: goalsLoading,
+    error: goalsError,
+    createGoal,
+  } = useGoals()
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -148,16 +173,11 @@ export default function Dashboard() {
       case 'expense':
         console.log('💰 Datos de gasto preparados:', data);
         try {
-          const response = await fetch('/api/expenses', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-          });
-          const result = await response.json();
-          if (response.ok) {
-            console.log('✅ Gasto creado exitosamente:', result);
+          const result = await createExpense(data);
+          if (result.success) {
+            console.log('✅ Gasto creado exitosamente:', result.expense);
           } else {
-            console.error('❌ Error creando gasto:', result);
+            console.error('❌ Error creando gasto:', result.error);
           }
         } catch (error) {
           console.error('❌ Error creando gasto:', error);
@@ -166,38 +186,24 @@ export default function Dashboard() {
       case 'income':
         console.log('💵 Datos de ingreso preparados:', data);
         try {
-          console.log('📤 Enviando petición a /api/incomes...');
-          const response = await fetch('/api/incomes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-          });
-          console.log('📥 Respuesta recibida:', response.status, response.statusText);
-          const result = await response.json();
-          console.log('📋 Datos de respuesta completos:', result);
-          if (response.ok) {
-            console.log('✅ Ingreso creado exitosamente:', result);
+          const result = await createIncome(data);
+          if (result.success) {
+            console.log('✅ Ingreso creado exitosamente:', result.income);
           } else {
-            console.error('❌ Error creando ingreso - Status:', response.status);
-            console.error('❌ Error creando ingreso - Response:', result);
+            console.error('❌ Error creando ingreso:', result.error);
           }
         } catch (error) {
-          console.error('❌ Error creando ingreso (catch):', error);
+          console.error('❌ Error creando ingreso:', error);
         }
         break
       case 'goal':
         console.log('🎯 Datos de meta preparados:', data);
         try {
-          const response = await fetch('/api/goals', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-          });
-          const result = await response.json();
-          if (response.ok) {
-            console.log('✅ Meta creada exitosamente:', result);
+          const result = await createGoal(data);
+          if (result.success) {
+            console.log('✅ Meta creada exitosamente:', result.goal);
           } else {
-            console.error('❌ Error creando meta:', result);
+            console.error('❌ Error creando meta:', result.error);
           }
         } catch (error) {
           console.error('❌ Error creando meta:', error);

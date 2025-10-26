@@ -42,6 +42,37 @@ export async function GET() {
 }
 
 /**
+ * GET /api/expenses
+ * Obtiene todos los gastos del usuario
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'No autorizado' },
+        { status: 401 }
+      );
+    }
+    
+    const expenses = await getExpensesByUser(session.user.id);
+    
+    return NextResponse.json({
+      success: true,
+      expenses,
+      totalExpenses: expenses.length,
+    });
+  } catch (error) {
+    console.error('Error en GET /api/expenses:', error);
+    return NextResponse.json(
+      { error: 'Error al obtener gastos' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * POST /api/expenses
  * Crea un nuevo gasto
  */

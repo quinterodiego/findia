@@ -41,6 +41,37 @@ export async function GET() {
 }
 
 /**
+ * GET /api/incomes
+ * Obtiene todos los ingresos del usuario
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'No autorizado' },
+        { status: 401 }
+      );
+    }
+    
+    const incomes = await getIncomesByUser(session.user.id);
+    
+    return NextResponse.json({
+      success: true,
+      incomes,
+      totalIncomes: incomes.length,
+    });
+  } catch (error) {
+    console.error('Error en GET /api/incomes:', error);
+    return NextResponse.json(
+      { error: 'Error al obtener ingresos' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * POST /api/incomes
  * Crea un nuevo ingreso
  */
