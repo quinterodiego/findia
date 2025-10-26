@@ -241,8 +241,22 @@ export default function Dashboard() {
     )
   }
 
-  // Calcular estadísticas desde la API
+  // Calcular estadísticas financieras completas
+  const totalIncomes = incomes.reduce((sum, income) => sum + income.amount, 0);
+  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const netBalance = totalIncomes - totalExpenses;
+  const completedGoals = goals.filter(goal => (goal.currentAmount || 0) >= goal.amount).length;
+  const totalGoals = goals.length;
+  const goalsProgress = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0;
+
   const displayStats = {
+    totalIncomes,
+    totalExpenses,
+    netBalance,
+    goalsProgress,
+    completedGoals,
+    totalGoals,
+    // Mantener estadísticas de deudas para compatibilidad
     totalBalance: stats?.totalBalance || 0,
     totalPaid: stats?.totalPaid || 0,
     progress: stats?.progress || 0,
@@ -320,26 +334,16 @@ export default function Dashboard() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Ingresos Totales */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Deuda Total</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${displayStats.totalBalance.toLocaleString('es-CO')}
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Ingresos Totales</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    +${displayStats.totalIncomes.toLocaleString('es-CO')}
                   </p>
-                </div>
-                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                  <Target className="w-6 h-6 text-red-600 dark:text-red-400" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Pagado</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${displayStats.totalPaid.toLocaleString('es-CO')}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
@@ -348,26 +352,52 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Gastos Totales */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Pago Mensual</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${displayStats.monthlyMinPayment.toLocaleString('es-CO')}
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Totales</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                    -${displayStats.totalExpenses.toLocaleString('es-CO')}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                  <Target className="w-6 h-6 text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </div>
 
+            {/* Balance Neto */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Progreso</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {displayStats.progress.toFixed(1)}%
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Balance Neto</p>
+                  <p className={`text-2xl font-bold ${displayStats.netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString('es-CO')}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {displayStats.netBalance >= 0 ? 'Positivo' : 'Negativo'}
+                  </p>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                  <DollarSign className={`w-6 h-6 ${displayStats.netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} />
+                </div>
+              </div>
+            </div>
+
+            {/* Metas Completadas */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    {displayStats.goalsProgress.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {displayStats.completedGoals}/{displayStats.totalGoals} completadas
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
