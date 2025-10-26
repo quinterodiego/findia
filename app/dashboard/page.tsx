@@ -384,11 +384,11 @@ export default function Dashboard() {
                 Mis Transacciones Financieras
               </h3>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                {(debts ?? []).length} {(debts ?? []).length === 1 ? 'deuda registrada' : 'deudas registradas'}
+                {debts.length + incomes.length + expenses.length + goals.length} transacciones registradas
               </div>
             </div>
 
-            {(debts ?? []).length === 0 ? (
+            {debts.length + incomes.length + expenses.length + goals.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Wallet className="w-10 h-10 text-gray-400" />
@@ -405,48 +405,111 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {(debts ?? []).map((debt) => {
-                  const progress = debt.amount > 0 ? ((debt.amount - debt.balance) / debt.amount) * 100 : 0;
-                  return (
-                    <div 
-                      key={debt.id} 
-                      className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all duration-300"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <h4 className="font-semibold text-gray-900 dark:text-white">
-                          {debt.name}
-                        </h4>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-gray-900 dark:text-white">
-                            ${debt.balance.toLocaleString('es-CO')}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            de ${debt.amount.toLocaleString('es-CO')}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-3">
-                        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
-                          <span>Progreso</span>
-                          <span>{progress.toFixed(1)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                          <div
-                            className="bg-linear-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(progress, 100)}%` }}
-                          />
-                        </div>
-                      </div>
+                {(() => {
+                  const allTransactions = [
+                    ...debts.map(debt => ({ ...debt, type: 'debt' })),
+                    ...incomes.map(income => ({ ...income, type: 'income' })),
+                    ...expenses.map(expense => ({ ...expense, type: 'expense' })),
+                    ...goals.map(goal => ({ ...goal, type: 'goal' }))
+                  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          <span>Pago mínimo: ${debt.minPayment.toLocaleString('es-CO')}</span>
+                  return allTransactions.map((transaction) => {
+                    const getTransactionIcon = () => {
+                      switch (transaction.type) {
+                        case 'debt': return '💳';
+                        case 'income': return '💰';
+                        case 'expense': return '💸';
+                        case 'goal': return '🎯';
+                        default: return '📊';
+                      }
+                    };
+
+                    const getTransactionColor = () => {
+                      switch (transaction.type) {
+                        case 'debt': return 'text-red-600 dark:text-red-400';
+                        case 'income': return 'text-green-600 dark:text-green-400';
+                        case 'expense': return 'text-orange-600 dark:text-orange-400';
+                        case 'goal': return 'text-purple-600 dark:text-purple-400';
+                        default: return 'text-gray-600 dark:text-gray-400';
+                      }
+                    };
+
+                    const getTransactionLabel = () => {
+                      switch (transaction.type) {
+                        case 'debt': return 'Deuda';
+                        case 'income': return 'Ingreso';
+                        case 'expense': return 'Gasto';
+                        case 'goal': return 'Meta';
+                        default: return 'Transacción';
+                      }
+                    };
+
+                    return (
+                      <div 
+                        key={`${transaction.type}-${transaction.id}`}
+                        className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all duration-300"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{getTransactionIcon()}</span>
+                            <div>
+                              <h4 className="font-semibold text-gray-900 dark:text-white">
+                                {transaction.name}
+                              </h4>
+                              <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 ${getTransactionColor()}`}>
+                                {getTransactionLabel()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-lg font-semibold ${getTransactionColor()}`}>
+                              {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}${transaction.amount.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </div>
+                          </div>
                         </div>
+                        
+                        {transaction.notes && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            {transaction.notes}
+                          </p>
+                        )}
+
+                        {transaction.type === 'debt' && (
+                          <div className="mt-3">
+                            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                              <span>Progreso de pago</span>
+                              <span>{((transaction.amount - transaction.balance) / transaction.amount * 100).toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div 
+                                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${((transaction.amount - transaction.balance) / transaction.amount * 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+
+                        {transaction.type === 'goal' && (
+                          <div className="mt-3">
+                            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                              <span>Progreso de meta</span>
+                              <span>{((transaction.currentAmount || 0) / transaction.amount * 100).toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div 
+                                className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${((transaction.currentAmount || 0) / transaction.amount * 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
