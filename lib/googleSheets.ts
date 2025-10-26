@@ -843,6 +843,8 @@ export async function createIncome(
   }
 ): Promise<any> {
   try {
+    console.log('🔍 createIncome - Iniciando con:', { userId, incomeData });
+    
     const now = new Date().toISOString();
     const newIncome = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -851,6 +853,9 @@ export async function createIncome(
       createdAt: now,
     };
     
+    console.log('📋 Datos del ingreso preparados:', newIncome);
+    
+    console.log('📤 Enviando a Google Sheets...');
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEETS.INCOMES}!A2`,
@@ -871,10 +876,12 @@ export async function createIncome(
       },
     });
     
-    console.log('✅ Ingreso creado:', newIncome.id);
+    console.log('✅ Ingreso creado exitosamente en Google Sheets:', newIncome.id);
     return newIncome;
   } catch (error) {
-    console.error('Error creando ingreso:', error);
+    console.error('❌ Error en createIncome:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+    console.error('❌ Error message:', error instanceof Error ? error.message : 'No message');
     throw error;
   }
 }
