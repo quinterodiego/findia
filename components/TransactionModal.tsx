@@ -12,6 +12,7 @@ interface TransactionModalProps {
   type: TransactionType;
   onSave: (data: any) => Promise<void>;
   loading?: boolean;
+  editingTransaction?: any; // Datos de la transacción a editar
 }
 
 const typeConfig = {
@@ -41,7 +42,7 @@ const typeConfig = {
   }
 };
 
-export default function TransactionModal({ isOpen, onClose, type, onSave, loading = false }: TransactionModalProps) {
+export default function TransactionModal({ isOpen, onClose, type, onSave, loading = false, editingTransaction }: TransactionModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     amount: 0,
@@ -66,30 +67,50 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
   const config = typeConfig[type];
   const Icon = config.icon;
 
-  // Resetear formulario cuando cambia el tipo
+  // Resetear formulario cuando cambia el tipo o poblar con datos de edición
   useEffect(() => {
-    console.log('🔄 TransactionModal useEffect - isOpen:', isOpen, 'type:', type);
+    console.log('🔄 TransactionModal useEffect - isOpen:', isOpen, 'type:', type, 'editingTransaction:', editingTransaction);
     if (isOpen) {
-      console.log('🔄 Reseteando formulario para tipo:', type);
-      setFormData({
-        name: '',
-        amount: 0,
-        date: new Date().toISOString().split('T')[0],
-        category: '',
-        notes: '',
-        balance: 0,
-        interestRate: 0,
-        minPayment: 0,
-        dueDate: '',
-        priority: 'medium',
-        targetDate: '',
-        currentAmount: 0,
-        isRecurring: false,
-        frequency: 'monthly'
-      });
+      if (editingTransaction) {
+        console.log('🔄 Cargando datos para edición:', editingTransaction);
+        setFormData({
+          name: editingTransaction.name || '',
+          amount: editingTransaction.amount || 0,
+          date: editingTransaction.date || new Date().toISOString().split('T')[0],
+          category: editingTransaction.category || '',
+          notes: editingTransaction.notes || '',
+          balance: editingTransaction.balance || 0,
+          interestRate: editingTransaction.interestRate || 0,
+          minPayment: editingTransaction.minPayment || 0,
+          dueDate: editingTransaction.dueDate || '',
+          priority: editingTransaction.priority || 'medium',
+          targetDate: editingTransaction.targetDate || '',
+          currentAmount: editingTransaction.currentAmount || 0,
+          isRecurring: editingTransaction.isRecurring || false,
+          frequency: editingTransaction.frequency || 'monthly'
+        });
+      } else {
+        console.log('🔄 Reseteando formulario para tipo:', type);
+        setFormData({
+          name: '',
+          amount: 0,
+          date: new Date().toISOString().split('T')[0],
+          category: '',
+          notes: '',
+          balance: 0,
+          interestRate: 0,
+          minPayment: 0,
+          dueDate: '',
+          priority: 'medium',
+          targetDate: '',
+          currentAmount: 0,
+          isRecurring: false,
+          frequency: 'monthly'
+        });
+      }
       setErrors({});
     }
-  }, [isOpen, type]);
+  }, [isOpen, type, editingTransaction]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -165,8 +186,12 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
               <div className="flex items-center gap-3">
                 <Icon className="w-6 h-6" />
                 <div>
-                  <h2 className="text-xl font-semibold">{config.title}</h2>
-                  <p className="text-white/80 text-sm">{config.description}</p>
+                  <h2 className="text-xl font-semibold">
+                    {editingTransaction ? `Editar ${type === 'debt' ? 'Deuda' : type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : 'Meta'}` : config.title}
+                  </h2>
+                  <p className="text-white/80 text-sm">
+                    {editingTransaction ? `Actualiza los datos de ${type === 'debt' ? 'la deuda' : type === 'expense' ? 'el gasto' : type === 'income' ? 'el ingreso' : 'la meta'}` : config.description}
+                  </p>
                 </div>
               </div>
               <button

@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionType, setTransactionType] = useState<TransactionType>('debt')
+  const [editingIncome, setEditingIncome] = useState<any>(null)
 
   // Hook para manejar deudas
   const {
@@ -154,7 +155,23 @@ export default function Dashboard() {
   }
 
   const handleSaveTransaction = async (data: TransactionData) => {
-    console.log('🔍 handleSaveTransaction llamado con:', { transactionType, data });
+    console.log('🔍 handleSaveTransaction llamado con:', { transactionType, data, editingIncome });
+    
+    // Si estamos editando un ingreso
+    if (editingIncome && editingIncome.type === 'income') {
+      console.log('✏️ Editando ingreso:', editingIncome.id);
+      try {
+        const result = await updateIncome(editingIncome.id, data);
+        if (result.success) {
+          console.log('✅ Ingreso actualizado exitosamente:', result.income);
+        } else {
+          console.error('❌ Error actualizando ingreso:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Error actualizando ingreso:', error);
+      }
+      return;
+    }
     
     switch (transactionType) {
       case 'debt':
@@ -476,15 +493,15 @@ export default function Dashboard() {
                       }
                     };
 
-                    return (
+                        return (
                       <div 
                         key={`${transaction.type}-${transaction.id}`}
-                        className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all duration-300"
+                        className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all duration-300 group"
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <span className="text-2xl">{getTransactionIcon()}</span>
-                            <div>
+                            <div className="flex-1">
                               <h4 className="font-semibold text-gray-900 dark:text-white">
                                 {transaction.name}
                               </h4>
@@ -493,13 +510,43 @@ export default function Dashboard() {
                               </span>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className={`text-lg font-semibold ${getTransactionColor()}`}>
-                              {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}${transaction.amount.toLocaleString()}
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <div className={`text-lg font-semibold ${getTransactionColor()}`}>
+                                {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}${transaction.amount.toLocaleString()}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {new Date(transaction.date).toLocaleDateString()}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {new Date(transaction.date).toLocaleDateString()}
-                            </div>
+                            {transaction.type === 'income' && (
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingIncome(transaction);
+                                    setTransactionType('income');
+                                    setShowTransactionModal(true);
+                                  }}
+                                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  title="Editar ingreso"
+                                >
+                                  <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm('¿Estás seguro de eliminar este ingreso?')) {
+                                      deleteIncome(transaction.id);
+                                    }
+                                  }}
+                                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  title="Eliminar ingreso"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                         
@@ -554,10 +601,14 @@ export default function Dashboard() {
       {/* Modal Unificado de Transacciones */}
       <TransactionModal
         isOpen={showTransactionModal}
-        onClose={() => setShowTransactionModal(false)}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setEditingIncome(null);
+        }}
         type={transactionType}
         onSave={handleSaveTransaction}
         loading={debtsLoading}
+        editingTransaction={editingIncome}
       />
     </div>
   )
