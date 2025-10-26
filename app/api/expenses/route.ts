@@ -9,40 +9,6 @@ import {
 
 /**
  * GET /api/expenses
- * Obtiene todos los gastos del usuario autenticado
- */
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    // Obtener gastos
-    const expenses = await getExpensesByUser(session.user.id);
-    
-    return NextResponse.json({
-      success: true,
-      expenses,
-    });
-  } catch (error) {
-    console.error('Error en GET /api/expenses:', error);
-    return NextResponse.json(
-      { 
-        error: 'Error al obtener gastos',
-        details: error instanceof Error ? error.message : 'Error desconocido',
-      },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/expenses
  * Obtiene todos los gastos del usuario
  */
 export async function GET(req: NextRequest) {

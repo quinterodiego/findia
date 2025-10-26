@@ -8,40 +8,6 @@ import {
 
 /**
  * GET /api/incomes
- * Obtiene todos los ingresos del usuario autenticado
- */
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    // Obtener ingresos
-    const incomes = await getIncomesByUser(session.user.id);
-    
-    return NextResponse.json({
-      success: true,
-      incomes,
-    });
-  } catch (error) {
-    console.error('Error en GET /api/incomes:', error);
-    return NextResponse.json(
-      { 
-        error: 'Error al obtener ingresos',
-        details: error instanceof Error ? error.message : 'Error desconocido',
-      },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/incomes
  * Obtiene todos los ingresos del usuario
  */
 export async function GET(req: NextRequest) {

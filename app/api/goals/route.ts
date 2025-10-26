@@ -8,40 +8,6 @@ import {
 
 /**
  * GET /api/goals
- * Obtiene todas las metas del usuario autenticado
- */
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    // Obtener metas
-    const goals = await getGoalsByUser(session.user.id);
-    
-    return NextResponse.json({
-      success: true,
-      goals,
-    });
-  } catch (error) {
-    console.error('Error en GET /api/goals:', error);
-    return NextResponse.json(
-      { 
-        error: 'Error al obtener metas',
-        details: error instanceof Error ? error.message : 'Error desconocido',
-      },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/goals
  * Obtiene todas las metas del usuario
  */
 export async function GET(req: NextRequest) {
