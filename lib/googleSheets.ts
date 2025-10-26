@@ -129,6 +129,48 @@ export async function initializeSheets() {
       'lastLogin',
     ]);
     
+    // Crear hoja de Expenses
+    await createSheetIfNotExists(SHEETS.EXPENSES, [
+      'id',
+      'userId',
+      'name',
+      'amount',
+      'date',
+      'category',
+      'notes',
+      'isRecurring',
+      'frequency',
+      'createdAt',
+    ]);
+    
+    // Crear hoja de Incomes
+    await createSheetIfNotExists(SHEETS.INCOMES, [
+      'id',
+      'userId',
+      'name',
+      'amount',
+      'date',
+      'category',
+      'notes',
+      'isRecurring',
+      'frequency',
+      'createdAt',
+    ]);
+    
+    // Crear hoja de Goals
+    await createSheetIfNotExists(SHEETS.GOALS, [
+      'id',
+      'userId',
+      'name',
+      'amount',
+      'currentAmount',
+      'targetDate',
+      'date',
+      'category',
+      'notes',
+      'createdAt',
+    ]);
+    
     console.log('✅ Todas las hojas inicializadas correctamente');
     return { success: true };
   } catch (error) {

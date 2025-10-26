@@ -166,19 +166,23 @@ export default function Dashboard() {
       case 'income':
         console.log('💵 Datos de ingreso preparados:', data);
         try {
+          console.log('📤 Enviando petición a /api/incomes...');
           const response = await fetch('/api/incomes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
           });
+          console.log('📥 Respuesta recibida:', response.status, response.statusText);
           const result = await response.json();
+          console.log('📋 Datos de respuesta completos:', result);
           if (response.ok) {
             console.log('✅ Ingreso creado exitosamente:', result);
           } else {
-            console.error('❌ Error creando ingreso:', result);
+            console.error('❌ Error creando ingreso - Status:', response.status);
+            console.error('❌ Error creando ingreso - Response:', result);
           }
         } catch (error) {
-          console.error('❌ Error creando ingreso:', error);
+          console.error('❌ Error creando ingreso (catch):', error);
         }
         break
       case 'goal':
