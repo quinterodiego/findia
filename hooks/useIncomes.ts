@@ -47,6 +47,46 @@ export function useIncomes() {
     }
   };
 
+  const updateIncome = async (incomeId: string, incomeData: any) => {
+    try {
+      const response = await fetch(`/api/incomes/${incomeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(incomeData),
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        await fetchIncomes();
+        return { success: true, income: result.income };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
+      return { success: false, error: 'Error de conexión' };
+    }
+  };
+
+  const deleteIncome = async (incomeId: string) => {
+    try {
+      const response = await fetch(`/api/incomes/${incomeId}`, {
+        method: 'DELETE',
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        await fetchIncomes();
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
+      return { success: false, error: 'Error de conexión' };
+    }
+  };
+
   useEffect(() => {
     fetchIncomes();
   }, []);
@@ -57,5 +97,7 @@ export function useIncomes() {
     error,
     fetchIncomes,
     createIncome,
+    updateIncome,
+    deleteIncome,
   };
 }

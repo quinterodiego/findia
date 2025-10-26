@@ -886,6 +886,139 @@ export async function createIncome(
   }
 }
 
+/**
+ * Actualiza un ingreso existente
+ */
+export async function updateIncome(
+  incomeId: string,
+  userId: string,
+  incomeData: {
+    name: string;
+    amount: number;
+    date: string;
+    category?: string;
+    notes?: string;
+    isRecurring?: boolean;
+    frequency?: string;
+  }
+): Promise<any> {
+  try {
+    console.log('🔍 updateIncome - Iniciando con:', { incomeId, userId, incomeData });
+    
+    // Obtener todos los ingresos para encontrar la fila
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.INCOMES}!A2:K`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === incomeId && row[1] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Ingreso no encontrado');
+    }
+    
+    const actualRowIndex = rowIndex + 2; // +2 porque A2 es la primera fila de datos (A1 son headers)
+    
+    console.log('📋 Actualizando fila:', actualRowIndex);
+    
+    // Actualizar la fila
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.INCOMES}!A${actualRowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          incomeId,
+          userId,
+          incomeData.name,
+          incomeData.amount,
+          incomeData.date,
+          incomeData.category || 'other',
+          incomeData.notes || '',
+          incomeData.isRecurring || false,
+          incomeData.frequency || 'monthly',
+          new Date().toISOString(), // updatedAt
+        ]],
+      },
+    });
+    
+    console.log('✅ Ingreso actualizado exitosamente:', incomeId);
+    
+    return {
+      id: incomeId,
+      userId,
+      ...incomeData,
+      updatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('❌ Error en updateIncome:', error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un ingreso
+ */
+export async function deleteIncome(incomeId: string, userId: string): Promise<void> {
+  try {
+    console.log('🔍 deleteIncome - Iniciando con:', { incomeId, userId });
+    
+    // Obtener todos los ingresos para encontrar la fila
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.INCOMES}!A2:K`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === incomeId && row[1] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Ingreso no encontrado');
+    }
+    
+    const actualRowIndex = rowIndex + 2; // +2 porque A2 es la primera fila de datos
+    
+    console.log('🗑️ Eliminando fila:', actualRowIndex);
+    
+    // Eliminar la fila
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: await getSheetId(SHEETS.INCOMES),
+                dimension: 'ROWS',
+                startIndex: actualRowIndex - 1,
+                endIndex: actualRowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+    
+    console.log('✅ Ingreso eliminado exitosamente:', incomeId);
+  } catch (error) {
+    console.error('❌ Error en deleteIncome:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene el ID de una hoja por su nombre
+ */
+async function getSheetId(sheetName: string): Promise<number> {
+  const response = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+  });
+  
+  const sheet = response.data.sheets?.find(s => s.properties?.title === sheetName);
+  return sheet?.properties?.sheetId || 0;
+}
+
 // ============================================================================
 // OPERACIONES CRUD - GOALS
 // ============================================================================
