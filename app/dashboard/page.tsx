@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -59,6 +59,7 @@ export default function Dashboard() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedDebt, setSelectedDebt] = useState<any>(null)
+  const [showExpenseBreakdown, setShowExpenseBreakdown] = useState(false)
 
   // Hook para manejar deudas
   const {
@@ -437,28 +438,23 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Gastos Totales con tooltip */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer group relative">
+            {/* Gastos Totales con desglose */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group relative">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Gastos Totales</p>
                     {expenses.length > 0 && (
-                      <div className="group/tooltip relative">
-                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                        <div className="hidden group-hover/tooltip:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10">
-                          <div className="bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg py-2 px-3 shadow-lg min-w-[200px]">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-orange-300">Fijos:</span>
-                              <span className="font-semibold">${displayStats.totalFixedExpenses.toLocaleString('es-CO')}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-purple-300">Variables:</span>
-                              <span className="font-semibold">${displayStats.totalVariableExpenses.toLocaleString('es-CO')}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowExpenseBreakdown(true)
+                        }}
+                        className="opacity-60 hover:opacity-100 transition-opacity"
+                        title="Ver desglose"
+                      >
+                        <Info className="w-4 h-4 text-gray-400" />
+                      </button>
                     )}
                   </div>
                   <p className="text-3xl font-bold text-red-400 dark:text-red-300 mb-1">
@@ -1075,6 +1071,71 @@ export default function Dashboard() {
           confirmText="Eliminar"
           cancelText="Cancelar"
         />
+      )}
+
+      {/* Modal de Desglose de Gastos */}
+      {showExpenseBreakdown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowExpenseBreakdown(false)}
+          />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Desglose de Gastos
+                </h3>
+                <button
+                  onClick={() => setShowExpenseBreakdown(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Fijos</p>
+                  <p className="text-2xl font-bold text-red-400 dark:text-red-300">
+                    -${displayStats.totalFixedExpenses.toLocaleString('es-CO')}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {expenses.filter(e => e.expenseType === 'fixed').length} gastos fijos
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+                  <Target className="w-6 h-6 text-red-400 dark:text-red-300" />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Variables</p>
+                  <p className="text-2xl font-bold text-purple-400 dark:text-purple-300">
+                    -${displayStats.totalVariableExpenses.toLocaleString('es-CO')}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {expenses.filter(e => e.expenseType === 'variable').length} gastos variables
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                  <Target className="w-6 h-6 text-purple-400 dark:text-purple-300" />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    ${displayStats.totalExpenses.toLocaleString('es-CO')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de Pagos */}
