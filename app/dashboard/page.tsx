@@ -65,6 +65,8 @@ export default function Dashboard() {
     fetchDebts,
     fetchStats,
     createDebt,
+    updateDebt,
+    deleteDebt,
   } = useDebts()
 
   // Hooks para manejar otras transacciones
@@ -191,6 +193,14 @@ export default function Dashboard() {
           } else {
             console.error('❌ Error actualizando meta:', result.error);
           }
+        } else if (editingIncome.type === 'debt') {
+          console.log('✏️ Editando deuda:', editingIncome.id);
+          const debtData = {
+            ...data,
+            dueDate: data.dueDate || data.date,
+          };
+          await updateDebt(editingIncome.id, debtData);
+          console.log('✅ Deuda actualizada exitosamente');
         }
       } catch (error) {
         console.error('❌ Error actualizando transacción:', error);
@@ -634,6 +644,11 @@ export default function Dashboard() {
             setTransactionType('goal');
             setShowDetailModal(false);
             setShowTransactionModal(true);
+          } else if (selectedTransaction?.type === 'debt') {
+            setEditingIncome(selectedTransaction);
+            setTransactionType('debt');
+            setShowDetailModal(false);
+            setShowTransactionModal(true);
           }
         }}
         onDelete={() => {
@@ -652,6 +667,12 @@ export default function Dashboard() {
           } else if (selectedTransaction?.type === 'goal') {
             if (confirm('¿Estás seguro de eliminar esta meta?')) {
               deleteGoal(selectedTransaction.id);
+              setShowDetailModal(false);
+              setSelectedTransaction(null);
+            }
+          } else if (selectedTransaction?.type === 'debt') {
+            if (confirm('¿Estás seguro de eliminar esta deuda?')) {
+              deleteDebt(selectedTransaction.id);
               setShowDetailModal(false);
               setSelectedTransaction(null);
             }
