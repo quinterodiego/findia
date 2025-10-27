@@ -9,9 +9,9 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         params: {
           scope: "openid email profile https://www.googleapis.com/auth/spreadsheets",
-          prompt: "consent",
           access_type: "offline",
           response_type: "code"
+          // prompt: "consent"  // Comentado para que Google recuerde la sesión
         },
       },
     }),
