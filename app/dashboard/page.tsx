@@ -365,9 +365,13 @@ export default function Dashboard() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className="bg-linear-to-r from-blue-500 to-[#5A4FD9] p-2 rounded-xl">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
+              <Image 
+                src="/images/logo02.png" 
+                alt="FindIA Logo" 
+                width={40} 
+                height={40}
+                className="rounded-xl"
+              />
               <span className="text-xl font-bold bg-linear-to-r from-blue-600 to-[#5A4FD9] bg-clip-text text-transparent">
                 FindIA
               </span>
