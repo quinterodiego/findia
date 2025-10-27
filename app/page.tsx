@@ -126,14 +126,14 @@ export default function Home() {
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={handleLogin}
-                className="text-gray-600 hover:text-gray-900 font-medium transition-colors duration-200 text-sm sm:text-base cursor-pointer"
+                className="text-gray-600 hover:text-gray-900 font-medium transition-all duration-200 text-sm sm:text-base cursor-pointer px-3 sm:px-4 py-2 rounded-lg hover:border-2 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20"
               >
                 <span className="hidden sm:inline">Ingresar</span>
                 <span className="sm:hidden">Ingresar</span>
               </button>
               <button
                 onClick={handleGetStarted}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 sm:px-6 py-2 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-200 text-sm sm:text-base cursor-pointer"
+                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 sm:px-6 py-2 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-200 text-sm sm:text-base cursor-pointer transform hover:scale-105"
               >
                 <span className="hidden sm:inline">Empezar Gratis</span>
                 <span className="sm:hidden">Empezar</span>
