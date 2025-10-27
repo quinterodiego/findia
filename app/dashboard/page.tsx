@@ -535,15 +535,15 @@ export default function Dashboard() {
                     />
                     <Bar 
                       dataKey="Ingresos" 
-                      fill="#10b981"
+                      fill="#059669"
                       radius={[8, 8, 0, 0]}
-                      style={{ filter: 'drop-shadow(0 2px 4px rgba(16, 185, 129, 0.3))' }}
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(5, 150, 105, 0.3))' }}
                     />
                     <Bar 
                       dataKey="Gastos" 
-                      fill="#ef4444"
+                      fill="#dc2626"
                       radius={[8, 8, 0, 0]}
-                      style={{ filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' }}
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(220, 38, 38, 0.3))' }}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -562,8 +562,8 @@ export default function Dashboard() {
                   value
                 }));
 
-                // Paleta de colores consistente con el tema de la app (purple/blue/green/red)
-                const COLORS = ['#8b5cf6', '#9333ea', '#3b82f6', '#6366f1', '#a855f7', '#10b981'];
+                // Paleta de colores consistente con el tema de la app (purple/blue/green-600/red-600)
+                const COLORS = ['#dc2626', '#8b5cf6', '#9333ea', '#3b82f6', '#6366f1', '#059669'];
 
                 if (data.length === 0) return null;
 
