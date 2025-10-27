@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Goal } from '@/types';
 
 export function useGoals() {
-  const [goals, setGoals] = useState([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

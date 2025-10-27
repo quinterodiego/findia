@@ -1,60 +1,38 @@
-import { DefaultSession } from "next-auth"
-
-// Extender tipos de NextAuth
-declare module "next-auth" {
-  interface Session {
-    accessToken?: string
-    user: {
-      id: string
-    } & DefaultSession["user"]
-  }
-
-  interface User {
-    id: string
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id?: string
-    accessToken?: string
-  }
-}
-
-// Tipos de la aplicación
-export interface User {
+export interface Income {
   id: string
-  email: string
   name: string
-  image?: string
+  amount: number
+  date: string
+  userId: string
   createdAt: string
   updatedAt: string
 }
 
-export interface Category {
+export interface Expense {
   id: string
-  userId: string
   name: string
-  color: string
-  icon: string
-  type: 'income' | 'expense' | 'saving' | 'custom'
-  isDefault: boolean
+  amount: number
+  date: string
+  userId: string
+  expenseType?: 'fixed' | 'variable'
+  category?: string
   createdAt: string
+  updatedAt: string
 }
 
-export interface Subcategory {
+export interface Goal {
   id: string
-  userId: string
-  categoryId: string
   name: string
-  icon: string
-  isDefault: boolean
+  amount: number
+  currentAmount: number
+  targetDate: string
+  userId: string
   createdAt: string
+  updatedAt: string
 }
 
 export interface Debt {
   id: string
-  userId: string
   name: string
   amount: number
   balance: number
@@ -62,30 +40,7 @@ export interface Debt {
   minPayment: number
   dueDate: string
   priority: 'high' | 'medium' | 'low'
-  status: 'active' | 'paid' | 'overdue'
-  categoryId: string
-  subcategoryId: string // Nuevo campo
-  notes: string
+  userId: string
   createdAt: string
   updatedAt: string
-}
-
-export interface Payment {
-  id: string
-  debtId: string
-  userId: string
-  amount: number
-  date: string
-  type: 'regular' | 'extra' | 'minimum'
-  notes: string
-  createdAt: string
-}
-
-export interface DebtStats {
-  totalDebt: number
-  totalPaid: number
-  progressPercentage: number
-  monthlyPayment: number
-  estimatedPayoffDate: string
-  totalDebts: number
 }

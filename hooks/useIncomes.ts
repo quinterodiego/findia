@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Income } from '@/types';
 
 export function useIncomes() {
-  const [incomes, setIncomes] = useState([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

@@ -10,6 +10,7 @@ import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useGoals } from '@/hooks/useGoals'
+import type { Income, Expense, Goal } from '@/types'
 import FloatingActionButton from '@/components/FloatingActionButton'
 import TransactionModal from '@/components/TransactionModal'
 import TransactionDetailModal from '@/components/TransactionDetailModal'
@@ -36,6 +37,11 @@ interface TransactionData {
   // Campos específicos para gastos/ingresos
   isRecurring?: boolean
   frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly'
+}
+
+interface TransactionWithType {
+  [key: string]: any
+  type: TransactionType
 }
 
 export default function Dashboard() {
@@ -612,9 +618,10 @@ export default function Dashboard() {
                           cx="50%"
                           cy="50%"
                           labelLine={true}
-                          label={({ name, percent }) => {
-                            if (percent < 0.05) return ''; // Ocultar labels muy pequeños
-                            return `${name}: ${(percent * 100).toFixed(0)}%`;
+                          label={function(entry: any) {
+                            const percent = entry.percent;
+                            if (percent < 0.05) return '';
+                            return `${entry.name}: ${(percent * 100).toFixed(0)}%`;
                           }}
                           outerRadius={100}
                           innerRadius={40}
@@ -653,11 +660,11 @@ export default function Dashboard() {
               </h3>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 {(() => {
-                  const allTransactions = [
-                    ...debts.map(debt => ({ ...debt, type: 'debt' })),
-                    ...incomes.map(income => ({ ...income, type: 'income' })),
-                    ...expenses.map(expense => ({ ...expense, type: 'expense' })),
-                    ...goals.map(goal => ({ ...goal, type: 'goal' }))
+                  const allTransactions: TransactionWithType[] = [
+                    ...debts.map((debt: any) => ({ ...debt, type: 'debt' } as TransactionWithType)),
+                    ...incomes.map((income: any) => ({ ...income, type: 'income' } as TransactionWithType)),
+                    ...expenses.map((expense: any) => ({ ...expense, type: 'expense' } as TransactionWithType)),
+                    ...goals.map((goal: any) => ({ ...goal, type: 'goal' } as TransactionWithType))
                   ];
 
                   let filtered = allTransactions;
@@ -678,11 +685,11 @@ export default function Dashboard() {
                   return filtered.length;
                 })()} {(() => {
                   const count = (() => {
-                    const allTransactions = [
-                      ...debts.map(debt => ({ ...debt, type: 'debt' })),
-                      ...incomes.map(income => ({ ...income, type: 'income' })),
-                      ...expenses.map(expense => ({ ...expense, type: 'expense' })),
-                      ...goals.map(goal => ({ ...goal, type: 'goal' }))
+                    const allTransactions: TransactionWithType[] = [
+                      ...debts.map((debt: any) => ({ ...debt, type: 'debt' } as TransactionWithType)),
+                      ...incomes.map((income: any) => ({ ...income, type: 'income' } as TransactionWithType)),
+                      ...expenses.map((expense: any) => ({ ...expense, type: 'expense' } as TransactionWithType)),
+                      ...goals.map((goal: any) => ({ ...goal, type: 'goal' } as TransactionWithType))
                     ];
 
                     let filtered = allTransactions;
@@ -815,11 +822,11 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-4">
                 {(() => {
-                  let allTransactions = [
-                    ...debts.map(debt => ({ ...debt, type: 'debt' })),
-                    ...incomes.map(income => ({ ...income, type: 'income' })),
-                    ...expenses.map(expense => ({ ...expense, type: 'expense' })),
-                    ...goals.map(goal => ({ ...goal, type: 'goal' }))
+                  let allTransactions: TransactionWithType[] = [
+                    ...debts.map((debt: any) => ({ ...debt, type: 'debt' } as TransactionWithType)),
+                    ...incomes.map((income: any) => ({ ...income, type: 'income' } as TransactionWithType)),
+                    ...expenses.map((expense: any) => ({ ...expense, type: 'expense' } as TransactionWithType)),
+                    ...goals.map((goal: any) => ({ ...goal, type: 'goal' } as TransactionWithType))
                   ];
 
                   // Filtrar por tipo
@@ -1116,7 +1123,7 @@ export default function Dashboard() {
                     -${displayStats.totalFixedExpenses.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {expenses.filter(e => e.expenseType === 'fixed').length} gastos fijos
+                    {expenses.filter((e: any) => e.expenseType === 'fixed').length} gastos fijos
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
@@ -1131,7 +1138,7 @@ export default function Dashboard() {
                     -${displayStats.totalVariableExpenses.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {expenses.filter(e => e.expenseType === 'variable').length} gastos variables
+                    {expenses.filter((e: any) => e.expenseType === 'variable').length} gastos variables
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
