@@ -414,7 +414,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Ingresos Totales</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <p className="text-2xl font-bold text-green-400 dark:text-green-300">
                     +${displayStats.totalIncomes.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -422,7 +422,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <TrendingUp className="w-6 h-6 text-green-400 dark:text-green-300" />
                 </div>
               </div>
             </div>
@@ -432,7 +432,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Totales</p>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  <p className="text-2xl font-bold text-red-400 dark:text-red-300">
                     -${displayStats.totalExpenses.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -440,7 +440,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                  <Target className="w-6 h-6 text-red-600 dark:text-red-400" />
+                  <Target className="w-6 h-6 text-red-400 dark:text-red-300" />
                 </div>
               </div>
             </div>
@@ -450,7 +450,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Balance Neto</p>
-                  <p className={`text-2xl font-bold ${displayStats.netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <p className={`text-2xl font-bold ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`}>
                     {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -458,7 +458,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
-                  <DollarSign className={`w-6 h-6 ${displayStats.netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} />
+                  <DollarSign className={`w-6 h-6 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`} />
                 </div>
               </div>
             </div>
@@ -468,7 +468,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                  <p className="text-2xl font-bold text-purple-400 dark:text-purple-300">
                     {displayStats.goalsProgress.toFixed(1)}%
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -476,7 +476,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                  <Trophy className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  <Trophy className="w-6 h-6 text-purple-400 dark:text-purple-300" />
                 </div>
               </div>
             </div>
@@ -492,7 +492,7 @@ export default function Dashboard() {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Balance Financiero</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos vs Gastos</p>
                   </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-xl flex items-center justify-center">
                     <BarChart3 className="w-6 h-6 text-white" />
                   </div>
                 </div>
@@ -535,15 +535,15 @@ export default function Dashboard() {
                     />
                     <Bar 
                       dataKey="Ingresos" 
-                      fill="#059669"
+                      fill="#4ade80"
                       radius={[8, 8, 0, 0]}
-                      style={{ filter: 'drop-shadow(0 2px 4px rgba(5, 150, 105, 0.3))' }}
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(74, 222, 128, 0.3))' }}
                     />
                     <Bar 
                       dataKey="Gastos" 
-                      fill="#dc2626"
+                      fill="#f87171"
                       radius={[8, 8, 0, 0]}
-                      style={{ filter: 'drop-shadow(0 2px 4px rgba(220, 38, 38, 0.3))' }}
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(248, 113, 113, 0.3))' }}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -562,8 +562,8 @@ export default function Dashboard() {
                   value
                 }));
 
-                // Paleta de colores consistente con el tema de la app (purple/blue/green-600/red-600)
-                const COLORS = ['#dc2626', '#8b5cf6', '#9333ea', '#3b82f6', '#6366f1', '#059669'];
+                // Paleta de colores pastel consistente con el tema de la app (purple/blue/green-400/red-400)
+                const COLORS = ['#f87171', '#c084fc', '#a78bfa', '#60a5fa', '#3b82f6', '#4ade80'];
 
                 if (data.length === 0) return null;
 
@@ -574,7 +574,7 @@ export default function Dashboard() {
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Distribución de gastos</p>
                       </div>
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-xl flex items-center justify-center">
                         <PieChart className="w-6 h-6 text-white" />
                       </div>
                     </div>
