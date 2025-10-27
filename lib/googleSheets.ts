@@ -138,6 +138,7 @@ export async function initializeSheets() {
       'amount',
       'date',
       'category',
+      'expenseType',
       'notes',
       'isRecurring',
       'frequency',
@@ -715,7 +716,7 @@ export async function getExpensesByUser(userId: string): Promise<any[]> {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:H`,
+      range: `${SHEETS.EXPENSES}!A2:K`,
     });
     
     const rows = response.data.values || [];
@@ -728,10 +729,11 @@ export async function getExpensesByUser(userId: string): Promise<any[]> {
         amount: parseFloat(row[3] || '0'),
         date: row[4],
         category: row[5] || 'other',
-        notes: row[6] || '',
-        isRecurring: row[7] === 'true',
-        frequency: row[8] || 'monthly',
-        createdAt: row[9] || new Date().toISOString(),
+        expenseType: row[6] || 'variable',
+        notes: row[7] || '',
+        isRecurring: row[8] === 'true',
+        frequency: row[9] || 'monthly',
+        createdAt: row[10] || new Date().toISOString(),
       }));
     
     return expenses;
@@ -751,6 +753,7 @@ export async function createExpense(
     amount: number;
     date: string;
     category?: string;
+    expenseType?: 'fixed' | 'variable';
     notes?: string;
     isRecurring?: boolean;
     frequency?: string;
@@ -777,6 +780,7 @@ export async function createExpense(
           newExpense.amount,
           newExpense.date,
           newExpense.category || 'other',
+          newExpense.expenseType || 'variable',
           newExpense.notes || '',
           newExpense.isRecurring || false,
           newExpense.frequency || 'monthly',
@@ -804,6 +808,7 @@ export async function updateExpense(
     amount: number;
     date: string;
     category?: string;
+    expenseType?: 'fixed' | 'variable';
     notes?: string;
     isRecurring?: boolean;
     frequency?: string;
@@ -838,6 +843,7 @@ export async function updateExpense(
           expenseData.amount,
           expenseData.date,
           expenseData.category || 'other',
+          expenseData.expenseType || 'variable',
           expenseData.notes || '',
           expenseData.isRecurring || false,
           expenseData.frequency || 'monthly',

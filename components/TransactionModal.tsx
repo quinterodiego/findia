@@ -100,6 +100,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
     targetDate: '',
     currentAmount: 0,
     // Campos específicos para gastos/ingresos
+    expenseType: 'variable' as 'fixed' | 'variable',
     isRecurring: false,
     frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly'
   });
@@ -127,6 +128,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           priority: editingTransaction.priority || 'medium',
           targetDate: editingTransaction.targetDate || '',
           currentAmount: editingTransaction.currentAmount || 0,
+          expenseType: editingTransaction.expenseType || 'variable',
           isRecurring: editingTransaction.isRecurring || false,
           frequency: editingTransaction.frequency || 'monthly'
         });
@@ -145,6 +147,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           priority: 'medium',
           targetDate: '',
           currentAmount: 0,
+          expenseType: 'variable',
           isRecurring: false,
           frequency: 'monthly'
         });
@@ -305,6 +308,39 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 ))}
               </select>
             </div>
+
+            {/* Tipo de gasto (solo para gastos) */}
+            {type === 'expense' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tipo de gasto
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('expenseType', 'fixed')}
+                    className={`px-4 py-3 rounded-xl border-2 transition-all ${
+                      formData.expenseType === 'fixed'
+                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    💼 Fijo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('expenseType', 'variable')}
+                    className={`px-4 py-3 rounded-xl border-2 transition-all ${
+                      formData.expenseType === 'variable'
+                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    📊 Variable
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Campos específicos para deudas */}
             {type === 'debt' && (

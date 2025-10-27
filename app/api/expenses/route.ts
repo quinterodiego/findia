@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       amount: parseFloat(body.amount),
       date: body.date,
       category: body.category || 'other',
+      expenseType: body.expenseType || 'variable',
       notes: body.notes || '',
       isRecurring: body.isRecurring || false,
       frequency: body.frequency || 'monthly',
