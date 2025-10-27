@@ -230,7 +230,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.amount}
+                  value={formData.amount === 0 ? '' : formData.amount}
                   onChange={(e) => handleInputChange('amount', parseFloat(e.target.value) || 0)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   placeholder="0.00"
@@ -247,28 +247,28 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Saldo actual
                     </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.balance}
-                      onChange={(e) => handleInputChange('balance', parseFloat(e.target.value) || 0)}
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="0.00"
-                    />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.balance === 0 ? '' : formData.balance}
+                        onChange={(e) => handleInputChange('balance', parseFloat(e.target.value) || 0)}
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="0.00"
+                      />
                     {errors.balance && <p className="text-red-500 text-sm mt-1">{errors.balance}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Tasa de interés (%)
                     </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.interestRate}
-                      onChange={(e) => handleInputChange('interestRate', parseFloat(e.target.value) || 0)}
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="0.00"
-                    />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.interestRate === 0 ? '' : formData.interestRate}
+                        onChange={(e) => handleInputChange('interestRate', parseFloat(e.target.value) || 0)}
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="0.00"
+                      />
                   </div>
                 </div>
 
@@ -279,7 +279,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.minPayment}
+                    value={formData.minPayment === 0 ? '' : formData.minPayment}
                     onChange={(e) => handleInputChange('minPayment', parseFloat(e.target.value) || 0)}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     placeholder="0.00"
@@ -313,7 +313,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.currentAmount}
+                    value={formData.currentAmount === 0 ? '' : formData.currentAmount}
                     onChange={(e) => handleInputChange('currentAmount', parseFloat(e.target.value) || 0)}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     placeholder="0.00"
