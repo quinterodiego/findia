@@ -562,7 +562,8 @@ export default function Dashboard() {
                   value
                 }));
 
-                const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899'];
+                // Paleta de colores consistente con el tema de la app (purple/blue/green/red)
+                const COLORS = ['#8b5cf6', '#9333ea', '#3b82f6', '#6366f1', '#a855f7', '#10b981'];
 
                 if (data.length === 0) return null;
 
@@ -573,7 +574,7 @@ export default function Dashboard() {
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Distribución de gastos</p>
                       </div>
-                      <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
                         <PieChart className="w-6 h-6 text-white" />
                       </div>
                     </div>
