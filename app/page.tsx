@@ -126,7 +126,7 @@ export default function Home() {
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={handleLogin}
-                className="text-gray-600 font-medium transition-all duration-200 text-sm sm:text-base cursor-pointer px-3 sm:px-4 py-2 rounded-lg hover:border-2 hover:border-blue-500 dark:hover:bg-blue-950/20"
+                className="text-gray-600 font-medium transition-all duration-200 text-sm sm:text-base cursor-pointer px-3 sm:px-4 py-2 rounded-lg border-2 border-transparent hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20"
               >
                 <span className="hidden sm:inline">Ingresar</span>
                 <span className="sm:hidden">Ingresar</span>
