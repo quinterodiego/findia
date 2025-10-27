@@ -161,12 +161,41 @@ export default function RegisterForm({ onClose }: RegisterFormProps) {
     }
 
     try {
-      // Para NextAuth, podrías crear un endpoint API para registrar usuarios o usar el provider
+      // Registrar usuario
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        setMessage({ type: 'error', text: data.error || 'Error al crear la cuenta' })
+        return
+      }
+      
+      // Iniciar sesión automáticamente después del registro
       setMessage({ type: 'success', text: '¡Cuenta creada exitosamente! Bienvenido a FindIA 🎉' })
-      setTimeout(() => {
+      
+      // Esperar un poco y luego iniciar sesión
+      setTimeout(async () => {
+        await signIn('credentials', {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+          callbackUrl: '/dashboard'
+        })
+        
         onClose?.()
-      }, 2000)
-    } catch {
+        window.location.href = '/dashboard'
+      }, 1500)
+    } catch (error) {
+      console.error('Error en registro:', error)
       setMessage({ type: 'error', text: 'Error al crear la cuenta. Inténtalo de nuevo.' })
     } finally {
       setIsLoading(false)

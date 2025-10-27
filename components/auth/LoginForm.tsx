@@ -91,11 +91,23 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
     }
 
     try {
-      // Para NextAuth, redirigimos a las credenciales o usamos signIn si tienes provider de credentials
-      setMessage({ type: 'success', text: '¡Inicio de sesión exitoso!' })
-      setTimeout(() => {
-        onClose?.()
-      }, 1500)
+      // Iniciar sesión con credenciales
+      const result = await signIn('credentials', {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+        callbackUrl: '/dashboard'
+      })
+      
+      if (result?.error) {
+        setMessage({ type: 'error', text: 'Email o contraseña incorrectos' })
+      } else {
+        setMessage({ type: 'success', text: '¡Inicio de sesión exitoso!' })
+        setTimeout(() => {
+          onClose?.()
+          window.location.href = '/dashboard'
+        }, 1000)
+      }
     } catch (error) {
       console.error('Login error:', error)
       setMessage({ type: 'error', text: 'Error al iniciar sesión. Verifica tus credenciales.' })

@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import bcrypt from 'bcrypt';
 import type { Debt, Payment } from '@/types';
 
 // Configuración de autenticación con Service Account
@@ -124,6 +125,7 @@ export async function initializeSheets() {
     await createSheetIfNotExists(SHEETS.USERS, [
       'id',
       'email',
+      'password',
       'name',
       'image',
       'createdAt',
@@ -648,6 +650,36 @@ export async function updateDebtStatuses(userId: string): Promise<void> {
 // ============================================================================
 
 /**
+ * Busca un usuario por email
+ */
+export async function getUserByEmail(email: string) {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.USERS}!A2:G`,
+    });
+    
+    const rows = response.data.values || [];
+    const user = rows.find(row => row[1]?.toLowerCase() === email.toLowerCase());
+    
+    if (!user || !user[0]) return null;
+    
+    return {
+      id: user[0],
+      email: user[1],
+      password: user[2], // Hash del password
+      name: user[3],
+      image: user[4],
+      createdAt: user[5],
+      lastLogin: user[6],
+    };
+  } catch (error) {
+    console.error('Error buscando usuario:', error);
+    throw error;
+  }
+}
+
+/**
  * Guarda o actualiza información del usuario en Google Sheets
  */
 export async function saveUser(user: {
@@ -655,11 +687,12 @@ export async function saveUser(user: {
   email: string;
   name?: string | null;
   image?: string | null;
+  password?: string;
 }) {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.USERS}!A2:F`,
+      range: `${SHEETS.USERS}!A2:G`,
     });
     
     const rows = response.data.values || [];
@@ -669,9 +702,10 @@ export async function saveUser(user: {
     const userData = [
       user.id,
       user.email,
+      user.password || '', // Password hasheado
       user.name || '',
       user.image || '',
-      existingUserIndex === -1 ? now : rows[existingUserIndex][4], // createdAt
+      existingUserIndex === -1 ? now : rows[existingUserIndex][5], // createdAt
       now, // lastLogin
     ];
     
@@ -691,7 +725,7 @@ export async function saveUser(user: {
       const actualRowNumber = existingUserIndex + 2;
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEETS.USERS}!A${actualRowNumber}:F${actualRowNumber}`,
+        range: `${SHEETS.USERS}!A${actualRowNumber}:G${actualRowNumber}`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [userData],
@@ -701,6 +735,58 @@ export async function saveUser(user: {
     }
   } catch (error) {
     console.error('Error guardando usuario:', error);
+    throw error;
+  }
+}
+
+/**
+ * Verifica credenciales de login
+ */
+export async function verifyCredentials(email: string, password: string) {
+  try {
+    const user = await getUserByEmail(email);
+    if (!user || !user.password) return null;
+    
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) return null;
+    
+    return user;
+  } catch (error) {
+    console.error('Error verificando credenciales:', error);
+    throw error;
+  }
+}
+
+/**
+ * Registra un nuevo usuario con email/password
+ */
+export async function registerUser(email: string, password: string, name: string) {
+  try {
+    // Verificar si el email ya existe
+    const existingUser = await getUserByEmail(email);
+    if (existingUser) {
+      throw new Error('El email ya está registrado');
+    }
+    
+    // Hashear password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Generar ID único
+    const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date().toISOString();
+    
+    // Crear usuario
+    await saveUser({
+      id: userId,
+      email,
+      password: hashedPassword,
+      name,
+      image: null,
+    });
+    
+    return { id: userId, email, name };
+  } catch (error) {
+    console.error('Error registrando usuario:', error);
     throw error;
   }
 }

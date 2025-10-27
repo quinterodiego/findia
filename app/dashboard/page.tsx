@@ -807,7 +807,7 @@ export default function Dashboard() {
                   Usa el botón + para agregar deudas, gastos, ingresos o metas de ahorro.
                 </p>
                 <div className="text-center text-gray-400">
-                  <p className="text-sm">👇 Mira el botón flotante en la esquina inferior derecha</p>
+                  <p className="text-sm">👉 Mira el botón flotante en la esquina inferior derecha</p>
                 </div>
               </div>
             ) : (
