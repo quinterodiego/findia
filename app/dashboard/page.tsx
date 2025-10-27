@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -417,112 +417,95 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 lg:gap-6 mb-6 overflow-x-auto snap-x snap-mandatory lg:overflow-visible">
+          {/* Stats Cards - Diseño limpio y con impacto */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
             {/* Ingresos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Ingresos Totales</p>
-                  <p className="text-lg sm:text-2xl font-bold text-green-400 dark:text-green-300">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer group">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Ingresos Totales</p>
+                  <p className="text-3xl font-bold text-green-400 dark:text-green-300 mb-1">
                     +${displayStats.totalIncomes.toLocaleString('es-CO')}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'}
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'} este mes
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-400 dark:text-green-300" />
+                <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <TrendingUp className="w-7 h-7 text-green-400 dark:text-green-300" />
                 </div>
               </div>
             </div>
 
-            {/* Gastos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Totales</p>
-                  <p className="text-lg sm:text-2xl font-bold text-red-400 dark:text-red-300">
+            {/* Gastos Totales con tooltip */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer group relative">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Gastos Totales</p>
+                    {expenses.length > 0 && (
+                      <div className="group/tooltip relative">
+                        <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                        <div className="hidden group-hover/tooltip:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10">
+                          <div className="bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg py-2 px-3 shadow-lg min-w-[200px]">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-orange-300">Fijos:</span>
+                              <span className="font-semibold">${displayStats.totalFixedExpenses.toLocaleString('es-CO')}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-purple-300">Variables:</span>
+                              <span className="font-semibold">${displayStats.totalVariableExpenses.toLocaleString('es-CO')}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-3xl font-bold text-red-400 dark:text-red-300 mb-1">
                     -${displayStats.totalExpenses.toLocaleString('es-CO')}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'}
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'} en total
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                  <Target className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 dark:text-red-300" />
-                </div>
-              </div>
-            </div>
-
-            {/* Gastos Fijos */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Fijos</p>
-                  <p className="text-lg sm:text-2xl font-bold text-orange-400 dark:text-orange-300">
-                    -${displayStats.totalFixedExpenses.toLocaleString('es-CO')}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {expenses.filter(e => e.expenseType === 'fixed').length} fijos
-                  </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                  <Target className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400 dark:text-orange-300" />
-                </div>
-              </div>
-            </div>
-
-            {/* Gastos Variables */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Variables</p>
-                  <p className="text-lg sm:text-2xl font-bold text-purple-400 dark:text-purple-300">
-                    -${displayStats.totalVariableExpenses.toLocaleString('es-CO')}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {expenses.filter(e => e.expenseType === 'variable').length} variables
-                  </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                  <Target className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 dark:text-purple-300" />
+                <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Target className="w-7 h-7 text-red-400 dark:text-red-300" />
                 </div>
               </div>
             </div>
 
             {/* Balance Neto */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Balance Neto</p>
-                  <p className={`text-lg sm:text-2xl font-bold ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`}>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer group">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Balance Neto</p>
+                  <p className={`text-3xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`}>
                     {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString('es-CO')}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {displayStats.netBalance >= 0 ? 'Positivo' : 'Negativo'}
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    {displayStats.netBalance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
                   </p>
                 </div>
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
-                  <DollarSign className={`w-5 h-5 sm:w-6 sm:h-6 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`} />
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                  <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`} />
                 </div>
               </div>
             </div>
 
-            {/* Metas Completadas */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
-                  <p className="text-lg sm:text-2xl font-bold text-purple-400 dark:text-purple-300">
+            {/* Metas de Ahorro */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer group">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Metas de Ahorro</p>
+                  <p className="text-3xl font-bold text-purple-400 dark:text-purple-300 mb-1">
                     {displayStats.goalsProgress.toFixed(1)}%
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {displayStats.completedGoals}/{displayStats.totalGoals} completadas
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    {displayStats.completedGoals} de {displayStats.totalGoals} completadas
                   </p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                  <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 dark:text-purple-300" />
+                <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Trophy className="w-7 h-7 text-purple-400 dark:text-purple-300" />
                 </div>
               </div>
             </div>
