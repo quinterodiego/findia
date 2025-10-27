@@ -346,10 +346,10 @@ export default function Dashboard() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className="bg-linear-to-r from-blue-500 to-purple-600 p-2 rounded-xl">
+              <div className="bg-linear-to-r from-blue-500 to-[#5A4FD9] p-2 rounded-xl">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="text-xl font-bold bg-linear-to-r from-blue-600 to-[#5A4FD9] bg-clip-text text-transparent">
                 FindIA
               </span>
             </div>
@@ -374,7 +374,7 @@ export default function Dashboard() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-linear-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                    <div className="w-full h-full bg-linear-to-r from-blue-500 to-[#5A4FD9] flex items-center justify-center text-white font-semibold text-sm">
                       {session?.user?.name?.charAt(0) || 'U'}
                     </div>
                   )}
@@ -410,14 +410,14 @@ export default function Dashboard() {
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6">
             {/* Ingresos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Ingresos Totales</p>
                   <p className="text-lg sm:text-2xl font-bold text-green-400 dark:text-green-300">
                     +${displayStats.totalIncomes.toLocaleString('es-CO')}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                     {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'}
                   </p>
                 </div>
@@ -428,14 +428,14 @@ export default function Dashboard() {
             </div>
 
             {/* Gastos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Totales</p>
                   <p className="text-lg sm:text-2xl font-bold text-red-400 dark:text-red-300">
                     -${displayStats.totalExpenses.toLocaleString('es-CO')}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                     {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'}
                   </p>
                 </div>
@@ -446,14 +446,14 @@ export default function Dashboard() {
             </div>
 
             {/* Balance Neto */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Balance Neto</p>
                   <p className={`text-lg sm:text-2xl font-bold ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`}>
                     {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString('es-CO')}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                     {displayStats.netBalance >= 0 ? 'Positivo' : 'Negativo'}
                   </p>
                 </div>
@@ -464,14 +464,14 @@ export default function Dashboard() {
             </div>
 
             {/* Metas Completadas */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
                   <p className="text-lg sm:text-2xl font-bold text-purple-400 dark:text-purple-300">
                     {displayStats.goalsProgress.toFixed(1)}%
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                     {displayStats.completedGoals}/{displayStats.totalGoals} completadas
                   </p>
                 </div>
@@ -486,11 +486,11 @@ export default function Dashboard() {
           {(incomes.length > 0 || expenses.length > 0) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6">
               {/* Gráfica de Ingresos vs Gastos */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Balance Financiero</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos vs Gastos</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Ingresos vs Gastos</p>
                   </div>
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-xl flex items-center justify-center">
                     <BarChart3 className="w-6 h-6 text-white" />
@@ -568,11 +568,11 @@ export default function Dashboard() {
                 if (data.length === 0) return null;
 
                 return (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700">
                     <div className="flex items-center justify-between mb-6">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Distribución de gastos</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Distribución de gastos</p>
                       </div>
                       <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-xl flex items-center justify-center">
                         <PieChart className="w-6 h-6 text-white" />
@@ -619,7 +619,7 @@ export default function Dashboard() {
           )}
 
           {/* Lista de Deudas */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Mis Transacciones Financieras
@@ -881,7 +881,7 @@ export default function Dashboard() {
                             <div className={`text-lg font-semibold ${getTransactionColor()}`}>
                               {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}${transaction.amount.toLocaleString()}
                             </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
                               {new Date(transaction.date).toLocaleDateString()}
                             </div>
                           </div>
