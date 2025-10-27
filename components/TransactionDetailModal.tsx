@@ -53,11 +53,24 @@ export default function TransactionDetailModal({
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('es-CO', {
+    if (!date) return 'No disponible';
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) return 'Fecha inválida';
+    return dateObj.toLocaleDateString('es-CO', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  // Determinar la fecha a mostrar según el tipo de transacción
+  const getDisplayDate = () => {
+    if (transaction.type === 'debt') {
+      // Para deudas, usar dueDate si existe, sino createdAt
+      return transaction.dueDate || transaction.createdAt || '';
+    }
+    // Para otras transacciones, usar date
+    return transaction.date || '';
   };
 
   return (
@@ -116,10 +129,12 @@ export default function TransactionDetailModal({
               <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <Calendar className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Fecha</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {transaction.type === 'debt' ? 'Fecha de vencimiento' : 'Fecha'}
+                  </p>
                 </div>
                 <p className="font-semibold text-gray-900 dark:text-white">
-                  {formatDate(transaction.date)}
+                  {formatDate(getDisplayDate())}
                 </p>
               </div>
 
