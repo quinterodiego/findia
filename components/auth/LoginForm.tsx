@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react'
 import { signIn } from 'next-auth/react'
 
 interface LoginFormProps {
@@ -35,8 +35,52 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
-  
-  // Spinner de loading global
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
+
+  // Pantalla de éxito
+  if (showSuccess && !isRedirecting) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", duration: 0.5 }}
+          className="bg-green-100 rounded-full p-4 mb-4"
+        >
+          <CheckCircle className="h-16 w-16 text-green-600" />
+        </motion.div>
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-2xl font-bold text-gray-900 mb-2"
+        >
+          ¡Inicio de sesión exitoso!
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-gray-600 text-center"
+        >
+          Redirigiendo al dashboard...
+        </motion.p>
+      </div>
+    )
+  }
+
+  // Spinner de redirección
+  if (isRedirecting) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p className="text-gray-600 text-sm">Redirigiendo...</p>
+      </div>
+    )
+  }
+
+  // Spinner de loading inicial
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12">
@@ -112,16 +156,22 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
       if (result?.error) {
         setMessage({ type: 'error', text: 'Email o contraseña incorrectos' })
       } else {
-        setMessage({ type: 'success', text: '¡Inicio de sesión exitoso!' })
+        // Mostrar estado de éxito
+        setShowSuccess(true)
+        setIsLoading(false)
+        
+        // Esperar un momento y luego mostrar spinner de redirección
         setTimeout(() => {
-          onClose?.()
-          window.location.href = '/dashboard'
-        }, 1000)
+          setIsRedirecting(true)
+          // Redirigir al dashboard
+          setTimeout(() => {
+            window.location.href = '/dashboard'
+          }, 1500)
+        }, 2000)
       }
     } catch (error) {
       console.error('Login error:', error)
       setMessage({ type: 'error', text: 'Error al iniciar sesión. Verifica tus credenciales.' })
-    } finally {
       setIsLoading(false)
     }
   }

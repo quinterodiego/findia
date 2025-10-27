@@ -48,6 +48,60 @@ export default function RegisterForm({ onClose }: RegisterFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
+  
+  // Pantalla de éxito
+  if (showSuccess && !isRedirecting) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", duration: 0.5 }}
+          className="bg-green-100 rounded-full p-4 mb-4"
+        >
+          <CheckCircle className="h-16 w-16 text-green-600" />
+        </motion.div>
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-2xl font-bold text-gray-900 mb-2"
+        >
+          ¡Cuenta creada exitosamente!
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-gray-600 text-center"
+        >
+          Redirigiendo al dashboard...
+        </motion.p>
+      </div>
+    )
+  }
+
+  // Spinner de redirección
+  if (isRedirecting) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+        <p className="text-gray-600 text-sm">Redirigiendo...</p>
+      </div>
+    )
+  }
+
+  // Spinner de loading inicial
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+        <p className="text-gray-600 text-sm">Creando tu cuenta...</p>
+      </div>
+    )
+  }
 
   // Funciones de validación individuales
   const validateName = (name: string): string | undefined => {
@@ -176,13 +230,15 @@ export default function RegisterForm({ onClose }: RegisterFormProps) {
       
       if (!response.ok) {
         setMessage({ type: 'error', text: data.error || 'Error al crear la cuenta' })
+        setIsLoading(false)
         return
       }
       
-      // Iniciar sesión automáticamente después del registro
-      setMessage({ type: 'success', text: '¡Cuenta creada exitosamente! Bienvenido a FindIA 🎉' })
+      // Mostrar estado de éxito
+      setShowSuccess(true)
+      setIsLoading(false)
       
-      // Esperar un poco y luego iniciar sesión
+      // Esperar un momento y luego iniciar sesión
       setTimeout(async () => {
         await signIn('credentials', {
           email: formData.email,
@@ -191,13 +247,17 @@ export default function RegisterForm({ onClose }: RegisterFormProps) {
           callbackUrl: '/dashboard'
         })
         
-        onClose?.()
-        window.location.href = '/dashboard'
-      }, 1500)
+        // Mostrar spinner de redirección
+        setIsRedirecting(true)
+        
+        // Redirigir al dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 1500)
+      }, 2000)
     } catch (error) {
       console.error('Error en registro:', error)
       setMessage({ type: 'error', text: 'Error al crear la cuenta. Inténtalo de nuevo.' })
-    } finally {
       setIsLoading(false)
     }
   }
