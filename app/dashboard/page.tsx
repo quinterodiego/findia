@@ -451,7 +451,7 @@ export default function Dashboard() {
                   <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
                     {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'} en total
                   </p>
-                  {expenses.length > 0 && (
+                  {(displayStats.totalFixedExpenses > 0 || displayStats.totalVariableExpenses > 0) && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
