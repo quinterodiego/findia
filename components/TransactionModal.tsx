@@ -72,6 +72,17 @@ const goalCategories = [
   'Otros'
 ];
 
+const debtCategories = [
+  'Tarjeta de crédito',
+  'Préstamo personal',
+  'Préstamo hipotecario',
+  'Préstamo de auto',
+  'Préstamo estudiantil',
+  'Prestado a familiares/amigos',
+  'Deuda médica',
+  'Otros'
+];
+
 export default function TransactionModal({ isOpen, onClose, type, onSave, loading = false, editingTransaction }: TransactionModalProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -287,6 +298,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
                 {type === 'goal' && goalCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+                {type === 'debt' && debtCategories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
