@@ -51,58 +51,6 @@ export default function RegisterForm({ onClose }: RegisterFormProps) {
   const [showSuccess, setShowSuccess] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   
-  // Pantalla de éxito
-  if (showSuccess && !isRedirecting) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", duration: 0.5 }}
-          className="bg-green-100 rounded-full p-4 mb-4"
-        >
-          <CheckCircle className="h-16 w-16 text-green-600" />
-        </motion.div>
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-2xl font-bold text-gray-900 mb-2"
-        >
-          ¡Cuenta creada exitosamente!
-        </motion.h2>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="text-gray-600 text-center"
-        >
-          Redirigiendo al dashboard...
-        </motion.p>
-      </div>
-    )
-  }
-
-  // Spinner de redirección
-  if (isRedirecting) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
-        <p className="text-gray-600 text-sm">Redirigiendo...</p>
-      </div>
-    )
-  }
-
-  // Spinner de loading inicial
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
-        <p className="text-gray-600 text-sm">Creando tu cuenta...</p>
-      </div>
-    )
-  }
-
   // Funciones de validación individuales
   const validateName = (name: string): string | undefined => {
     if (!name.trim()) return 'El nombre es requerido'
@@ -294,8 +242,60 @@ export default function RegisterForm({ onClose }: RegisterFormProps) {
   }
 
   const handleFocus = () => {
-    setMessage(null) // Limpiar mensajes cuando el usuario empiece a escribir
+    setMessage(null)
     setGoogleError(null)
+  }
+  
+  // Pantalla de éxito
+  if (showSuccess && !isRedirecting) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", duration: 0.5 }}
+          className="bg-green-100 rounded-full p-4 mb-4"
+        >
+          <CheckCircle className="h-16 w-16 text-green-600" />
+        </motion.div>
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-2xl font-bold text-gray-900 mb-2"
+        >
+          ¡Cuenta creada exitosamente!
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-gray-600 text-center"
+        >
+          Redirigiendo al dashboard...
+        </motion.p>
+      </div>
+    )
+  }
+
+  // Spinner de redirección
+  if (isRedirecting) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+        <p className="text-gray-600 text-sm">Redirigiendo...</p>
+      </div>
+    )
+  }
+
+  // Spinner de loading inicial
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+        <p className="text-gray-600 text-sm">Creando tu cuenta...</p>
+      </div>
+    )
   }
 
   // Navegación por teclado
