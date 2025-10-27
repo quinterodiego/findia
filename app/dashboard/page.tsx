@@ -12,6 +12,7 @@ import { useGoals } from '@/hooks/useGoals'
 import FloatingActionButton from '@/components/FloatingActionButton'
 import TransactionModal from '@/components/TransactionModal'
 import TransactionDetailModal from '@/components/TransactionDetailModal'
+import ConfirmModal from '@/components/ConfirmModal'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -44,6 +45,12 @@ export default function Dashboard() {
   const [editingIncome, setEditingIncome] = useState<any>(null)
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null)
 
   // Hook para manejar deudas
   const {
@@ -162,6 +169,11 @@ export default function Dashboard() {
     console.log('🎯 transactionType establecido a:', type);
     console.log('🎯 Modal abierto:', true);
   }
+
+  const openConfirmModal = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmConfig({ title, message, onConfirm });
+    setShowConfirmModal(true);
+  };
 
   const handleSaveTransaction = async (data: TransactionData) => {
     console.log('🔍 handleSaveTransaction llamado con:', { transactionType, data, editingIncome });
@@ -653,32 +665,65 @@ export default function Dashboard() {
         }}
         onDelete={() => {
           if (selectedTransaction?.type === 'income') {
-            if (confirm('¿Estás seguro de eliminar este ingreso?')) {
-              deleteIncome(selectedTransaction.id);
-              setShowDetailModal(false);
-              setSelectedTransaction(null);
-            }
+            openConfirmModal(
+              '¿Eliminar ingreso?',
+              'Esta acción no se puede deshacer. ¿Estás seguro de eliminar este ingreso?',
+              () => {
+                deleteIncome(selectedTransaction.id);
+                setShowDetailModal(false);
+                setSelectedTransaction(null);
+              }
+            );
           } else if (selectedTransaction?.type === 'expense') {
-            if (confirm('¿Estás seguro de eliminar este gasto?')) {
-              deleteExpense(selectedTransaction.id);
-              setShowDetailModal(false);
-              setSelectedTransaction(null);
-            }
+            openConfirmModal(
+              '¿Eliminar gasto?',
+              'Esta acción no se puede deshacer. ¿Estás seguro de eliminar este gasto?',
+              () => {
+                deleteExpense(selectedTransaction.id);
+                setShowDetailModal(false);
+                setSelectedTransaction(null);
+              }
+            );
           } else if (selectedTransaction?.type === 'goal') {
-            if (confirm('¿Estás seguro de eliminar esta meta?')) {
-              deleteGoal(selectedTransaction.id);
-              setShowDetailModal(false);
-              setSelectedTransaction(null);
-            }
+            openConfirmModal(
+              '¿Eliminar meta?',
+              'Esta acción no se puede deshacer. ¿Estás seguro de eliminar esta meta?',
+              () => {
+                deleteGoal(selectedTransaction.id);
+                setShowDetailModal(false);
+                setSelectedTransaction(null);
+              }
+            );
           } else if (selectedTransaction?.type === 'debt') {
-            if (confirm('¿Estás seguro de eliminar esta deuda?')) {
-              deleteDebt(selectedTransaction.id);
-              setShowDetailModal(false);
-              setSelectedTransaction(null);
-            }
+            openConfirmModal(
+              '¿Eliminar deuda?',
+              'Esta acción no se puede deshacer. ¿Estás seguro de eliminar esta deuda?',
+              () => {
+                deleteDebt(selectedTransaction.id);
+                setShowDetailModal(false);
+                setSelectedTransaction(null);
+              }
+            );
           }
         }}
       />
+
+      {/* Modal de Confirmación */}
+      {confirmConfig && (
+        <ConfirmModal
+          isOpen={showConfirmModal}
+          onClose={() => {
+            setShowConfirmModal(false);
+            setConfirmConfig(null);
+          }}
+          onConfirm={confirmConfig.onConfirm}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          type="danger"
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+        />
+      )}
     </div>
   )
 }
