@@ -421,7 +421,7 @@ export default function Dashboard() {
           {/* Stats Cards - Diseño limpio y con impacto */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
             {/* Ingresos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer group">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Ingresos Totales</p>
@@ -444,25 +444,25 @@ export default function Dashboard() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Gastos Totales</p>
-                    {expenses.length > 0 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowExpenseBreakdown(true)
-                        }}
-                        className="opacity-60 hover:opacity-100 transition-opacity"
-                        title="Ver desglose"
-                      >
-                        <Info className="w-4 h-4 text-gray-400" />
-                      </button>
-                    )}
                   </div>
                   <p className="text-3xl font-bold text-red-400 dark:text-red-300 mb-1">
                     -${displayStats.totalExpenses.toLocaleString('es-CO')}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
                     {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'} en total
                   </p>
+                  {expenses.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowExpenseBreakdown(true)
+                      }}
+                      className="w-full px-4 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 dark:text-red-300 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2"
+                    >
+                      <Info className="w-4 h-4" />
+                      Ver detalle
+                    </button>
+                  )}
                 </div>
                 <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Target className="w-7 h-7 text-red-400 dark:text-red-300" />
@@ -471,7 +471,7 @@ export default function Dashboard() {
             </div>
 
             {/* Balance Neto */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer group">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Balance Neto</p>
@@ -489,7 +489,7 @@ export default function Dashboard() {
             </div>
 
             {/* Metas de Ahorro */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer group">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Metas de Ahorro</p>
