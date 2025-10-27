@@ -370,7 +370,7 @@ export default function Dashboard() {
                 onClick={toggleDarkMode}
                 className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
               >
-                {isDarkMode ? <Sun className="w-5 h-5 text-[#6A5AE0]" /> : <Moon className="w-5 h-5 text-[#6A5AE0]" />}
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-gray-600" />}
               </button>
 
               <div className="flex items-center gap-3">
@@ -409,7 +409,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           {/* Welcome Message */}
           <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-600 via-purple-600 to-[#5A4FD9] bg-clip-text text-transparent drop-shadow-sm">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               ¡Hola, {session?.user?.name?.split(' ')[0] || 'Usuario'}! 👋
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
