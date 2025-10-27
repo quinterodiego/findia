@@ -417,94 +417,50 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 mb-6">
-            {/* Ingresos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Ingresos Totales</p>
-                  <p className="text-lg sm:text-2xl font-bold text-green-400 dark:text-green-300">
-                    +${displayStats.totalIncomes.toLocaleString('es-CO')}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'}
-                  </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-400 dark:text-green-300" />
-                </div>
-              </div>
-            </div>
-
-            {/* Gastos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Totales</p>
-                  <p className="text-lg sm:text-2xl font-bold text-red-400 dark:text-red-300">
-                    -${displayStats.totalExpenses.toLocaleString('es-CO')}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'}
-                  </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                  <Target className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 dark:text-red-300" />
-                </div>
-              </div>
-            </div>
-
-            {/* Balance Neto */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Balance Neto</p>
-                  <p className={`text-lg sm:text-2xl font-bold ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`}>
-                    {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString('es-CO')}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {displayStats.netBalance >= 0 ? 'Positivo' : 'Negativo'}
-                  </p>
-                </div>
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
-                  <DollarSign className={`w-5 h-5 sm:w-6 sm:h-6 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`} />
-                </div>
-              </div>
-            </div>
-
-            {/* Metas Completadas */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
-                  <p className="text-lg sm:text-2xl font-bold text-purple-400 dark:text-purple-300">
-                    {displayStats.goalsProgress.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {displayStats.completedGoals}/{displayStats.totalGoals} completadas
-                  </p>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                  <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 dark:text-purple-300" />
-                </div>
-              </div>
-            </div>
-
+          {/* Stats Cards - Gastos Fijos y Variables */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6">
             {/* Gastos Fijos */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Fijos</p>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">💼 Gastos Fijos</p>
                   <p className="text-lg sm:text-2xl font-bold text-orange-400 dark:text-orange-300">
                     -${displayStats.totalFixedExpenses.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {expenses.filter(e => e.expenseType === 'fixed').length} fijos
+                    {expenses.filter(e => e.expenseType === 'fixed').length} {expenses.filter(e => e.expenseType === 'fixed').length === 1 ? 'gasto fijo' : 'gastos fijos'}
                   </p>
+                  {displayStats.totalExpenses > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {((displayStats.totalFixedExpenses / displayStats.totalExpenses) * 100).toFixed(1)}% del total de gastos
+                    </p>
+                  )}
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                  <Target className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400 dark:text-orange-300" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                  <Target className="w-6 h-6 sm:w-7 sm:h-7 text-orange-400 dark:text-orange-300" />
+                </div>
+              </div>
+            </div>
+
+            {/* Gastos Variables */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">📊 Gastos Variables</p>
+                  <p className="text-lg sm:text-2xl font-bold text-purple-400 dark:text-purple-300">
+                    -${displayStats.totalVariableExpenses.toLocaleString('es-CO')}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {expenses.filter(e => e.expenseType === 'variable').length} {expenses.filter(e => e.expenseType === 'variable').length === 1 ? 'gasto variable' : 'gastos variables'}
+                  </p>
+                  {displayStats.totalExpenses > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {((displayStats.totalVariableExpenses / displayStats.totalExpenses) * 100).toFixed(1)}% del total de gastos
+                    </p>
+                  )}
+                </div>
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                  <Target className="w-6 h-6 sm:w-7 sm:h-7 text-purple-400 dark:text-purple-300" />
                 </div>
               </div>
             </div>
