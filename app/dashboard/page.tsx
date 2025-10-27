@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown } from 'lucide-react'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -51,6 +51,10 @@ export default function Dashboard() {
     message: string;
     onConfirm: () => void;
   } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterType, setFilterType] = useState<'all' | 'debt' | 'income' | 'expense' | 'goal'>('all')
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'name'>('date')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   // Hook para manejar deudas
   const {
@@ -480,7 +484,148 @@ export default function Dashboard() {
                 Mis Transacciones Financieras
               </h3>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                {debts.length + incomes.length + expenses.length + goals.length} transacciones registradas
+                {(() => {
+                  const allTransactions = [
+                    ...debts.map(debt => ({ ...debt, type: 'debt' })),
+                    ...incomes.map(income => ({ ...income, type: 'income' })),
+                    ...expenses.map(expense => ({ ...expense, type: 'expense' })),
+                    ...goals.map(goal => ({ ...goal, type: 'goal' }))
+                  ];
+
+                  let filtered = allTransactions;
+
+                  if (filterType !== 'all') {
+                    filtered = filtered.filter(t => t.type === filterType);
+                  }
+
+                  if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    filtered = filtered.filter(t =>
+                      t.name.toLowerCase().includes(query) ||
+                      t.category?.toLowerCase().includes(query) ||
+                      t.notes?.toLowerCase().includes(query)
+                    );
+                  }
+
+                  return filtered.length;
+                })()} {(() => {
+                  const count = (() => {
+                    const allTransactions = [
+                      ...debts.map(debt => ({ ...debt, type: 'debt' })),
+                      ...incomes.map(income => ({ ...income, type: 'income' })),
+                      ...expenses.map(expense => ({ ...expense, type: 'expense' })),
+                      ...goals.map(goal => ({ ...goal, type: 'goal' }))
+                    ];
+
+                    let filtered = allTransactions;
+
+                    if (filterType !== 'all') {
+                      filtered = filtered.filter(t => t.type === filterType);
+                    }
+
+                    if (searchQuery) {
+                      const query = searchQuery.toLowerCase();
+                      filtered = filtered.filter(t =>
+                        t.name.toLowerCase().includes(query) ||
+                        t.category?.toLowerCase().includes(query) ||
+                        t.notes?.toLowerCase().includes(query)
+                      );
+                    }
+
+                    return filtered.length;
+                  })();
+
+                  return count === 1 ? 'transacción' : 'transacciones';
+                })()} {filterType !== 'all' || searchQuery ? 'encontradas' : 'registradas'}
+              </div>
+            </div>
+
+            {/* Filtros y Búsqueda */}
+            <div className="space-y-4 mb-6">
+              {/* Barra de búsqueda */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, categoría o notas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              {/* Filtros por tipo */}
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setFilterType('all')}
+                  className={`px-4 py-2 rounded-xl transition-colors ${
+                    filterType === 'all'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  Todas
+                </button>
+                <button
+                  onClick={() => setFilterType('income')}
+                  className={`px-4 py-2 rounded-xl transition-colors ${
+                    filterType === 'income'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  💰 Ingresos
+                </button>
+                <button
+                  onClick={() => setFilterType('expense')}
+                  className={`px-4 py-2 rounded-xl transition-colors ${
+                    filterType === 'expense'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  💸 Gastos
+                </button>
+                <button
+                  onClick={() => setFilterType('goal')}
+                  className={`px-4 py-2 rounded-xl transition-colors ${
+                    filterType === 'goal'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  🎯 Metas
+                </button>
+                <button
+                  onClick={() => setFilterType('debt')}
+                  className={`px-4 py-2 rounded-xl transition-colors ${
+                    filterType === 'debt'
+                      ? 'bg-red-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  💳 Deudas
+                </button>
+              </div>
+
+              {/* Ordenamiento */}
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="date">Ordenar por fecha</option>
+                  <option value="amount">Ordenar por monto</option>
+                  <option value="name">Ordenar por nombre</option>
+                </select>
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-white"
+                >
+                  {sortOrder === 'desc' ? '⬇️' : '⬆️'}
+                </button>
               </div>
             </div>
 
@@ -502,12 +647,42 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-4">
                 {(() => {
-                  const allTransactions = [
+                  let allTransactions = [
                     ...debts.map(debt => ({ ...debt, type: 'debt' })),
                     ...incomes.map(income => ({ ...income, type: 'income' })),
                     ...expenses.map(expense => ({ ...expense, type: 'expense' })),
                     ...goals.map(goal => ({ ...goal, type: 'goal' }))
-                  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                  ];
+
+                  // Filtrar por tipo
+                  if (filterType !== 'all') {
+                    allTransactions = allTransactions.filter(t => t.type === filterType);
+                  }
+
+                  // Filtrar por búsqueda
+                  if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    allTransactions = allTransactions.filter(t =>
+                      t.name.toLowerCase().includes(query) ||
+                      t.category?.toLowerCase().includes(query) ||
+                      t.notes?.toLowerCase().includes(query)
+                    );
+                  }
+
+                  // Ordenar
+                  allTransactions.sort((a, b) => {
+                    if (sortBy === 'date') {
+                      const dateA = new Date(a.date).getTime();
+                      const dateB = new Date(b.date).getTime();
+                      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+                    } else if (sortBy === 'amount') {
+                      return sortOrder === 'desc' ? b.amount - a.amount : a.amount - b.amount;
+                    } else {
+                      return sortOrder === 'desc'
+                        ? b.name.localeCompare(a.name)
+                        : a.name.localeCompare(b.name);
+                    }
+                  });
 
                   return allTransactions.map((transaction) => {
                     const getTransactionIcon = () => {
