@@ -17,6 +17,32 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      // ============================================
+      // 🛡️ CONFIGURACIÓN DE SEGURIDAD / ACCESO
+      // ============================================
+      // Por defecto, cualquier usuario con Google puede entrar
+      // Para restringir el acceso, descomenta y configura una de las opciones:
+      
+      // ========== OPCIÓN 1: Solo emails específicos ==========
+      // const allowedEmails = ['tu.email@ejemplo.com'];
+      // if (allowedEmails.length > 0 && user.email && !allowedEmails.includes(user.email)) {
+      //   return false; // Rechaza el login
+      // }
+      
+      // ========== OPCIÓN 2: Solo dominio específico ==========
+      // Ejemplo: '@tuempresa.com' o '@gmail.com'
+      // const allowedDomains = ['gmail.com', 'tuempresa.com'];
+      // if (allowedDomains.length > 0 && user.email) {
+      //   const emailDomain = user.email.split('@')[1];
+      //   if (!allowedDomains.includes(emailDomain)) {
+      //     return false; // Rechaza el login
+      //   }
+      // }
+      
+      // Si llegaste aquí, permite el login
+      return true;
+    },
     async jwt({ token, account, user }) {
       if (account) {
         token.accessToken = account.access_token
