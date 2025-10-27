@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedDebt, setSelectedDebt] = useState<any>(null)
   const [showExpenseBreakdown, setShowExpenseBreakdown] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   // Hook para manejar deudas
   const {
@@ -164,11 +165,12 @@ export default function Dashboard() {
     }
   }
 
-  const handleSignOut = async () => {
-    const confirmed = confirm('¿Estás seguro de que quieres cerrar sesión?')
-    if (confirmed) {
-      await signOut({ callbackUrl: '/' })
-    }
+  const handleSignOut = () => {
+    setShowLogoutModal(true)
+  }
+
+  const confirmLogout = async () => {
+    await signOut({ callbackUrl: '/' })
   }
 
   const handleTransactionAction = (type: TransactionType) => {
@@ -1072,6 +1074,18 @@ export default function Dashboard() {
           cancelText="Cancelar"
         />
       )}
+
+      {/* Modal de Confirmación de Logout */}
+      <ConfirmModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={confirmLogout}
+        title="Cerrar Sesión"
+        message="¿Estás seguro de que quieres cerrar sesión?"
+        type="warning"
+        confirmText="Cerrar Sesión"
+        cancelText="Cancelar"
+      />
 
       {/* Modal de Desglose de Gastos */}
       {showExpenseBreakdown && (
