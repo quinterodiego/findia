@@ -1,51 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import {
-  getPaymentsByDebt,
-  createPayment,
-} from '@/lib/googleSheets';
-
-type RouteParams = {
-  params: Promise<{ id: string }>;
-};
-
-/**
- * GET /api/debts/[id]/payments
- * Obtiene todos los pagos de una deuda
- */
-export async function GET(req: NextRequest, { params }: RouteParams) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const { id } = await params;
-    const payments = await getPaymentsByDebt(id);
-    
-    return NextResponse.json({
-      success: true,
-      payments,
-    });
-  } catch (error) {
-    console.error('Error en GET /api/debts/[id]/payments:', error);
-    return NextResponse.json(
-      { error: 'Error al obtener pagos' },
-      { status: 500 }
-    );
-  }
-}
+import { createPayment } from '@/lib/googleSheets';
 
 /**
  * POST /api/debts/[id]/payments
- * Registra un nuevo pago para una deuda
+ * Registra un pago para una deuda
  */
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -56,10 +21,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
     
-    const { id } = await params;
     const body = await req.json();
+    const { id } = await params;
     
-    // Validación básica
     if (!body.amount || !body.date) {
       return NextResponse.json(
         { error: 'Faltan campos requeridos: amount, date' },
@@ -67,8 +31,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
     
-    // Crear el pago
-    const newPayment = await createPayment(session.user.id, id, {
+    const payment = await createPayment(session.user.id, id, {
       amount: parseFloat(body.amount),
       date: body.date,
       type: body.type || 'regular',
@@ -77,12 +40,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     
     return NextResponse.json({
       success: true,
-      payment: newPayment,
+      payment,
     });
   } catch (error) {
-    console.error('Error en POST /api/debts/[id]/payments:', error);
+    console.error('Error en POST /api/debts/payments:', error);
     return NextResponse.json(
-      { error: 'Error al registrar pago' },
+      { 
+        error: 'Error al registrar pago',
+        details: error instanceof Error ? error.message : 'Error desconocido',
+      },
       { status: 500 }
     );
   }

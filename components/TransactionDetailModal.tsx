@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Edit, Trash2, Calendar, Target } from 'lucide-react';
+import { X, Edit, Trash2, Calendar, Target, Plus } from 'lucide-react';
 
 interface TransactionDetailModalProps {
   isOpen: boolean;
@@ -9,6 +9,7 @@ interface TransactionDetailModalProps {
   transaction: any;
   onEdit: () => void;
   onDelete: () => void;
+  onAddPayment?: () => void;
 }
 
 export default function TransactionDetailModal({ 
@@ -16,7 +17,8 @@ export default function TransactionDetailModal({
   onClose, 
   transaction, 
   onEdit, 
-  onDelete 
+  onDelete,
+  onAddPayment
 }: TransactionDetailModalProps) {
   if (!isOpen || !transaction) return null;
 
@@ -196,9 +198,18 @@ export default function TransactionDetailModal({
 
             {/* Actions */}
             <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {transaction.type === 'debt' && onAddPayment && (
+                <button
+                  onClick={onAddPayment}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors font-semibold"
+                >
+                  <Plus className="w-5 h-5" />
+                  Registrar Pago
+                </button>
+              )}
               <button
                 onClick={onEdit}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors font-semibold"
+                className={`${transaction.type === 'debt' && onAddPayment ? 'flex-1' : 'flex-1'} flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors font-semibold`}
               >
                 <Edit className="w-5 h-5" />
                 Editar

@@ -14,6 +14,7 @@ import FloatingActionButton from '@/components/FloatingActionButton'
 import TransactionModal from '@/components/TransactionModal'
 import TransactionDetailModal from '@/components/TransactionDetailModal'
 import ConfirmModal from '@/components/ConfirmModal'
+import PaymentModal from '@/components/PaymentModal'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -56,6 +57,8 @@ export default function Dashboard() {
   const [filterType, setFilterType] = useState<'all' | 'debt' | 'income' | 'expense' | 'goal'>('all')
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'name'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedDebt, setSelectedDebt] = useState<any>(null)
 
   // Hook para manejar deudas
   const {
@@ -79,6 +82,7 @@ export default function Dashboard() {
     createDebt,
     updateDebt,
     deleteDebt,
+    makePayment,
   } = useDebts()
 
   // Hooks para manejar otras transacciones
@@ -974,6 +978,13 @@ export default function Dashboard() {
             setShowTransactionModal(true);
           }
         }}
+        onAddPayment={() => {
+          if (selectedTransaction?.type === 'debt') {
+            setSelectedDebt(selectedTransaction);
+            setShowDetailModal(false);
+            setShowPaymentModal(true);
+          }
+        }}
         onDelete={() => {
           if (selectedTransaction?.type === 'income') {
             openConfirmModal(
@@ -1035,6 +1046,22 @@ export default function Dashboard() {
           cancelText="Cancelar"
         />
       )}
+
+      {/* Modal de Pagos */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => {
+          setShowPaymentModal(false);
+          setSelectedDebt(null);
+        }}
+        onSave={async (paymentData) => {
+          if (selectedDebt) {
+            await makePayment(selectedDebt.id, paymentData);
+          }
+        }}
+        debt={selectedDebt}
+        loading={debtsLoading}
+      />
     </div>
   )
 }
