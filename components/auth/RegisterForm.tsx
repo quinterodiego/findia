@@ -487,9 +487,10 @@ export default function RegisterForm({ onClose }: RegisterFormProps) {
           <button
             type="submit"
             disabled={isLoading || isGoogleLoading}
-            className="w-full bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-green-500 focus:ring-offset-2 cursor-pointer"
+            className="w-full bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-green-500 focus:ring-offset-2 cursor-pointer flex items-center justify-center gap-2"
             tabIndex={5}
           >
+            {isLoading && <AlertCircle className="animate-spin h-5 w-5" />}
             {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
           </button>
         </form>
