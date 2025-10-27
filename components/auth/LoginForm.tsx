@@ -181,31 +181,33 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
   // Pantalla de éxito
   if (showSuccess && !isRedirecting) {
     return (
-      <div className="flex flex-col items-center justify-center p-12">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", duration: 0.5 }}
-          className="bg-green-100 rounded-full p-4 mb-4"
-        >
-          <CheckCircle className="h-16 w-16 text-green-600" />
-        </motion.div>
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-2xl font-bold text-gray-900 mb-2"
-        >
-          ¡Inicio de sesión exitoso!
-        </motion.h2>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="text-gray-600 text-center"
-        >
-          Redirigiendo al dashboard...
-        </motion.p>
+      <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 w-full">
+        <div className="flex flex-col items-center justify-center">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="bg-green-100 rounded-full p-4 mb-4"
+          >
+            <CheckCircle className="h-16 w-16 text-green-600" />
+          </motion.div>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-2xl font-bold text-gray-900 mb-2"
+          >
+            ¡Inicio de sesión exitoso!
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="text-gray-600 text-center"
+          >
+            Redirigiendo al dashboard...
+          </motion.p>
+        </div>
       </div>
     )
   }
@@ -213,9 +215,11 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
   // Spinner de redirección
   if (isRedirecting) {
     return (
-      <div className="flex flex-col items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-gray-600 text-sm">Redirigiendo...</p>
+      <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 w-full">
+        <div className="flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600 text-sm">Redirigiendo...</p>
+        </div>
       </div>
     )
   }
@@ -223,9 +227,11 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
   // Spinner de loading inicial
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-        <p className="text-gray-600 text-sm">Iniciando sesión...</p>
+      <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 w-full">
+        <div className="flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600 text-sm">Iniciando sesión...</p>
+        </div>
       </div>
     )
   }
