@@ -349,7 +349,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
+    <div className="min-h-screen bg-[#f7f9fc] dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6">
@@ -370,7 +370,7 @@ export default function Dashboard() {
                 onClick={toggleDarkMode}
                 className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
               >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-gray-600" />}
+                {isDarkMode ? <Sun className="w-5 h-5 text-[#6A5AE0]" /> : <Moon className="w-5 h-5 text-[#6A5AE0]" />}
               </button>
 
               <div className="flex items-center gap-3">
@@ -409,7 +409,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           {/* Welcome Message */}
           <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-600 via-purple-600 to-[#5A4FD9] bg-clip-text text-transparent drop-shadow-sm">
               ¡Hola, {session?.user?.name?.split(' ')[0] || 'Usuario'}! 👋
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
@@ -418,9 +418,9 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 lg:gap-6 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 lg:gap-6 mb-6 overflow-x-auto snap-x snap-mandatory lg:overflow-visible">
             {/* Ingresos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Ingresos Totales</p>
@@ -438,7 +438,7 @@ export default function Dashboard() {
             </div>
 
             {/* Gastos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Totales</p>
@@ -456,7 +456,7 @@ export default function Dashboard() {
             </div>
 
             {/* Gastos Fijos */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Fijos</p>
@@ -474,7 +474,7 @@ export default function Dashboard() {
             </div>
 
             {/* Gastos Variables */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Variables</p>
@@ -492,7 +492,7 @@ export default function Dashboard() {
             </div>
 
             {/* Balance Neto */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Balance Neto</p>
@@ -510,7 +510,7 @@ export default function Dashboard() {
             </div>
 
             {/* Metas Completadas */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50 snap-start transition-transform duration-200 hover:scale-[1.02] hover:shadow-2xl cursor-pointer">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
