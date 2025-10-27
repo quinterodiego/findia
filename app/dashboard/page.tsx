@@ -342,7 +342,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center gap-3">
@@ -395,8 +395,8 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
+      <main className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        <div className="space-y-6">
           {/* Welcome Message */}
           <div className="text-center mb-12">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -408,75 +408,75 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6">
             {/* Ingresos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Ingresos Totales</p>
-                  <p className="text-2xl font-bold text-green-400 dark:text-green-300">
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Ingresos Totales</p>
+                  <p className="text-lg sm:text-2xl font-bold text-green-400 dark:text-green-300">
                     +${displayStats.totalIncomes.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-green-400 dark:text-green-300" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-400 dark:text-green-300" />
                 </div>
               </div>
             </div>
 
             {/* Gastos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Totales</p>
-                  <p className="text-2xl font-bold text-red-400 dark:text-red-300">
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Totales</p>
+                  <p className="text-lg sm:text-2xl font-bold text-red-400 dark:text-red-300">
                     -${displayStats.totalExpenses.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                  <Target className="w-6 h-6 text-red-400 dark:text-red-300" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                  <Target className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 dark:text-red-300" />
                 </div>
               </div>
             </div>
 
             {/* Balance Neto */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Balance Neto</p>
-                  <p className={`text-2xl font-bold ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`}>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Balance Neto</p>
+                  <p className={`text-lg sm:text-2xl font-bold ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`}>
                     {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {displayStats.netBalance >= 0 ? 'Positivo' : 'Negativo'}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
-                  <DollarSign className={`w-6 h-6 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`} />
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                  <DollarSign className={`w-5 h-5 sm:w-6 sm:h-6 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`} />
                 </div>
               </div>
             </div>
 
             {/* Metas Completadas */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
-                  <p className="text-2xl font-bold text-purple-400 dark:text-purple-300">
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
+                  <p className="text-lg sm:text-2xl font-bold text-purple-400 dark:text-purple-300">
                     {displayStats.goalsProgress.toFixed(1)}%
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {displayStats.completedGoals}/{displayStats.totalGoals} completadas
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                  <Trophy className="w-6 h-6 text-purple-400 dark:text-purple-300" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                  <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 dark:text-purple-300" />
                 </div>
               </div>
             </div>
@@ -484,9 +484,9 @@ export default function Dashboard() {
 
           {/* Analytics Section */}
           {(incomes.length > 0 || expenses.length > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6">
               {/* Gráfica de Ingresos vs Gastos */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-lg border border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Balance Financiero</h3>
@@ -568,7 +568,7 @@ export default function Dashboard() {
                 if (data.length === 0) return null;
 
                 return (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-lg border border-gray-100 dark:border-gray-700">
                     <div className="flex items-center justify-between mb-6">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
@@ -619,7 +619,7 @@ export default function Dashboard() {
           )}
 
           {/* Lista de Deudas */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-lg">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Mis Transacciones Financieras
