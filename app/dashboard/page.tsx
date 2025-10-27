@@ -698,7 +698,7 @@ export default function Dashboard() {
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => setFilterType('all')}
-                  className={`px-4 py-2 rounded-xl transition-colors ${
+                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'all'
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -708,7 +708,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={() => setFilterType('income')}
-                  className={`px-4 py-2 rounded-xl transition-colors ${
+                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'income'
                       ? 'bg-green-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -718,7 +718,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={() => setFilterType('expense')}
-                  className={`px-4 py-2 rounded-xl transition-colors ${
+                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'expense'
                       ? 'bg-orange-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -728,7 +728,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={() => setFilterType('goal')}
-                  className={`px-4 py-2 rounded-xl transition-colors ${
+                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'goal'
                       ? 'bg-purple-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -738,7 +738,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={() => setFilterType('debt')}
-                  className={`px-4 py-2 rounded-xl transition-colors ${
+                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'debt'
                       ? 'bg-red-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -754,7 +754,7 @@ export default function Dashboard() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer"
                 >
                   <option value="date">Ordenar por fecha</option>
                   <option value="amount">Ordenar por monto</option>
@@ -762,10 +762,11 @@ export default function Dashboard() {
                 </select>
                 <button
                   onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-white"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-white cursor-pointer"
                 >
                   {sortOrder === 'desc' ? '⬇️' : '⬆️'}
                 </button>
+              </div>
               </div>
             </div>
 
