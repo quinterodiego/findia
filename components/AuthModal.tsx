@@ -71,13 +71,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto py-8">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="relative w-full max-w-md"
+              className="relative w-full max-w-md my-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close button */}
@@ -139,7 +139,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                           ¿Ya tienes cuenta?{' '}
                           <button
                             onClick={() => setMode('login')}
-                            className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                            className="text-blue-600 hover:text-blue-800 font-semibold transition-colors cursor-pointer"
                           >
                             Inicia sesión
                           </button>
