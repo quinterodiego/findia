@@ -701,7 +701,7 @@ export default function Dashboard() {
                   onClick={() => setFilterType('all')}
                   className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'all'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-blue-400 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
@@ -711,7 +711,7 @@ export default function Dashboard() {
                   onClick={() => setFilterType('income')}
                   className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'income'
-                      ? 'bg-green-500 text-white'
+                      ? 'bg-green-400 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
@@ -721,7 +721,7 @@ export default function Dashboard() {
                   onClick={() => setFilterType('expense')}
                   className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'expense'
-                      ? 'bg-orange-500 text-white'
+                      ? 'bg-orange-400 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
@@ -731,7 +731,7 @@ export default function Dashboard() {
                   onClick={() => setFilterType('goal')}
                   className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'goal'
-                      ? 'bg-purple-500 text-white'
+                      ? 'bg-purple-400 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
@@ -741,7 +741,7 @@ export default function Dashboard() {
                   onClick={() => setFilterType('debt')}
                   className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'debt'
-                      ? 'bg-red-500 text-white'
+                      ? 'bg-red-400 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
@@ -838,11 +838,11 @@ export default function Dashboard() {
 
                     const getTransactionColor = () => {
                       switch (transaction.type) {
-                        case 'debt': return 'text-red-600 dark:text-red-400';
-                        case 'income': return 'text-green-600 dark:text-green-400';
-                        case 'expense': return 'text-orange-600 dark:text-orange-400';
-                        case 'goal': return 'text-purple-600 dark:text-purple-400';
-                        default: return 'text-gray-600 dark:text-gray-400';
+                        case 'debt': return 'text-red-400 dark:text-red-300';
+                        case 'income': return 'text-green-400 dark:text-green-300';
+                        case 'expense': return 'text-orange-400 dark:text-orange-300';
+                        case 'goal': return 'text-purple-400 dark:text-purple-300';
+                        default: return 'text-gray-400 dark:text-gray-300';
                       }
                     };
 
@@ -901,7 +901,7 @@ export default function Dashboard() {
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                               <div 
-                                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                className="bg-blue-400 h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${((transaction.amount - transaction.balance) / transaction.amount * 100)}%` }}
                               ></div>
                             </div>
@@ -916,7 +916,7 @@ export default function Dashboard() {
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                               <div 
-                                className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                                className="bg-purple-400 h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${((transaction.currentAmount || 0) / transaction.amount * 100)}%` }}
                               ></div>
                             </div>
