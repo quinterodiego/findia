@@ -7,6 +7,7 @@ import { signIn } from 'next-auth/react'
 
 interface RegisterFormProps {
   onClose?: () => void
+  onStateChange?: (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => void
 }
 
 interface FieldErrors {
@@ -23,7 +24,7 @@ interface RegisterFormData {
   confirmPassword: string
 }
 
-export default function RegisterForm({ onClose }: RegisterFormProps) {
+export default function RegisterForm({ onClose, onStateChange }: RegisterFormProps) {
   const [formData, setFormData] = useState<RegisterFormData>({
     name: '',
     email: '',
@@ -130,6 +131,11 @@ export default function RegisterForm({ onClose }: RegisterFormProps) {
     
     setFieldErrors(errors)
   }, [formData, touched])
+  
+  // Notificar cambios de estado al padre
+  useEffect(() => {
+    onStateChange?.(isLoading, showSuccess, isRedirecting)
+  }, [isLoading, showSuccess, isRedirecting, onStateChange])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

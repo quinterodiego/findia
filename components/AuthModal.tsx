@@ -14,6 +14,11 @@ interface AuthModalProps {
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode)
+  const [isProcessing, setIsProcessing] = useState(false)
+  
+  const handleRegisterStateChange = (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => {
+    setIsProcessing(isLoading || showSuccess || isRedirecting)
+  }
 
   // Actualizar el modo cuando cambie initialMode
   useEffect(() => {
@@ -117,20 +122,22 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <RegisterForm onClose={onClose} />
+                    <RegisterForm onClose={onClose} onStateChange={handleRegisterStateChange} />
                     
-                    {/* Toggle to Login */}
-                    <div className="mt-6 text-center bg-white rounded-b-2xl pb-6">
-                      <p className="text-gray-600">
-                        ¿Ya tienes cuenta?{' '}
-                        <button
-                          onClick={() => setMode('login')}
-                          className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
-                        >
-                          Inicia sesión
-                        </button>
-                      </p>
-                    </div>
+                    {/* Toggle to Login - Solo se muestra si NO está procesando */}
+                    {!isProcessing && (
+                      <div className="mt-6 text-center bg-white rounded-b-2xl pb-6">
+                        <p className="text-gray-600">
+                          ¿Ya tienes cuenta?{' '}
+                          <button
+                            onClick={() => setMode('login')}
+                            className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                          >
+                            Inicia sesión
+                          </button>
+                        </p>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
