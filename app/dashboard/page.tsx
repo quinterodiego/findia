@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -476,6 +477,78 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {/* Analytics Section */}
+          {(incomes.length > 0 || expenses.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Gráfica de Ingresos vs Gastos */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ingresos vs Gastos</h3>
+                  <BarChart3 className="w-5 h-5 text-gray-400" />
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={[
+                    { name: 'Total', Ingresos: displayStats.totalIncomes, Gastos: displayStats.totalExpenses }
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="Ingresos" fill="#10b981" />
+                    <Bar dataKey="Gastos" fill="#ef4444" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Gastos por Categoría */}
+              {(() => {
+                const categoryExpenses = expenses.reduce((acc, expense) => {
+                  const category = expense.category || 'Sin categoría';
+                  acc[category] = (acc[category] || 0) + expense.amount;
+                  return acc;
+                }, {} as Record<string, number>);
+
+                const data = Object.entries(categoryExpenses).map(([name, value]) => ({
+                  name,
+                  value
+                }));
+
+                const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899'];
+
+                if (data.length === 0) return null;
+
+                return (
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
+                      <RechartPieChart className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <RechartPieChart>
+                        <Pie
+                          data={data}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {data.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </RechartPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Lista de Deudas */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
