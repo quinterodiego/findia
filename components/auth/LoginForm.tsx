@@ -35,6 +35,16 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
+  
+  // Spinner de loading global
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p className="text-gray-600 text-sm">Iniciando sesión...</p>
+      </div>
+    )
+  }
 
   // Función para validar email
   const validateEmail = (email: string): string | undefined => {
