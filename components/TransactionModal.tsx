@@ -42,6 +42,36 @@ const typeConfig = {
   }
 };
 
+const expenseCategories = [
+  'Alimentación',
+  'Transporte',
+  'Servicios (Luz, Agua, Gas)',
+  'Vivienda',
+  'Salud',
+  'Educación',
+  'Entretenimiento',
+  'Tecnología',
+  'Ropa',
+  'Otros'
+];
+
+const incomeCategories = [
+  'Salario',
+  'Freelance',
+  'Negocio',
+  'Inversiones',
+  'Otros ingresos'
+];
+
+const goalCategories = [
+  'Ahorro de emergencia',
+  'Compras',
+  'Viajes',
+  'Educación',
+  'Vivienda',
+  'Otros'
+];
+
 export default function TransactionModal({ isOpen, onClose, type, onSave, loading = false, editingTransaction }: TransactionModalProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -237,6 +267,29 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 />
               </div>
               {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount}</p>}
+            </div>
+
+            {/* Categoría */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Categoría {type === 'goal' ? '(opcional)' : '(opcional)'}
+              </label>
+              <select
+                value={formData.category}
+                onChange={(e) => handleInputChange('category', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Seleccionar categoría...</option>
+                {type === 'expense' && expenseCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+                {type === 'income' && incomeCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+                {type === 'goal' && goalCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
 
             {/* Campos específicos para deudas */}
