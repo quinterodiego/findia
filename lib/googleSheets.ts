@@ -136,55 +136,109 @@ export async function initializeSheets() {
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEETS.USERS}!A1:G1`,
+        range: `${SHEETS.USERS}!A1:Z1`,
       });
       
       const currentHeaders = response.data.values?.[0] || [];
       
-      // Si no tiene columna password, agregarla
-      if (currentHeaders.length === 6 && !currentHeaders.includes('password')) {
-        // Actualizar headers
+      // Si tiene headers antiguos (sin password o con estructura vieja)
+      if (!currentHeaders.includes('password')) {
+        console.log('🔄 Migrando hoja Users a nuevo formato...');
+        
+        // Leer todas las filas
+        const allRowsResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${SHEETS.USERS}!A1:G`,
+        });
+        
+        const rows = allRowsResponse.data.values || [];
+        
+        if (rows.length === 0) {
+          // Si no hay datos, solo actualizar headers
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEETS.USERS}!A1:G1`,
+            valueInputOption: 'RAW',
+            requestBody: {
+              values: [['id', 'email', 'password', 'name', 'image', 'createdAt', 'lastLogin']]
+            }
+          });
+          console.log('✅ Headers actualizados en hoja Users');
+          return;
+        }
+        
+        // Si hay datos, necesitamos migrarlos
+        // Detectar el formato antiguo
+        const oldHeaders = rows[0]; // Primera fila son los headers
+        const dataRows = rows.slice(1); // Resto son los datos
+        
+        // Crear datos migrados con la estructura nueva
+        const migratedRows = dataRows.map(row => {
+          // Nuevo formato: [id, email, password, name, image, createdAt, lastLogin]
+          // Mapear desde el formato viejo
+          
+          // Intentar detectar qué columnas tienen qué datos
+          const rowData: any = {
+            id: row[0] || '',
+            email: row[1] || '',
+            password: '', // Nueva columna
+            name: '',
+            image: '',
+            createdAt: '',
+            lastLogin: ''
+          };
+          
+          // Detectar automáticamente la estructura basada en los datos
+          if (row.length >= 4) {
+            // Si el campo [2] es un hash de bcrypt (empieza con $2b$), es el password viejo
+            if (row[2]?.toString().startsWith('$2b$')) {
+              rowData.password = row[2]; // Ya tiene password
+            }
+            // El campo [3] puede ser el name
+            if (row[3]) {
+              rowData.name = row[3];
+            }
+          }
+          
+          // Buscar timestamps en las últimas columnas
+          for (let i = row.length - 1; i >= 0; i--) {
+            if (row[i] && row[i].toString().includes('T') && row[i].toString().includes('Z')) {
+              if (!rowData.createdAt) {
+                rowData.createdAt = row[i].toString();
+              } else if (!rowData.lastLogin) {
+                rowData.lastLogin = row[i].toString();
+              }
+            }
+          }
+          
+          return [
+            rowData.id,
+            rowData.email,
+            rowData.password,
+            rowData.name,
+            rowData.image,
+            rowData.createdAt || new Date().toISOString(),
+            rowData.lastLogin || new Date().toISOString()
+          ];
+        });
+        
+        // Actualizar headers Y datos
         await sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
-          range: `${SHEETS.USERS}!A1:G1`,
+          range: `${SHEETS.USERS}!A1`,
           valueInputOption: 'RAW',
           requestBody: {
-            values: [['id', 'email', 'password', 'name', 'image', 'createdAt', 'lastLogin']]
+            values: [
+              ['id', 'email', 'password', 'name', 'image', 'createdAt', 'lastLogin'],
+              ...migratedRows
+            ]
           }
         });
         
-        // Insertar columna vacía para password en todas las filas existentes
-        const allRows = await sheets.spreadsheets.values.get({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${SHEETS.USERS}!A2:G`,
-        });
-        
-        const rows = allRows.data.values || [];
-        if (rows.length > 0) {
-          const updatedRows = rows.map(row => [
-            row[0], // id
-            row[1], // email
-            '',     // password (vacío)
-            row[2] || '', // name (index shifted)
-            row[3] || '', // image
-            row[4] || '', // createdAt
-            row[5] || ''  // lastLogin
-          ]);
-          
-          await sheets.spreadsheets.values.update({
-            spreadsheetId: SPREADSHEET_ID,
-            range: `${SHEETS.USERS}!A2`,
-            valueInputOption: 'RAW',
-            requestBody: {
-              values: updatedRows
-            }
-          });
-        }
-        
-        console.log('✅ Columna password agregada a la hoja Users');
+        console.log('✅ Hoja Users migrada correctamente con', migratedRows.length, 'usuarios');
       }
     } catch (error) {
-      console.log('ℹ️ Hoja Users ya tiene formato correcto o no existe aún');
+      console.log('ℹ️ Error en migración o hoja Users ya tiene formato correcto:', error);
     }
     
     // Crear hoja de Expenses
