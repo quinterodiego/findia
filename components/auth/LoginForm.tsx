@@ -8,6 +8,7 @@ import { signIn } from 'next-auth/react'
 interface LoginFormProps {
   onForgotPassword?: () => void
   onClose?: () => void
+  onStateChange?: (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => void
 }
 
 interface FieldErrors {
@@ -20,7 +21,7 @@ interface LoginFormData {
   password: string
 }
 
-export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps) {
+export default function LoginForm({ onForgotPassword, onClose, onStateChange }: LoginFormProps) {
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
@@ -69,6 +70,11 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
     
     setFieldErrors(errors)
   }, [formData, touched])
+  
+  // Notificar cambios de estado al padre
+  useEffect(() => {
+    onStateChange?.(isLoading, showSuccess, isRedirecting)
+  }, [isLoading, showSuccess, isRedirecting, onStateChange])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

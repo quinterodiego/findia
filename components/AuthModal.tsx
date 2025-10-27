@@ -15,9 +15,14 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [loginIsProcessing, setLoginIsProcessing] = useState(false)
   
   const handleRegisterStateChange = (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => {
     setIsProcessing(isLoading || showSuccess || isRedirecting)
+  }
+  
+  const handleLoginStateChange = (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => {
+    setLoginIsProcessing(isLoading || showSuccess || isRedirecting)
   }
 
   // Actualizar el modo cuando cambie initialMode
@@ -97,20 +102,23 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     <LoginForm
                       onForgotPassword={() => setMode('forgot')}
                       onClose={onClose}
+                      onStateChange={handleLoginStateChange}
                     />
                     
-                    {/* Toggle to Register */}
-                    <div className="mt-6 text-center bg-white rounded-b-2xl pb-6">
-                      <p className="text-gray-600">
-                        ¿No tienes cuenta?{' '}
-                        <button
-                          onClick={() => setMode('register')}
-                          className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
-                        >
-                          Regístrate gratis
-                        </button>
-                      </p>
-                    </div>
+                    {/* Toggle to Register - Solo se muestra si NO está procesando */}
+                    {!loginIsProcessing && (
+                      <div className="mt-6 text-center bg-white rounded-b-2xl pb-6">
+                        <p className="text-gray-600">
+                          ¿No tienes cuenta?{' '}
+                          <button
+                            onClick={() => setMode('register')}
+                            className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                          >
+                            Regístrate gratis
+                          </button>
+                        </p>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
