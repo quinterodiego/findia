@@ -132,6 +132,61 @@ export async function initializeSheets() {
       'lastLogin',
     ]);
     
+    // Verificar y actualizar headers de Users si falta la columna password
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEETS.USERS}!A1:G1`,
+      });
+      
+      const currentHeaders = response.data.values?.[0] || [];
+      
+      // Si no tiene columna password, agregarla
+      if (currentHeaders.length === 6 && !currentHeaders.includes('password')) {
+        // Actualizar headers
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${SHEETS.USERS}!A1:G1`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [['id', 'email', 'password', 'name', 'image', 'createdAt', 'lastLogin']]
+          }
+        });
+        
+        // Insertar columna vacía para password en todas las filas existentes
+        const allRows = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${SHEETS.USERS}!A2:G`,
+        });
+        
+        const rows = allRows.data.values || [];
+        if (rows.length > 0) {
+          const updatedRows = rows.map(row => [
+            row[0], // id
+            row[1], // email
+            '',     // password (vacío)
+            row[2] || '', // name (index shifted)
+            row[3] || '', // image
+            row[4] || '', // createdAt
+            row[5] || ''  // lastLogin
+          ]);
+          
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEETS.USERS}!A2`,
+            valueInputOption: 'RAW',
+            requestBody: {
+              values: updatedRows
+            }
+          });
+        }
+        
+        console.log('✅ Columna password agregada a la hoja Users');
+      }
+    } catch (error) {
+      console.log('ℹ️ Hoja Users ya tiene formato correcto o no existe aún');
+    }
+    
     // Crear hoja de Expenses
     await createSheetIfNotExists(SHEETS.EXPENSES, [
       'id',
