@@ -349,7 +349,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f9fc] dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-blue-900">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900' : 'bg-[#f7f9fc]'}`}>
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6">
