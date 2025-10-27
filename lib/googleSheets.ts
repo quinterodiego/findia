@@ -778,6 +778,23 @@ export async function saveUser(user: {
   password?: string;
 }) {
   try {
+    // Primero verificar si la hoja tiene el formato correcto
+    try {
+      const headersResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEETS.USERS}!A1:G1`,
+      });
+      
+      const headers = headersResponse.data.values?.[0] || [];
+      if (!headers.includes('password')) {
+        // Ejecutar migración automáticamente
+        console.log('🔄 Ejecutando migración automática de Users...');
+        await initializeSheets();
+      }
+    } catch (migrationError) {
+      console.log('⚠️ No se pudo verificar formato de hoja, continuando...');
+    }
+    
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEETS.USERS}!A2:G`,
