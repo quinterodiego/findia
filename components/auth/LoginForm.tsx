@@ -38,6 +38,146 @@ export default function LoginForm({ onForgotPassword, onClose }: LoginFormProps)
   const [showSuccess, setShowSuccess] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
 
+  // Función para validar email
+  const validateEmail = (email: string): string | undefined => {
+    if (!email) return 'El email es requerido'
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) return 'Formato de email inválido'
+    return undefined
+  }
+
+  // Función para validar contraseña
+  const validatePassword = (password: string): string | undefined => {
+    if (!password) return 'La contraseña es requerida'
+    if (password.length < 6) return 'La contraseña debe tener al menos 6 caracteres'
+    return undefined
+  }
+
+  // Validar campos cuando cambian
+  useEffect(() => {
+    const errors: FieldErrors = {}
+    
+    if (touched.email && formData.email) {
+      const emailError = validateEmail(formData.email)
+      if (emailError) errors.email = emailError
+    }
+    
+    if (touched.password && formData.password) {
+      const passwordError = validatePassword(formData.password)
+      if (passwordError) errors.password = passwordError
+    }
+    
+    setFieldErrors(errors)
+  }, [formData, touched])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage(null)
+    setIsLoading(true)
+
+    // Marcar todos los campos como tocados para mostrar errores
+    setTouched({ email: true, password: true })
+
+    // Validar todos los campos
+    const emailError = validateEmail(formData.email)
+    const passwordError = validatePassword(formData.password)
+
+    if (emailError || passwordError) {
+      setFieldErrors({
+        email: emailError,
+        password: passwordError
+      })
+      setMessage({ type: 'error', text: 'Por favor corrige los errores en el formulario' })
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      // Iniciar sesión con credenciales
+      const result = await signIn('credentials', {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+        callbackUrl: '/dashboard'
+      })
+      
+      if (result?.error) {
+        setMessage({ type: 'error', text: 'Email o contraseña incorrectos' })
+      } else {
+        // Mostrar estado de éxito
+        setShowSuccess(true)
+        setIsLoading(false)
+        
+        // Esperar un momento y luego mostrar spinner de redirección
+        setTimeout(() => {
+          setIsRedirecting(true)
+          // Redirigir al dashboard
+          setTimeout(() => {
+            window.location.href = '/dashboard'
+          }, 1500)
+        }, 2000)
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      setMessage({ type: 'error', text: 'Error al iniciar sesión. Verifica tus credenciales.' })
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsGoogleLoading(true)
+      setGoogleError(null)
+      await signIn('google', { 
+        callbackUrl: '/dashboard',
+        redirect: true
+      })
+    } catch (err) {
+      console.error('Error signing in:', err)
+      setGoogleError('Error al conectar con Google')
+    } finally {
+      setIsGoogleLoading(false)
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleBlur = (field: 'email' | 'password') => {
+    setTouched(prev => ({
+      ...prev,
+      [field]: true
+    }))
+  }
+
+  const handleFocus = () => {
+    setMessage(null) // Limpiar mensajes cuando el usuario empiece a escribir
+    setGoogleError(null) // También limpiar errores de Google
+  }
+
+  // Navegación por teclado
+  const handleKeyDown = (e: React.KeyboardEvent, field: 'email' | 'password') => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (field === 'email') {
+        // Ir al siguiente campo
+        const passwordInput = document.querySelector('input[name="password"]') as HTMLInputElement
+        passwordInput?.focus()
+      } else if (field === 'password') {
+        // Si estamos en el campo password y hay texto, enviar el formulario
+        if (formData.password && formData.email) {
+          const form = e.currentTarget.closest('form')
+          form?.requestSubmit()
+        }
+      }
+    }
+  }
+
   // Pantalla de éxito
   if (showSuccess && !isRedirecting) {
     return (
