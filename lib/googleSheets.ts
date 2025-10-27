@@ -167,60 +167,39 @@ export async function initializeSheets() {
           return;
         }
         
-        // Si hay datos, necesitamos migrarlos
-        // Detectar el formato antiguo
-        const oldHeaders = rows[0]; // Primera fila son los headers
-        const dataRows = rows.slice(1); // Resto son los datos
+        // Si hay datos, necesitamos migrarlos correctamente
+        const oldHeaders = rows[0] || [];
+        const dataRows = rows.slice(1);
         
-        // Crear datos migrados con la estructura nueva
-        const migratedRows = dataRows.map(row => {
-          // Nuevo formato: [id, email, password, name, image, createdAt, lastLogin]
-          // Mapear desde el formato viejo
+        console.log('📋 Headers antiguos:', oldHeaders);
+        console.log('📊 Filas de datos:', dataRows.length);
+        
+        // Crear mapa de índices de columnas viejas
+        const columnIndexes: any = {};
+        oldHeaders.forEach((header, index) => {
+          const lowerHeader = header?.toString().toLowerCase() || '';
           
-          // Intentar detectar qué columnas tienen qué datos
-          const rowData: any = {
-            id: row[0] || '',
-            email: row[1] || '',
-            password: '', // Nueva columna
-            name: '',
-            image: '',
-            createdAt: '',
-            lastLogin: ''
-          };
-          
-          // Detectar automáticamente la estructura basada en los datos
-          if (row.length >= 4) {
-            // Si el campo [2] es un hash de bcrypt (empieza con $2b$), es el password viejo
-            if (row[2]?.toString().startsWith('$2b$')) {
-              rowData.password = row[2]; // Ya tiene password
-            }
-            // El campo [3] puede ser el name
-            if (row[3]) {
-              rowData.name = row[3];
-            }
-          }
-          
-          // Buscar timestamps en las últimas columnas
-          for (let i = row.length - 1; i >= 0; i--) {
-            if (row[i] && row[i].toString().includes('T') && row[i].toString().includes('Z')) {
-              if (!rowData.createdAt) {
-                rowData.createdAt = row[i].toString();
-              } else if (!rowData.lastLogin) {
-                rowData.lastLogin = row[i].toString();
-              }
-            }
-          }
-          
-          return [
-            rowData.id,
-            rowData.email,
-            rowData.password,
-            rowData.name,
-            rowData.image,
-            rowData.createdAt || new Date().toISOString(),
-            rowData.lastLogin || new Date().toISOString()
-          ];
+          if (lowerHeader === 'id') columnIndexes.id = index;
+          if (lowerHeader === 'email') columnIndexes.email = index;
+          if (lowerHeader.includes('name') && !columnIndexes.name) columnIndexes.name = index;
+          if (lowerHeader.includes('picture') || lowerHeader.includes('image')) columnIndexes.image = index;
+          if (lowerHeader.includes('provider')) columnIndexes.provider = index;
+          if (lowerHeader.includes('created')) columnIndexes.createdAt = index;
+          if (lowerHeader.includes('login') || lowerHeader.includes('admin')) columnIndexes.lastLogin = index;
         });
+        
+        console.log('🗺️ Mapeo de columnas:', columnIndexes);
+        
+        // Crear datos migrados
+        const migratedRows = dataRows.map(row => [
+          columnIndexes.id !== undefined ? row[columnIndexes.id] : row[0],
+          columnIndexes.email !== undefined ? row[columnIndexes.email] : row[1],
+          '', // password vacío para usuarios existentes (OK si usan Google OAuth)
+          columnIndexes.name !== undefined ? row[columnIndexes.name] : '',
+          columnIndexes.image !== undefined ? row[columnIndexes.image] : '',
+          columnIndexes.createdAt !== undefined ? row[columnIndexes.createdAt] : new Date().toISOString(),
+          columnIndexes.lastLogin !== undefined ? row[columnIndexes.lastLogin] : new Date().toISOString()
+        ]);
         
         // Actualizar headers Y datos
         await sheets.spreadsheets.values.update({
