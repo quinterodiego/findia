@@ -482,22 +482,65 @@ export default function Dashboard() {
           {(incomes.length > 0 || expenses.length > 0) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               {/* Gráfica de Ingresos vs Gastos */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ingresos vs Gastos</h3>
-                  <BarChart3 className="w-5 h-5 text-gray-400" />
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Balance Financiero</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos vs Gastos</p>
+                  </div>
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                    <BarChart3 className="w-6 h-6 text-white" />
+                  </div>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={[
-                    { name: 'Total', Ingresos: displayStats.totalIncomes, Gastos: displayStats.totalExpenses }
-                  ]}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="Ingresos" fill="#10b981" />
-                    <Bar dataKey="Gastos" fill="#ef4444" />
+                  <BarChart 
+                    data={[
+                      { name: 'Total', Ingresos: displayStats.totalIncomes, Gastos: displayStats.totalExpenses }
+                    ]}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="#6b7280"
+                      fontSize={12}
+                      tick={{ fill: '#6b7280' }}
+                    />
+                    <YAxis 
+                      stroke="#6b7280"
+                      fontSize={12}
+                      tick={{ fill: '#6b7280' }}
+                      tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                      formatter={(value: number) => `$${value.toLocaleString('es-CO')}`}
+                    />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '20px' }}
+                      iconSize={12}
+                      formatter={(value) => (
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{value}</span>
+                      )}
+                    />
+                    <Bar 
+                      dataKey="Ingresos" 
+                      fill="#10b981"
+                      radius={[8, 8, 0, 0]}
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(16, 185, 129, 0.3))' }}
+                    />
+                    <Bar 
+                      dataKey="Gastos" 
+                      fill="#ef4444"
+                      radius={[8, 8, 0, 0]}
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -520,10 +563,15 @@ export default function Dashboard() {
                 if (data.length === 0) return null;
 
                 return (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
-                      <RechartPieChart className="w-5 h-5 text-gray-400" />
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Distribución de gastos</p>
+                      </div>
+                      <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
+                        <PieChart className="w-6 h-6 text-white" />
+                      </div>
                     </div>
                     <ResponsiveContainer width="100%" height={300}>
                       <RechartPieChart>
@@ -531,17 +579,32 @@ export default function Dashboard() {
                           data={data}
                           cx="50%"
                           cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={true}
+                          label={({ name, percent }) => {
+                            if (percent < 0.05) return ''; // Ocultar labels muy pequeños
+                            return `${name}: ${(percent * 100).toFixed(0)}%`;
+                          }}
                           outerRadius={100}
+                          innerRadius={40}
                           fill="#8884d8"
                           dataKey="value"
+                          stroke="#fff"
+                          strokeWidth={2}
                         >
                           {data.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip 
+                          contentStyle={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            border: 'none',
+                            borderRadius: '12px',
+                            padding: '12px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                          formatter={(value: number) => `$${value.toLocaleString('es-CO')}`}
+                        />
                       </RechartPieChart>
                     </ResponsiveContainer>
                   </div>
