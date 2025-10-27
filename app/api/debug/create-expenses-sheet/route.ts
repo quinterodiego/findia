@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       range: 'Expenses!A1',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [['id', 'userId', 'name', 'amount', 'date', 'category', 'notes', 'isRecurring', 'frequency', 'createdAt']],
+        values: [['id', 'userId', 'name', 'amount', 'date', 'category', 'expenseType', 'notes', 'isRecurring', 'frequency', 'createdAt']],
       },
     });
 
