@@ -107,7 +107,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     
                     {/* Toggle to Register - Solo se muestra si NO está procesando */}
                     {!loginIsProcessing && (
-                      <div className="mt-6 text-center bg-white rounded-b-2xl pb-6">
+                      <div className="mt-6 text-center pb-6">
                         <p className="text-gray-600">
                           ¿No tienes cuenta?{' '}
                           <button
@@ -134,7 +134,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     
                     {/* Toggle to Login - Solo se muestra si NO está procesando */}
                     {!isProcessing && (
-                      <div className="mt-6 text-center bg-white rounded-b-2xl pb-6">
+                      <div className="mt-6 text-center pb-6">
                         <p className="text-gray-600">
                           ¿Ya tienes cuenta?{' '}
                           <button
