@@ -364,9 +364,9 @@ export default function Dashboard() {
         <div className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center">
               <Image 
-                src="/images/logo02.png" 
+                src="/images/logo01.png" 
                 alt="FindIA Logo" 
                 width={40} 
                 height={40}
