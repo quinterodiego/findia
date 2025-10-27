@@ -323,10 +323,20 @@ export default function Dashboard() {
   const completedGoals = goals.filter(goal => (goal.currentAmount || 0) >= goal.amount).length;
   const totalGoals = goals.length;
   const goalsProgress = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0;
+  
+  // Calcular gastos fijos y variables
+  const totalFixedExpenses = expenses
+    .filter(expense => expense.expenseType === 'fixed')
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  const totalVariableExpenses = expenses
+    .filter(expense => expense.expenseType === 'variable')
+    .reduce((sum, expense) => sum + expense.amount, 0);
 
   const displayStats = {
     totalIncomes,
     totalExpenses,
+    totalFixedExpenses,
+    totalVariableExpenses,
     netBalance,
     goalsProgress,
     completedGoals,
@@ -408,7 +418,7 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 mb-6">
             {/* Ingresos Totales */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
               <div className="flex items-center justify-between">
@@ -477,6 +487,24 @@ export default function Dashboard() {
                 </div>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
                   <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 dark:text-purple-300" />
+                </div>
+              </div>
+            </div>
+
+            {/* Gastos Fijos */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Gastos Fijos</p>
+                  <p className="text-lg sm:text-2xl font-bold text-orange-400 dark:text-orange-300">
+                    -${displayStats.totalFixedExpenses.toLocaleString('es-CO')}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {expenses.filter(e => e.expenseType === 'fixed').length} fijos
+                  </p>
+                </div>
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                  <Target className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400 dark:text-orange-300" />
                 </div>
               </div>
             </div>
