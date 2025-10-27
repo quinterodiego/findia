@@ -16,6 +16,20 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode)
   const [isProcessing, setIsProcessing] = useState(false)
   const [loginIsProcessing, setLoginIsProcessing] = useState(false)
+
+  // Escuchar eventos personalizados para cambiar de modo
+  useEffect(() => {
+    const handleSwitchToLogin = () => setMode('login')
+    const handleSwitchToRegister = () => setMode('register')
+
+    window.addEventListener('switchToLogin', handleSwitchToLogin)
+    window.addEventListener('switchToRegister', handleSwitchToRegister)
+
+    return () => {
+      window.removeEventListener('switchToLogin', handleSwitchToLogin)
+      window.removeEventListener('switchToRegister', handleSwitchToRegister)
+    }
+  }, [])
   
   const handleRegisterStateChange = (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => {
     setIsProcessing(isLoading || showSuccess || isRedirecting)
@@ -104,21 +118,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       onClose={onClose}
                       onStateChange={handleLoginStateChange}
                     />
-                    
-                    {/* Toggle to Register - Solo se muestra si NO está procesando */}
-                    {!loginIsProcessing && (
-                      <div className="mt-6 text-center pb-6">
-                        <p className="text-gray-600">
-                          ¿No tienes cuenta?{' '}
-                          <button
-                            onClick={() => setMode('register')}
-                            className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
-                          >
-                            Regístrate gratis
-                          </button>
-                        </p>
-                      </div>
-                    )}
                   </motion.div>
                 )}
 
@@ -131,21 +130,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     transition={{ duration: 0.2 }}
                   >
                     <RegisterForm onClose={onClose} onStateChange={handleRegisterStateChange} />
-                    
-                    {/* Toggle to Login - Solo se muestra si NO está procesando */}
-                    {!isProcessing && (
-                      <div className="mt-6 text-center pb-6">
-                        <p className="text-gray-600">
-                          ¿Ya tienes cuenta?{' '}
-                          <button
-                            onClick={() => setMode('login')}
-                            className="text-blue-600 hover:text-blue-800 font-semibold transition-colors cursor-pointer"
-                          >
-                            Inicia sesión
-                          </button>
-                        </p>
-                      </div>
-                    )}
                   </motion.div>
                 )}
 

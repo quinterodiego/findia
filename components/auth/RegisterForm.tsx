@@ -588,6 +588,25 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
           </svg>
           {isGoogleLoading ? 'Conectando...' : 'Continuar con Google'}
         </button>
+
+        {/* Toggle to Login */}
+        <div className="mt-6 text-center pb-6">
+          <p className="text-gray-600">
+            ¿Ya tienes cuenta?{' '}
+            <button
+              onClick={() => {
+                // Esta función será manejada por el AuthModal
+                if (typeof window !== 'undefined') {
+                  const event = new CustomEvent('switchToLogin')
+                  window.dispatchEvent(event)
+                }
+              }}
+              className="text-blue-600 hover:text-blue-800 font-semibold transition-colors cursor-pointer"
+            >
+              Inicia sesión
+            </button>
+          </p>
+        </div>
       </div>
     </motion.div>
   )

@@ -357,7 +357,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
             <label className="flex items-center">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
               />
               <span className="ml-2 text-sm text-gray-600">Recordarme</span>
             </label>
@@ -366,7 +366,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
               <button
                 type="button"
                 onClick={onForgotPassword}
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200"
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
                 tabIndex={4}
               >
                 ¿Olvidaste tu contraseña?
@@ -377,7 +377,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
           <button
             type="submit"
             disabled={isLoading || isGoogleLoading}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer"
             tabIndex={3}
           >
             {isLoading && <AlertCircle className="animate-spin h-5 w-5" />}
@@ -396,7 +396,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
         <button
           onClick={handleGoogleSignIn}
           disabled={isLoading || isGoogleLoading}
-          className="w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-[1.02] focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+          className="w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-[1.02] focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 cursor-pointer"
         >
           <svg width="18" height="18" viewBox="0 0 18 18">
             <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
@@ -406,6 +406,25 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
           </svg>
           {isGoogleLoading ? 'Conectando...' : 'Continuar con Google'}
         </button>
+
+        {/* Toggle to Register */}
+        <div className="mt-6 text-center pb-6">
+          <p className="text-gray-600">
+            ¿No tienes cuenta?{' '}
+            <button
+              onClick={() => {
+                // Esta función será manejada por el AuthModal
+                if (typeof window !== 'undefined') {
+                  const event = new CustomEvent('switchToRegister')
+                  window.dispatchEvent(event)
+                }
+              }}
+              className="text-blue-600 hover:text-blue-800 font-semibold transition-colors cursor-pointer"
+            >
+              Regístrate gratis
+            </button>
+          </p>
+        </div>
       </div>
     </motion.div>
   )
