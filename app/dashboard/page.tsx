@@ -82,6 +82,8 @@ export default function Dashboard() {
     loading: expensesLoading,
     error: expensesError,
     createExpense,
+    updateExpense,
+    deleteExpense,
   } = useExpenses()
 
   const {
@@ -89,6 +91,8 @@ export default function Dashboard() {
     loading: goalsLoading,
     error: goalsError,
     createGoal,
+    updateGoal,
+    deleteGoal,
   } = useGoals()
 
   // Cargar datos al montar el componente
@@ -160,18 +164,36 @@ export default function Dashboard() {
   const handleSaveTransaction = async (data: TransactionData) => {
     console.log('🔍 handleSaveTransaction llamado con:', { transactionType, data, editingIncome });
     
-    // Si estamos editando un ingreso
-    if (editingIncome && editingIncome.type === 'income') {
-      console.log('✏️ Editando ingreso:', editingIncome.id);
+    // Si estamos editando
+    if (editingIncome) {
       try {
-        const result = await updateIncome(editingIncome.id, data);
-        if (result.success) {
-          console.log('✅ Ingreso actualizado exitosamente:', result.income);
-        } else {
-          console.error('❌ Error actualizando ingreso:', result.error);
+        if (editingIncome.type === 'income') {
+          console.log('✏️ Editando ingreso:', editingIncome.id);
+          const result = await updateIncome(editingIncome.id, data);
+          if (result.success) {
+            console.log('✅ Ingreso actualizado exitosamente:', result.income);
+          } else {
+            console.error('❌ Error actualizando ingreso:', result.error);
+          }
+        } else if (editingIncome.type === 'expense') {
+          console.log('✏️ Editando gasto:', editingIncome.id);
+          const result = await updateExpense(editingIncome.id, data);
+          if (result.success) {
+            console.log('✅ Gasto actualizado exitosamente:', result.expense);
+          } else {
+            console.error('❌ Error actualizando gasto:', result.error);
+          }
+        } else if (editingIncome.type === 'goal') {
+          console.log('✏️ Editando meta:', editingIncome.id);
+          const result = await updateGoal(editingIncome.id, data);
+          if (result.success) {
+            console.log('✅ Meta actualizada exitosamente:', result.goal);
+          } else {
+            console.error('❌ Error actualizando meta:', result.error);
+          }
         }
       } catch (error) {
-        console.error('❌ Error actualizando ingreso:', error);
+        console.error('❌ Error actualizando transacción:', error);
       }
       return;
     }
@@ -602,12 +624,34 @@ export default function Dashboard() {
             setTransactionType('income');
             setShowDetailModal(false);
             setShowTransactionModal(true);
+          } else if (selectedTransaction?.type === 'expense') {
+            setEditingIncome(selectedTransaction);
+            setTransactionType('expense');
+            setShowDetailModal(false);
+            setShowTransactionModal(true);
+          } else if (selectedTransaction?.type === 'goal') {
+            setEditingIncome(selectedTransaction);
+            setTransactionType('goal');
+            setShowDetailModal(false);
+            setShowTransactionModal(true);
           }
         }}
         onDelete={() => {
           if (selectedTransaction?.type === 'income') {
             if (confirm('¿Estás seguro de eliminar este ingreso?')) {
               deleteIncome(selectedTransaction.id);
+              setShowDetailModal(false);
+              setSelectedTransaction(null);
+            }
+          } else if (selectedTransaction?.type === 'expense') {
+            if (confirm('¿Estás seguro de eliminar este gasto?')) {
+              deleteExpense(selectedTransaction.id);
+              setShowDetailModal(false);
+              setSelectedTransaction(null);
+            }
+          } else if (selectedTransaction?.type === 'goal') {
+            if (confirm('¿Estás seguro de eliminar esta meta?')) {
+              deleteGoal(selectedTransaction.id);
               setShowDetailModal(false);
               setSelectedTransaction(null);
             }

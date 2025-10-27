@@ -790,6 +790,119 @@ export async function createExpense(
   }
 }
 
+/**
+ * Actualiza un gasto existente
+ */
+export async function updateExpense(
+  expenseId: string,
+  userId: string,
+  expenseData: {
+    name: string;
+    amount: number;
+    date: string;
+    category?: string;
+    notes?: string;
+    isRecurring?: boolean;
+    frequency?: string;
+  }
+): Promise<any> {
+  try {
+    console.log('🔍 updateExpense - Iniciando con:', { expenseId, userId, expenseData });
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.EXPENSES}!A2:K`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === expenseId && row[1] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Gasto no encontrado');
+    }
+    
+    const actualRowIndex = rowIndex + 2;
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.EXPENSES}!A${actualRowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          expenseId,
+          userId,
+          expenseData.name,
+          expenseData.amount,
+          expenseData.date,
+          expenseData.category || 'other',
+          expenseData.notes || '',
+          expenseData.isRecurring || false,
+          expenseData.frequency || 'monthly',
+          new Date().toISOString(),
+        ]],
+      },
+    });
+    
+    console.log('✅ Gasto actualizado exitosamente:', expenseId);
+    
+    return {
+      id: expenseId,
+      userId,
+      ...expenseData,
+      updatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('❌ Error en updateExpense:', error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un gasto
+ */
+export async function deleteExpense(expenseId: string, userId: string): Promise<void> {
+  try {
+    console.log('🔍 deleteExpense - Iniciando con:', { expenseId, userId });
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.EXPENSES}!A2:K`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === expenseId && row[1] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Gasto no encontrado');
+    }
+    
+    const actualRowIndex = rowIndex + 2;
+    
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: await getSheetId(SHEETS.EXPENSES),
+                dimension: 'ROWS',
+                startIndex: actualRowIndex - 1,
+                endIndex: actualRowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+    
+    console.log('✅ Gasto eliminado exitosamente:', expenseId);
+  } catch (error) {
+    console.error('❌ Error en deleteExpense:', error);
+    throw error;
+  }
+}
+
 // ============================================================================
 // OPERACIONES CRUD - INCOMES
 // ============================================================================
@@ -1104,6 +1217,119 @@ export async function createGoal(
     return newGoal;
   } catch (error) {
     console.error('Error creando meta:', error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza una meta existente
+ */
+export async function updateGoal(
+  goalId: string,
+  userId: string,
+  goalData: {
+    name: string;
+    amount: number;
+    currentAmount?: number;
+    targetDate: string;
+    date: string;
+    category?: string;
+    notes?: string;
+  }
+): Promise<any> {
+  try {
+    console.log('🔍 updateGoal - Iniciando con:', { goalId, userId, goalData });
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.GOALS}!A2:J`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === goalId && row[1] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Meta no encontrada');
+    }
+    
+    const actualRowIndex = rowIndex + 2;
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.GOALS}!A${actualRowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          goalId,
+          userId,
+          goalData.name,
+          goalData.amount,
+          goalData.currentAmount || 0,
+          goalData.targetDate,
+          goalData.date,
+          goalData.category || 'savings',
+          goalData.notes || '',
+          new Date().toISOString(),
+        ]],
+      },
+    });
+    
+    console.log('✅ Meta actualizada exitosamente:', goalId);
+    
+    return {
+      id: goalId,
+      userId,
+      ...goalData,
+      updatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('❌ Error en updateGoal:', error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina una meta
+ */
+export async function deleteGoal(goalId: string, userId: string): Promise<void> {
+  try {
+    console.log('🔍 deleteGoal - Iniciando con:', { goalId, userId });
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.GOALS}!A2:J`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === goalId && row[1] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Meta no encontrada');
+    }
+    
+    const actualRowIndex = rowIndex + 2;
+    
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: await getSheetId(SHEETS.GOALS),
+                dimension: 'ROWS',
+                startIndex: actualRowIndex - 1,
+                endIndex: actualRowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+    
+    console.log('✅ Meta eliminada exitosamente:', goalId);
+  } catch (error) {
+    console.error('❌ Error en deleteGoal:', error);
     throw error;
   }
 }

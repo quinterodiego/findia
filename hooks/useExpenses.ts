@@ -51,11 +51,53 @@ export function useExpenses() {
     fetchExpenses();
   }, []);
 
+  const updateExpense = async (expenseId: string, expenseData: any) => {
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(expenseData),
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        await fetchExpenses();
+        return { success: true, expense: result.expense };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
+      return { success: false, error: 'Error de conexión' };
+    }
+  };
+
+  const deleteExpense = async (expenseId: string) => {
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'DELETE',
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        await fetchExpenses();
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
+      return { success: false, error: 'Error de conexión' };
+    }
+  };
+
   return {
     expenses,
     loading,
     error,
     fetchExpenses,
     createExpense,
+    updateExpense,
+    deleteExpense,
   };
 }
