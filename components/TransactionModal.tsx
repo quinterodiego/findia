@@ -19,25 +19,25 @@ const typeConfig = {
   debt: {
     title: 'Agregar Deuda',
     icon: CreditCard,
-    color: 'from-red-500 to-red-600',
+    color: 'from-red-400 to-red-500',
     description: 'Registra una nueva deuda, préstamo o crédito'
   },
   expense: {
     title: 'Agregar Gasto',
     icon: DollarSign,
-    color: 'from-orange-500 to-orange-600',
+    color: 'from-orange-400 to-orange-500',
     description: 'Registra un gasto o compra realizada'
   },
   income: {
     title: 'Agregar Ingreso',
     icon: TrendingUp,
-    color: 'from-green-500 to-green-600',
+    color: 'from-green-400 to-green-500',
     description: 'Registra un ingreso o entrada de dinero'
   },
   goal: {
     title: 'Agregar Meta',
     icon: Target,
-    color: 'from-blue-500 to-blue-600',
+    color: 'from-blue-400 to-blue-500',
     description: 'Define una meta de ahorro u objetivo financiero'
   }
 };

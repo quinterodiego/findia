@@ -101,7 +101,8 @@ export async function initializeSheets() {
       'dueDate',
       'priority',
       'status',
-      'category',
+      'categoryId',
+      'subcategoryId',
       'notes',
       'createdAt',
       'updatedAt',
@@ -205,10 +206,11 @@ function rowToDebt(row: string[]): Debt {
     dueDate: row[7],
     priority: (row[8] as 'high' | 'medium' | 'low') || 'medium',
     status: (row[9] as 'active' | 'paid' | 'overdue') || 'active',
-    category: row[10] || 'other',
-    notes: row[11] || '',
-    createdAt: row[12],
-    updatedAt: row[13],
+    categoryId: row[10] || '',
+    subcategoryId: row[11] || '',
+    notes: row[12] || '',
+    createdAt: row[13],
+    updatedAt: row[14],
   };
 }
 
@@ -227,7 +229,8 @@ function debtToRow(debt: Debt): (string | number)[] {
     debt.dueDate,
     debt.priority,
     debt.status,
-    debt.category,
+    debt.categoryId,
+    debt.subcategoryId,
     debt.notes,
     debt.createdAt,
     debt.updatedAt,
@@ -277,7 +280,7 @@ export async function getDebtsByUser(userId: string): Promise<Debt[]> {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A2:N`,
+      range: `${SHEETS.DEBTS}!A2:O`,
     });
     
     const rows = response.data.values || [];
@@ -299,7 +302,7 @@ export async function getDebtById(debtId: string, userId: string): Promise<Debt 
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A2:N`,
+      range: `${SHEETS.DEBTS}!A2:O`,
     });
     
     const rows = response.data.values || [];
@@ -359,7 +362,7 @@ export async function updateDebt(
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A2:N`,
+      range: `${SHEETS.DEBTS}!A2:O`,
     });
     
     const rows = response.data.values || [];
@@ -382,7 +385,7 @@ export async function updateDebt(
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A${actualRowNumber}:N${actualRowNumber}`,
+      range: `${SHEETS.DEBTS}!A${actualRowNumber}:O${actualRowNumber}`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [debtToRow(updatedDebt)],
@@ -404,7 +407,7 @@ export async function deleteDebt(debtId: string, userId: string): Promise<void> 
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A2:N`,
+      range: `${SHEETS.DEBTS}!A2:O`,
     });
     
     const rows = response.data.values || [];

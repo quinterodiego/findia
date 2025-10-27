@@ -24,11 +24,11 @@ export default function TransactionDetailModal({
 
   const getTransactionColor = () => {
     switch (transaction.type) {
-      case 'debt': return 'bg-red-500';
-      case 'income': return 'bg-green-500';
-      case 'expense': return 'bg-orange-500';
-      case 'goal': return 'bg-purple-500';
-      default: return 'bg-gray-500';
+      case 'debt': return 'bg-red-400';
+      case 'income': return 'bg-green-400';
+      case 'expense': return 'bg-orange-400';
+      case 'goal': return 'bg-purple-400';
+      default: return 'bg-gray-400';
     }
   };
 
@@ -162,7 +162,7 @@ export default function TransactionDetailModal({
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      className="bg-blue-400 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${((transaction.amount - transaction.balance) / transaction.amount * 100)}%` }}
                     ></div>
                   </div>
@@ -181,7 +181,7 @@ export default function TransactionDetailModal({
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div 
-                    className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                    className="bg-purple-400 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${((transaction.currentAmount || 0) / transaction.amount * 100)}%` }}
                   ></div>
                 </div>
@@ -201,7 +201,7 @@ export default function TransactionDetailModal({
               {transaction.type === 'debt' && onAddPayment && (
                 <button
                   onClick={onAddPayment}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors font-semibold"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-400 hover:bg-green-500 text-white rounded-xl transition-colors font-semibold"
                 >
                   <Plus className="w-5 h-5" />
                   Registrar Pago
@@ -209,14 +209,14 @@ export default function TransactionDetailModal({
               )}
               <button
                 onClick={onEdit}
-                className={`${transaction.type === 'debt' && onAddPayment ? 'flex-1' : 'flex-1'} flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors font-semibold`}
+                className={`${transaction.type === 'debt' && onAddPayment ? 'flex-1' : 'flex-1'} flex items-center justify-center gap-2 px-4 py-3 bg-blue-400 hover:bg-blue-500 text-white rounded-xl transition-colors font-semibold`}
               >
                 <Edit className="w-5 h-5" />
                 Editar
               </button>
               <button
                 onClick={onDelete}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors font-semibold"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-400 hover:bg-red-500 text-white rounded-xl transition-colors font-semibold"
               >
                 <Trash2 className="w-5 h-5" />
                 Eliminar

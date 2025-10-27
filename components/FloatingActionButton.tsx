@@ -13,28 +13,28 @@ const actions = [
     type: 'debt' as const,
     label: 'Agregar Deuda',
     icon: CreditCard,
-    color: 'from-red-500 to-red-600',
+    color: 'from-red-400 to-red-500',
     description: 'Tarjetas, préstamos, créditos'
   },
   {
     type: 'expense' as const,
     label: 'Agregar Gasto',
     icon: DollarSign,
-    color: 'from-orange-500 to-orange-600',
+    color: 'from-orange-400 to-orange-500',
     description: 'Compras, facturas, gastos'
   },
   {
     type: 'income' as const,
     label: 'Agregar Ingreso',
     icon: TrendingUp,
-    color: 'from-green-500 to-green-600',
+    color: 'from-green-400 to-green-500',
     description: 'Salario, ventas, ingresos'
   },
   {
     type: 'goal' as const,
     label: 'Agregar Meta',
     icon: Target,
-    color: 'from-blue-500 to-blue-600',
+    color: 'from-blue-400 to-blue-500',
     description: 'Ahorros, objetivos'
   }
 ];
@@ -122,7 +122,7 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={toggleMenu}
-          className={`w-16 h-16 rounded-full bg-linear-to-r from-blue-500 to-purple-600 shadow-lg flex items-center justify-center transition-all duration-300 group ${
+          className={`w-16 h-16 rounded-full bg-linear-to-r from-blue-400 to-purple-500 shadow-lg flex items-center justify-center transition-all duration-300 group ${
             isOpen ? 'rotate-45' : 'rotate-0'
           }`}
         >

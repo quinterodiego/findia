@@ -261,21 +261,21 @@ export default function Home() {
                 title: "Registra tus Gastos y Deudas",
                 description: "Añade todos tus gastos y deudas y obtén un panorama claro de tu situación actual",
                 icon: BarChart3,
-                color: "from-blue-500 to-cyan-500"
+                color: "from-blue-400 to-cyan-400"
               },
               {
                 step: 2,
                 title: "Recibe tu Estrategia",
                 description: "La IA analiza tu perfil y crea un plan personalizado de pagos",
                 icon: Zap,
-                color: "from-purple-500 to-pink-500"
+                color: "from-purple-400 to-pink-400"
               },
               {
                 step: 3,
                 title: "Ejecuta y Celebra",
                 description: "Sigue el plan, registra pagos y celebra cada hito alcanzado",
                 icon: Heart,
-                color: "from-green-500 to-emerald-500"
+                color: "from-green-400 to-emerald-400"
               }
             ].map((step, index) => (
               <motion.div

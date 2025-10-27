@@ -34,26 +34,26 @@ export default function ConfirmModal({
   const getTypeStyles = () => {
     switch (type) {
       case 'danger':
-        return 'bg-red-500';
+        return 'bg-red-400';
       case 'warning':
-        return 'bg-orange-500';
+        return 'bg-orange-400';
       case 'info':
-        return 'bg-blue-500';
+        return 'bg-blue-400';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-400';
     }
   };
 
   const getIconColor = () => {
     switch (type) {
       case 'danger':
-        return 'text-red-600 dark:text-red-400';
+        return 'text-red-400 dark:text-red-300';
       case 'warning':
-        return 'text-orange-600 dark:text-orange-400';
+        return 'text-orange-400 dark:text-orange-300';
       case 'info':
-        return 'text-blue-600 dark:text-blue-400';
+        return 'text-blue-400 dark:text-blue-300';
       default:
-        return 'text-gray-600 dark:text-gray-400';
+        return 'text-gray-400 dark:text-gray-300';
     }
   };
 
@@ -113,7 +113,7 @@ export default function ConfirmModal({
             </button>
             <button
               onClick={handleConfirm}
-              className={`flex-1 px-4 py-3 ${type === 'danger' ? 'bg-red-500 hover:bg-red-600' : type === 'warning' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded-xl transition-colors font-semibold`}
+              className={`flex-1 px-4 py-3 ${type === 'danger' ? 'bg-red-400 hover:bg-red-500' : type === 'warning' ? 'bg-orange-400 hover:bg-orange-500' : 'bg-blue-400 hover:bg-blue-500'} text-white rounded-xl transition-colors font-semibold`}
             >
               <div className="flex items-center justify-center gap-2">
                 <Check className="w-5 h-5" />
