@@ -767,7 +767,6 @@ export default function Dashboard() {
                   {sortOrder === 'desc' ? '⬇️' : '⬆️'}
                 </button>
               </div>
-              </div>
             </div>
 
             {debts.length + incomes.length + expenses.length + goals.length === 0 ? (
