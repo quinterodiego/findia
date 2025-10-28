@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -16,6 +16,8 @@ import TransactionModal from '@/components/TransactionModal'
 import TransactionDetailModal from '@/components/TransactionDetailModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import PaymentModal from '@/components/PaymentModal'
+import ExportModal from '@/components/ExportModal'
+import QuickExport from '@/components/QuickExport'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
@@ -68,6 +70,7 @@ export default function Dashboard() {
   const [selectedDebt, setSelectedDebt] = useState<any>(null)
   const [showExpenseBreakdown, setShowExpenseBreakdown] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
 
   // Hook para manejar deudas
   const {
@@ -370,7 +373,7 @@ export default function Dashboard() {
             {/* Logo */}
             <div className="flex items-center gap-2">
               <Image 
-                src="/images/logo01.png" 
+                src="/images/logo.png" 
                 alt="FindIA Logo" 
                 width={40} 
                 height={40}
@@ -388,6 +391,14 @@ export default function Dashboard() {
                 className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
               >
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-gray-600" />}
+              </button>
+
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Exportar datos"
+              >
+                <Download className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
 
               <div className="flex items-center gap-3">
@@ -529,6 +540,21 @@ export default function Dashboard() {
               </>
             )}
           </div>
+
+          {/* Quick Export */}
+          {!isLoading && (
+            <div className="flex justify-end mb-6">
+              <QuickExport 
+                data={{
+                  incomes,
+                  expenses,
+                  debts,
+                  goals,
+                  stats: displayStats
+                }}
+              />
+            </div>
+          )}
 
           {/* Analytics Section */}
           {isLoading ? (
@@ -1114,6 +1140,19 @@ export default function Dashboard() {
         type="brand"
         confirmText="Cerrar Sesión"
         cancelText="Cancelar"
+      />
+
+      {/* Modal de Exportación */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        data={{
+          incomes,
+          expenses,
+          debts,
+          goals,
+          stats: displayStats
+        }}
       />
 
       {/* Modal de Desglose de Gastos */}
