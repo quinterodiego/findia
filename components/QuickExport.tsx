@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Download, FileText, Table, FileSpreadsheet, FileImage } from 'lucide-react'
+import { Download, FileText, Table } from 'lucide-react'
 import { exportService, ExportData, ExportOptions } from '@/lib/exportService'
 import { useToastContext } from '@/components/Toast'
 
@@ -53,7 +53,7 @@ export default function QuickExport({ data }: QuickExportProps) {
           className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           title="Exportar a PDF"
         >
-          <FileImage className="w-4 h-4" />
+          <FileText className="w-4 h-4" />
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.05 }}
@@ -63,7 +63,7 @@ export default function QuickExport({ data }: QuickExportProps) {
           className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           title="Exportar a Excel"
         >
-          <FileSpreadsheet className="w-4 h-4" />
+          <Table className="w-4 h-4" />
         </motion.button>
       </div>
       {isExporting && (
