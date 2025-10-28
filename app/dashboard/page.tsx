@@ -69,6 +69,7 @@ export default function Dashboard() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedDebt, setSelectedDebt] = useState<any>(null)
   const [showExpenseBreakdown, setShowExpenseBreakdown] = useState(false)
+  const [showGoalsBreakdown, setShowGoalsBreakdown] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
 
@@ -531,6 +532,17 @@ export default function Dashboard() {
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     {displayStats.completedGoals} de {displayStats.totalGoals} completadas
                   </p>
+                  {goals.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setShowGoalsBreakdown(true)
+                      }}
+                      className="w-full px-4 py-2 bg-purple-200 hover:bg-purple-300 text-purple-400 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer mt-3"
+                    >
+                      <Info className="w-4 h-4" />
+                      Ver detalle
+                    </button>
+                  )}
                 </div>
                 <div className="w-14 h-14 bg-purple-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Trophy className="w-7 h-7 text-purple-400" />
@@ -1212,6 +1224,74 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     ${displayStats.totalExpenses.toLocaleString('es-CO')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Desglose de Metas */}
+      {showGoalsBreakdown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowGoalsBreakdown(false)}
+          />
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Desglose de Metas
+                </h3>
+                <button
+                  onClick={() => setShowGoalsBreakdown(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Metas Completadas</p>
+                  <p className="text-2xl font-bold text-green-400 dark:text-green-300">
+                    {displayStats.completedGoals}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {goals.filter((g: any) => (g.currentAmount || 0) >= g.amount).length} metas alcanzadas
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-200 rounded-xl flex items-center justify-center">
+                  <Trophy className="w-6 h-6 text-green-400" />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">En Progreso</p>
+                  <p className="text-2xl font-bold text-yellow-400 dark:text-yellow-300">
+                    {displayStats.totalGoals - displayStats.completedGoals}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {goals.filter((g: any) => (g.currentAmount || 0) < g.amount).length} metas pendientes
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-200 rounded-xl flex items-center justify-center">
+                  <Target className="w-6 h-6 text-yellow-400" />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Progreso General</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {displayStats.goalsProgress.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {displayStats.totalGoals} metas totales
                   </p>
                 </div>
               </div>
