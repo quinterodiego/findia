@@ -20,7 +20,6 @@ import PaymentModal from '@/components/PaymentModal'
 import ExportModal from '@/components/ExportModal'
 import QuickExport from '@/components/QuickExport'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
-import LoadingScreen from '@/components/LoadingScreen'
 import { useLoadingState } from '@/hooks/useLoadingState'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
@@ -305,7 +304,7 @@ export default function Dashboard() {
   }
 
   // Estado de carga optimizado
-  const { isInitialLoading, isDataLoading, shouldShowSkeleton, isLoading } = useLoadingState({
+  const { isDataLoading, shouldShowSkeleton } = useLoadingState({
     debtsLoading,
     incomesLoading,
     expensesLoading,
@@ -313,9 +312,10 @@ export default function Dashboard() {
     sessionStatus: status
   })
 
-  // Mostrar pantalla de carga inicial solo si es necesario
-  if (isInitialLoading) {
-    return <LoadingScreen message="Iniciando sesión..." />
+  // Si no hay sesión, redirigir al login
+  if (status === 'unauthenticated') {
+    router.push('/')
+    return null
   }
 
   if (debtsError) {
@@ -979,7 +979,7 @@ export default function Dashboard() {
                   <p className="text-sm">👉 Mira el botón flotante en la esquina inferior derecha</p>
                 </div>
               </div>
-            ) : isLoading ? (
+            ) : shouldShowSkeleton ? (
               <SkeletonTable />
             ) : (
               <div className="space-y-4">

@@ -94,7 +94,7 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
                       console.log('🖱️ Botón clickeado:', action.type, action.label);
                       handleAction(action.type);
                     }}
-                    className="flex items-center gap-3 group"
+                    className="flex items-center gap-3 group cursor-pointer"
                   >
                     {/* Etiqueta - Siempre visible en todos los dispositivos */}
                     <div className="bg-white dark:bg-gray-800 rounded-lg px-4 py-2 shadow-lg border border-gray-200 dark:border-gray-700 opacity-100 transition-all duration-200 group-hover:shadow-xl">
