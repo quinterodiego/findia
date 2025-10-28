@@ -156,7 +156,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={toastMethods}>
       {children}
-      <ToastContainer />
+      <ToastContainer toasts={toastMethods.toasts} onRemove={toastMethods.removeToast} />
     </ToastContext.Provider>
   )
 }
