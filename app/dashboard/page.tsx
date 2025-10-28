@@ -1459,29 +1459,48 @@ export default function Dashboard() {
                             : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600'
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h5 className="font-semibold text-gray-900 dark:text-white mb-1">
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <h5 className="font-semibold text-gray-900 dark:text-white text-lg">
                               {goal.name || 'Meta sin nombre'}
                             </h5>
-                            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                              <span>Meta: ${goal.amount.toLocaleString('es-CO')}</span>
-                              <span>Ahorrado: ${(goal.currentAmount || 0).toLocaleString('es-CO')}</span>
-                              {!isCompleted && (
-                                <span className="text-orange-500">Falta: ${remaining.toLocaleString('es-CO')}</span>
-                              )}
+                            <div className="text-right">
+                              <div className={`text-2xl font-bold ${
+                                isCompleted 
+                                  ? 'text-green-400 dark:text-green-300' 
+                                  : 'text-purple-400 dark:text-purple-300'
+                              }`}>
+                                {progress.toFixed(1)}%
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {isCompleted ? 'Completada' : 'En progreso'}
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className={`text-2xl font-bold ${
-                              isCompleted 
-                                ? 'text-green-400 dark:text-green-300' 
-                                : 'text-purple-400 dark:text-purple-300'
-                            }`}>
-                              {progress.toFixed(1)}%
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+                            <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-2">
+                              <div className="text-gray-500 dark:text-gray-400 text-xs">Meta</div>
+                              <div className="font-semibold text-gray-900 dark:text-white">
+                                ${goal.amount.toLocaleString('es-CO')}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {isCompleted ? 'Completada' : 'En progreso'}
+                            <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-2">
+                              <div className="text-gray-500 dark:text-gray-400 text-xs">Ahorrado</div>
+                              <div className="font-semibold text-gray-900 dark:text-white">
+                                ${(goal.currentAmount || 0).toLocaleString('es-CO')}
+                              </div>
+                            </div>
+                            <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-2">
+                              <div className="text-gray-500 dark:text-gray-400 text-xs">
+                                {isCompleted ? 'Completada' : 'Falta'}
+                              </div>
+                              <div className={`font-semibold ${
+                                isCompleted 
+                                  ? 'text-green-400 dark:text-green-300' 
+                                  : 'text-orange-500 dark:text-orange-400'
+                              }`}>
+                                {isCompleted ? '¡Listo!' : `$${remaining.toLocaleString('es-CO')}`}
+                              </div>
                             </div>
                           </div>
                         </div>
