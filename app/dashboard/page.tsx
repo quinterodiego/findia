@@ -485,11 +485,11 @@ export default function Dashboard() {
       <main className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6 py-6">
         <div className="space-y-6">
           {/* Welcome Message */}
-          <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <div className="text-center mb-8">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
               ¡Hola, {session?.user?.name?.split(' ')[0] || 'Usuario'}! 👋
             </h1>
-            <p className="text-gray-600 dark:text-gray-300">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Bienvenido a tu dashboard de libertad financiera
             </p>
           </div>
