@@ -1187,8 +1187,8 @@ export default function Dashboard() {
                     {expenses.filter((e: any) => e.expenseType === 'fixed').length} gastos fijos
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
-                  <Target className="w-6 h-6 text-red-400 dark:text-red-300" />
+                <div className="w-12 h-12 bg-red-200 rounded-xl flex items-center justify-center">
+                  <Target className="w-6 h-6 text-red-400" />
                 </div>
               </div>
 
@@ -1202,8 +1202,8 @@ export default function Dashboard() {
                     {expenses.filter((e: any) => e.expenseType === 'variable').length} gastos variables
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                  <Target className="w-6 h-6 text-purple-400 dark:text-purple-300" />
+                <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
+                  <Target className="w-6 h-6 text-purple-400" />
                 </div>
               </div>
 
