@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
@@ -454,38 +455,66 @@ export default function Dashboard() {
             ) : (
               <>
                 {/* Ingresos Totales */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group">
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  whileHover={{ scale: 1.02, y: -5 }}
+                  className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group"
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Ingresos Totales</p>
-                      <p className="text-3xl font-bold text-green-400 mb-1">
+                      <motion.p 
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.2 }}
+                        className="text-3xl font-bold text-green-400 mb-1"
+                      >
                         +${displayStats.totalIncomes.toLocaleString('es-CO')}
-                      </p>
+                      </motion.p>
                       <p className="text-xs text-gray-500 dark:text-gray-500">
                         {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'} este mes
                       </p>
                     </div>
-                <div className="w-14 h-14 bg-green-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <TrendingUp className="w-7 h-7 text-green-400" />
-                </div>
+                    <motion.div 
+                      whileHover={{ rotate: 5, scale: 1.1 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-14 h-14 bg-green-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
+                    >
+                      <TrendingUp className="w-7 h-7 text-green-400" />
+                    </motion.div>
                   </div>
-                </div>
+                </motion.div>
 
             {/* Gastos Totales con desglose */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group relative">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              whileHover={{ scale: 1.02, y: -5 }}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group relative"
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Gastos Totales</p>
                   </div>
-                  <p className="text-3xl font-bold text-red-400 mb-1">
+                  <motion.p 
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.3 }}
+                    className="text-3xl font-bold text-red-400 mb-1"
+                  >
                     -${displayStats.totalExpenses.toLocaleString('es-CO')}
-                  </p>
+                  </motion.p>
                   <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
                     {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'} en total
                   </p>
                   {(displayStats.totalFixedExpenses > 0 || displayStats.totalVariableExpenses > 0) && (
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={(e) => {
                         e.stopPropagation()
                         setShowExpenseBreakdown(true)
@@ -494,46 +523,78 @@ export default function Dashboard() {
                     >
                       <Info className="w-4 h-4" />
                       Ver detalle
-                    </button>
+                    </motion.button>
                   )}
                 </div>
-                <div className="w-14 h-14 bg-red-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <motion.div 
+                  whileHover={{ rotate: -5, scale: 1.1 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-14 h-14 bg-red-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
+                >
                   <Target className="w-7 h-7 text-red-400" />
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Balance Neto */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              whileHover={{ scale: 1.02, y: -5 }}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group"
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Balance Neto</p>
-                  <p className={`text-3xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <motion.p 
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.4 }}
+                    className={`text-3xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                  >
                     {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString('es-CO')}
-                  </p>
+                  </motion.p>
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     {displayStats.netBalance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
                   </p>
                 </div>
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${displayStats.netBalance >= 0 ? 'bg-green-200' : 'bg-red-200'}`}>
+                <motion.div 
+                  whileHover={{ rotate: 10, scale: 1.1 }}
+                  transition={{ duration: 0.2 }}
+                  className={`w-14 h-14 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${displayStats.netBalance >= 0 ? 'bg-green-200' : 'bg-red-200'}`}
+                >
                   <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`} />
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Metas de Ahorro */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              whileHover={{ scale: 1.02, y: -5 }}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group"
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Metas de Ahorro</p>
-                  <p className="text-3xl font-bold text-purple-400 mb-1">
+                  <motion.p 
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.5 }}
+                    className="text-3xl font-bold text-purple-400 mb-1"
+                  >
                     {displayStats.goalsProgress.toFixed(1)}%
-                  </p>
+                  </motion.p>
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     {displayStats.completedGoals} de {displayStats.totalGoals} completadas
                   </p>
                   {goals.length > 0 && (
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => {
                         setShowGoalsBreakdown(true)
                       }}
@@ -541,21 +602,30 @@ export default function Dashboard() {
                     >
                       <Info className="w-4 h-4" />
                       Ver detalle
-                    </button>
+                    </motion.button>
                   )}
                 </div>
-                <div className="w-14 h-14 bg-purple-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <motion.div 
+                  whileHover={{ rotate: 15, scale: 1.1 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-14 h-14 bg-purple-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
+                >
                   <Trophy className="w-7 h-7 text-purple-400" />
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
               </>
             )}
           </div>
 
           {/* Quick Export */}
           {!isLoading && (
-            <div className="flex justify-end mb-6">
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="flex justify-end mb-6"
+            >
               <QuickExport 
                 data={{
                   incomes,
@@ -565,7 +635,7 @@ export default function Dashboard() {
                   stats: displayStats
                 }}
               />
-            </div>
+            </motion.div>
           )}
 
           {/* Analytics Section */}
@@ -575,17 +645,30 @@ export default function Dashboard() {
               <SkeletonCard />
             </div>
           ) : (incomes.length > 0 || expenses.length > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+              className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6"
+            >
               {/* Gráfica de Ingresos vs Gastos */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700">
+              <motion.div 
+                whileHover={{ scale: 1.02, y: -5 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
+              >
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Balance Financiero</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Ingresos vs Gastos</p>
                   </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-xl flex items-center justify-center">
+                  <motion.div 
+                    whileHover={{ rotate: 5, scale: 1.1 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-xl flex items-center justify-center"
+                  >
                     <BarChart3 className="w-6 h-6 text-white" />
-                  </div>
+                  </motion.div>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart 
@@ -638,7 +721,7 @@ export default function Dashboard() {
                     />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </motion.div>
 
               {/* Gastos por Categoría */}
               {(() => {
@@ -659,15 +742,23 @@ export default function Dashboard() {
                 if (data.length === 0) return null;
 
                 return (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700">
+                  <motion.div 
+                    whileHover={{ scale: 1.02, y: -5 }}
+                    transition={{ duration: 0.2 }}
+                    className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
+                  >
                     <div className="flex items-center justify-between mb-6">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Distribución de gastos</p>
                       </div>
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-xl flex items-center justify-center">
+                      <motion.div 
+                        whileHover={{ rotate: -5, scale: 1.1 }}
+                        transition={{ duration: 0.2 }}
+                        className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-xl flex items-center justify-center"
+                      >
                         <PieChart className="w-6 h-6 text-white" />
-                      </div>
+                      </motion.div>
                     </div>
                     <ResponsiveContainer width="100%" height={300}>
                       <RechartPieChart>
@@ -704,14 +795,19 @@ export default function Dashboard() {
                         />
                       </RechartPieChart>
                     </ResponsiveContainer>
-                  </div>
+                  </motion.div>
                 );
               })()}
-            </div>
+            </motion.div>
           )}
 
           {/* Lista de Deudas */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50"
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Mis Transacciones Financieras
@@ -951,8 +1047,12 @@ export default function Dashboard() {
                     };
 
                         return (
-                      <div 
+                      <motion.div 
                         key={`${transaction.type}-${transaction.id}`}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                        whileHover={{ scale: 1.02, y: -2 }}
                         className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all duration-300 group cursor-pointer"
                         onClick={() => {
                           setSelectedTransaction(transaction);
@@ -1016,13 +1116,13 @@ export default function Dashboard() {
                             </div>
                           </div>
                         )}
-                      </div>
+                      </motion.div>
                     );
                   });
                 })()}
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
       </main>
 
