@@ -1,14 +1,14 @@
 'use client'
 
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 
 // Extender jsPDF para incluir autoTable
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF
+    autoTable: typeof autoTable
   }
 }
 
@@ -97,7 +97,7 @@ class ExportService {
         ['Metas Completadas', `${data.stats.completedGoals} de ${data.stats.totalGoals}`]
       ]
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPosition,
         head: [['Métrica', 'Valor']],
         body: statsData,
@@ -127,7 +127,7 @@ class ExportService {
         income.notes || ''
       ])
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPosition,
         head: [['Nombre', 'Categoría', 'Monto', 'Fecha', 'Notas']],
         body: incomeData,
@@ -158,7 +158,7 @@ class ExportService {
         expense.notes || ''
       ])
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPosition,
         head: [['Nombre', 'Categoría', 'Monto', 'Fecha', 'Tipo', 'Notas']],
         body: expenseData,
@@ -192,7 +192,7 @@ class ExportService {
         debt.notes || ''
       ])
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPosition,
         head: [['Nombre', 'Categoría', 'Monto Original', 'Saldo Actual', 'Interés', 'Pago Mínimo', 'Vencimiento', 'Prioridad', 'Notas']],
         body: debtData,
@@ -226,7 +226,7 @@ class ExportService {
         goal.notes || ''
       ])
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPosition,
         head: [['Nombre', 'Categoría', 'Meta', 'Actual', 'Fecha Objetivo', 'Progreso', 'Notas']],
         body: goalData,
