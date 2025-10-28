@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, FileText, Table, Calendar, BarChart3, Download } from 'lucide-react'
+import { X, FileText, Table, Calendar, BarChart3, Download, FileImage, FileSpreadsheet } from 'lucide-react'
 import { exportService, ExportData, ExportOptions } from '@/lib/exportService'
 import { useToastContext } from '@/components/Toast'
 
@@ -45,8 +45,8 @@ export default function ExportModal({ isOpen, onClose, data }: ExportModalProps)
         `Archivo ${exportFormat.toUpperCase()} generado correctamente`
       )
       onClose()
-    } catch (error) {
-      console.error('Error en la exportación:', error)
+    } catch (err) {
+      console.error('Error en la exportación:', err)
       // Mostrar mensaje de error
       error(
         'Error en la exportación',
@@ -114,7 +114,7 @@ export default function ExportModal({ isOpen, onClose, data }: ExportModalProps)
                       : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  <FileText className="w-6 h-6 mx-auto mb-2" />
+                  <FileImage className="w-6 h-6 mx-auto mb-2" />
                   <div className="text-sm font-medium">PDF</div>
                   <div className="text-xs opacity-75">Reporte visual</div>
                 </button>
@@ -127,7 +127,7 @@ export default function ExportModal({ isOpen, onClose, data }: ExportModalProps)
                       : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  <Table className="w-6 h-6 mx-auto mb-2" />
+                  <FileSpreadsheet className="w-6 h-6 mx-auto mb-2" />
                   <div className="text-sm font-medium">Excel</div>
                   <div className="text-xs opacity-75">Datos tabulares</div>
                 </button>
