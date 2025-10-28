@@ -11,6 +11,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "FindIA - Tu Asistente Financiero con IA",
   description: "Gestiona tus finanzas de manera inteligente con la ayuda de IA. Rastrea gastos, recibe sugerencias personalizadas y alcanza tus metas financieras.",
+  icons: {
+    icon: "/logo.ico",
+    shortcut: "/logo.ico",
+    apple: "/logo.ico",
+  },
 };
 
 export default function RootLayout({

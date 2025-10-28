@@ -240,7 +240,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -319,7 +319,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   <button
                     type="button"
                     onClick={() => handleInputChange('expenseType', 'fixed')}
-                    className={`px-4 py-3 rounded-xl border-2 transition-all ${
+                    className={`px-4 py-3 rounded-xl border-2 transition-all cursor-pointer ${
                       formData.expenseType === 'fixed'
                         ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                         : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
@@ -330,7 +330,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   <button
                     type="button"
                     onClick={() => handleInputChange('expenseType', 'variable')}
-                    className={`px-4 py-3 rounded-xl border-2 transition-all ${
+                    className={`px-4 py-3 rounded-xl border-2 transition-all cursor-pointer ${
                       formData.expenseType === 'variable'
                         ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                         : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
@@ -470,14 +470,14 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className={`flex-1 px-6 py-3 bg-gradient-to-r ${config.color} text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`flex-1 px-6 py-3 bg-gradient-to-r ${config.color} text-white rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {loading ? 'Guardando...' : 'Guardar'}
               </button>

@@ -66,7 +66,7 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
       </AnimatePresence>
 
       {/* Botones de acción */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
         <AnimatePresence>
           {isOpen && (
             <div className="absolute bottom-16 right-0 space-y-3">
@@ -107,8 +107,8 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
                     </div>
 
                     {/* Botón circular */}
-                    <div className={`w-14 h-14 rounded-full bg-linear-to-r ${action.color} shadow-lg flex items-center justify-center`}>
-                      <Icon className="w-6 h-6 text-white" />
+                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-linear-to-r ${action.color} shadow-lg flex items-center justify-center`}>
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                   </motion.button>
                 );
@@ -122,14 +122,14 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={toggleMenu}
-          className={`w-16 h-16 rounded-full bg-linear-to-r from-blue-400 to-purple-500 shadow-lg flex items-center justify-center transition-all duration-300 group ${
+          className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-linear-to-r from-blue-400 to-purple-500 shadow-lg flex items-center justify-center transition-all duration-300 group cursor-pointer ${
             isOpen ? 'rotate-45' : 'rotate-0'
           }`}
         >
           {isOpen ? (
-            <X className="w-8 h-8 text-white" />
+            <X className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
           ) : (
-            <Plus className="w-8 h-8 text-white" />
+            <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
           )}
 
           {/* Tooltip de ayuda */}

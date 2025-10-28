@@ -11,7 +11,7 @@ interface ConfirmModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  type?: 'danger' | 'warning' | 'info';
+  type?: 'danger' | 'warning' | 'info' | 'brand';
 }
 
 export default function ConfirmModal({ 
@@ -39,6 +39,8 @@ export default function ConfirmModal({
         return 'bg-orange-400';
       case 'info':
         return 'bg-blue-400';
+      case 'brand':
+        return 'bg-linear-to-r from-blue-600 to-[#5A4FD9]';
       default:
         return 'bg-gray-400';
     }
@@ -52,6 +54,8 @@ export default function ConfirmModal({
         return 'text-orange-400 dark:text-orange-300';
       case 'info':
         return 'text-blue-400 dark:text-blue-300';
+      case 'brand':
+        return 'text-blue-500 dark:text-indigo-300';
       default:
         return 'text-gray-400 dark:text-gray-300';
     }
@@ -88,7 +92,7 @@ export default function ConfirmModal({
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -104,7 +108,7 @@ export default function ConfirmModal({
           <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl transition-colors font-semibold"
+              className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl transition-colors font-semibold cursor-pointer"
             >
               <div className="flex items-center justify-center gap-2">
                 <XIcon className="w-5 h-5" />
@@ -113,7 +117,15 @@ export default function ConfirmModal({
             </button>
             <button
               onClick={handleConfirm}
-              className={`flex-1 px-4 py-3 ${type === 'danger' ? 'bg-red-400 hover:bg-red-500' : type === 'warning' ? 'bg-orange-400 hover:bg-orange-500' : 'bg-blue-400 hover:bg-blue-500'} text-white rounded-xl transition-colors font-semibold`}
+              className={`flex-1 px-4 py-3 ${
+                type === 'danger'
+                  ? 'bg-red-400 hover:bg-red-500'
+                  : type === 'warning'
+                  ? 'bg-orange-400 hover:bg-orange-500'
+                  : type === 'brand'
+                  ? 'bg-gradient-to-r from-blue-600 to-[#5A4FD9] hover:from-blue-700 hover:to-[#4a40c9]'
+                  : 'bg-blue-400 hover:bg-blue-500'
+              } text-white rounded-xl transition-colors font-semibold cursor-pointer`}
             >
               <div className="flex items-center justify-center gap-2">
                 <Check className="w-5 h-5" />

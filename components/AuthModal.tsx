@@ -117,6 +117,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       onForgotPassword={() => setMode('forgot')}
                       onClose={onClose}
                       onStateChange={handleLoginStateChange}
+                      onSwitchToRegister={() => setMode('register')}
                     />
                   </motion.div>
                 )}

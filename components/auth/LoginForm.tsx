@@ -9,6 +9,7 @@ interface LoginFormProps {
   onForgotPassword?: () => void
   onClose?: () => void
   onStateChange?: (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => void
+  onSwitchToRegister?: () => void
 }
 
 interface FieldErrors {
@@ -21,7 +22,7 @@ interface LoginFormData {
   password: string
 }
 
-export default function LoginForm({ onForgotPassword, onClose, onStateChange }: LoginFormProps) {
+export default function LoginForm({ onForgotPassword, onClose, onStateChange, onSwitchToRegister }: LoginFormProps) {
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
@@ -38,6 +39,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
   const [googleError, setGoogleError] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
+  const [userNotFound, setUserNotFound] = useState(false)
 
   // Función para validar email
   const validateEmail = (email: string): string | undefined => {
@@ -99,7 +101,26 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
     }
 
     try {
-      // Iniciar sesión con credenciales
+      // Primero verificar si el usuario existe antes de intentar login
+      const checkUserResponse = await fetch('/api/check-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email })
+      })
+      
+      const checkResult = await checkUserResponse.json()
+      
+      if (!checkResult.exists) {
+        setUserNotFound(true)
+        setMessage({ 
+          type: 'error', 
+          text: 'No existe una cuenta con este email.' 
+        })
+        setIsLoading(false)
+        return
+      }
+      
+      // Si el usuario existe, proceder con el login normal
       const result = await signIn('credentials', {
         email: formData.email,
         password: formData.password,
@@ -108,7 +129,8 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
       })
       
       if (result?.error) {
-        setMessage({ type: 'error', text: 'Email o contraseña incorrectos' })
+        setUserNotFound(false)
+        setMessage({ type: 'error', text: 'Contraseña incorrecta' })
       } else {
         // Mostrar estado de éxito
         setShowSuccess(true)
@@ -152,6 +174,11 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
       ...prev,
       [name]: value
     }))
+    
+    // Reset userNotFound state when user starts typing
+    if (userNotFound) {
+      setUserNotFound(false)
+    }
   }
 
   const handleBlur = (field: 'email' | 'password') => {
@@ -259,7 +286,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
         </div>
 
         {(message || googleError) && (
-          <div className={`p-3 rounded-lg mb-4 ${
+          <div className={`text-center p-3 rounded-lg mb-4 ${
             (message?.type === 'error' || googleError) 
               ? 'bg-red-50 border border-red-200 text-red-800' 
               : 'bg-green-50 border border-green-200 text-green-800'
@@ -267,6 +294,14 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
             <p className="text-sm font-medium">
               {googleError || message?.text || ''}
             </p>
+            {userNotFound && onSwitchToRegister && (
+              <button
+                onClick={onSwitchToRegister}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+              >
+                ¿Quieres crear una cuenta?
+              </button>
+            )}
           </div>
         )}
 
@@ -285,7 +320,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
                 onBlur={() => handleBlur('email')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'email')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-blue-300 hover:shadow-sm ${
                   fieldErrors.email 
                     ? 'border-red-500 focus:ring-red-500' 
                     : 'border-gray-300 focus:ring-blue-500'
@@ -322,7 +357,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
                 onBlur={() => handleBlur('password')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'password')}
-                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-blue-300 hover:shadow-sm ${
                   fieldErrors.password 
                     ? 'border-red-500 focus:ring-red-500' 
                     : 'border-gray-300 focus:ring-blue-500'
@@ -335,7 +370,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300 hover:scale-110"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -377,7 +412,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
           <button
             type="submit"
             disabled={isLoading || isGoogleLoading}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] hover:shadow-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
             tabIndex={3}
           >
             {isLoading && <AlertCircle className="animate-spin h-5 w-5" />}
@@ -396,7 +431,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange }: 
         <button
           onClick={handleGoogleSignIn}
           disabled={isLoading || isGoogleLoading}
-          className="w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-[1.02] focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 cursor-pointer"
+          className="w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-[1.02] hover:shadow-lg focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 cursor-pointer active:scale-[0.98]"
         >
           <svg width="18" height="18" viewBox="0 0 18 18">
             <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>

@@ -16,6 +16,7 @@ import TransactionModal from '@/components/TransactionModal'
 import TransactionDetailModal from '@/components/TransactionDetailModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import PaymentModal from '@/components/PaymentModal'
+import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -357,6 +358,9 @@ export default function Dashboard() {
     monthlyMinPayment: stats?.monthlyMinPayment || 0,
   }
 
+  // Estado de carga general
+  const isLoading = debtsLoading || incomesLoading || expensesLoading || goalsLoading
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900' : 'bg-[#f7f9fc]'}`}>
       {/* Header */}
@@ -364,7 +368,7 @@ export default function Dashboard() {
         <div className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <Image 
                 src="/images/logo01.png" 
                 alt="FindIA Logo" 
@@ -372,13 +376,13 @@ export default function Dashboard() {
                 height={40}
                 className="rounded-xl"
               />
-              <span className="text-xl font-bold bg-linear-to-r from-blue-600 to-[#5A4FD9] bg-clip-text text-transparent">
+              <span className="text-lg sm:text-xl font-bold bg-linear-to-r from-blue-600 to-[#5A4FD9] bg-clip-text text-transparent">
                 FindIA
               </span>
             </div>
 
             {/* User Menu */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
@@ -406,8 +410,9 @@ export default function Dashboard() {
                   {session?.user?.name || session?.user?.email}
                 </span>
                 <button
-                  onClick={handleSignOut}
+                  onClick={() => setShowLogoutModal(true)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors cursor-pointer"
+                  title="Cerrar sesión"
                 >
                   <LogOut className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 </button>
@@ -432,23 +437,27 @@ export default function Dashboard() {
 
           {/* Stats Cards - Diseño limpio y con impacto */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
-            {/* Ingresos Totales */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Ingresos Totales</p>
-                  <p className="text-3xl font-bold text-green-400 dark:text-green-300 mb-1">
-                    +${displayStats.totalIncomes.toLocaleString('es-CO')}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
-                    {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'} este mes
-                  </p>
+            {isLoading ? (
+              <SkeletonStats />
+            ) : (
+              <>
+                {/* Ingresos Totales */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Ingresos Totales</p>
+                      <p className="text-3xl font-bold text-green-400 mb-1">
+                        +${displayStats.totalIncomes.toLocaleString('es-CO')}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'} este mes
+                      </p>
+                    </div>
+                <div className="w-14 h-14 bg-green-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <TrendingUp className="w-7 h-7 text-green-400" />
                 </div>
-                <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <TrendingUp className="w-7 h-7 text-green-400 dark:text-green-300" />
+                  </div>
                 </div>
-              </div>
-            </div>
 
             {/* Gastos Totales con desglose */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl group relative">
@@ -457,7 +466,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Gastos Totales</p>
                   </div>
-                  <p className="text-3xl font-bold text-red-400 dark:text-red-300 mb-1">
+                  <p className="text-3xl font-bold text-red-400 mb-1">
                     -${displayStats.totalExpenses.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
@@ -469,15 +478,15 @@ export default function Dashboard() {
                         e.stopPropagation()
                         setShowExpenseBreakdown(true)
                       }}
-                      className="w-full px-4 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 dark:text-red-300 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full px-4 py-2 bg-red-200 hover:bg-red-300 text-red-400 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Info className="w-4 h-4" />
                       Ver detalle
                     </button>
                   )}
                 </div>
-                <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Target className="w-7 h-7 text-red-400 dark:text-red-300" />
+                <div className="w-14 h-14 bg-red-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Target className="w-7 h-7 text-red-400" />
                 </div>
               </div>
             </div>
@@ -487,15 +496,15 @@ export default function Dashboard() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Balance Neto</p>
-                  <p className={`text-3xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`}>
+                  <p className={`text-3xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString('es-CO')}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     {displayStats.netBalance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
                   </p>
                 </div>
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
-                  <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-400 dark:text-green-300' : 'text-red-400 dark:text-red-300'}`} />
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${displayStats.netBalance >= 0 ? 'bg-green-200' : 'bg-red-200'}`}>
+                  <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`} />
                 </div>
               </div>
             </div>
@@ -505,22 +514,29 @@ export default function Dashboard() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Metas de Ahorro</p>
-                  <p className="text-3xl font-bold text-purple-400 dark:text-purple-300 mb-1">
+                  <p className="text-3xl font-bold text-purple-400 mb-1">
                     {displayStats.goalsProgress.toFixed(1)}%
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     {displayStats.completedGoals} de {displayStats.totalGoals} completadas
                   </p>
                 </div>
-                <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Trophy className="w-7 h-7 text-purple-400 dark:text-purple-300" />
+                <div className="w-14 h-14 bg-purple-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Trophy className="w-7 h-7 text-purple-400" />
                 </div>
               </div>
             </div>
+              </>
+            )}
           </div>
 
           {/* Analytics Section */}
-          {(incomes.length > 0 || expenses.length > 0) && (
+          {isLoading ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : (incomes.length > 0 || expenses.length > 0) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6">
               {/* Gráfica de Ingresos vs Gastos */}
               <div className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700">
@@ -823,6 +839,8 @@ export default function Dashboard() {
                   <p className="text-sm">👉 Mira el botón flotante en la esquina inferior derecha</p>
                 </div>
               </div>
+            ) : isLoading ? (
+              <SkeletonTable />
             ) : (
               <div className="space-y-4">
                 {(() => {
@@ -1093,7 +1111,7 @@ export default function Dashboard() {
         onConfirm={confirmLogout}
         title="Cerrar Sesión"
         message="¿Estás seguro de que quieres cerrar sesión?"
-        type="warning"
+        type="brand"
         confirmText="Cerrar Sesión"
         cancelText="Cancelar"
       />

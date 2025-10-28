@@ -111,16 +111,16 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <motion.div 
-              className="flex items-center transform hover:scale-105"
+              className="flex items-center transform hover:scale-105 space-x-2"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
               <Image 
-                src="/images/logo01.png" 
+                src="/images/logo.png" 
                 alt="FindIA Logo" 
-                width={50} 
-                height={50}
+                width={40} 
+                height={40}
                 className="rounded-xl"
               />
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -375,12 +375,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-2">
-              <div className="flex items-center space-x-3 mb-4">
+              <div className="flex items-center space-x-2 mb-4">
                 <Image 
-                  src="/images/logo01-dark.png" 
+                  src="/images/logo-dark.png" 
                   alt="FindIA Logo" 
-                  width={50} 
-                  height={50}
+                  width={40} 
+                  height={40}
                   className="rounded-xl"
                 />
                 <span className="text-2xl font-bold">FindIA</span>
