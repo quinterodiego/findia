@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -24,6 +24,9 @@ import QuickExport from '@/components/QuickExport'
 import ExpenseTemplateModal from '@/components/ExpenseTemplateModal'
 import CreditCardModal from '@/components/CreditCardModal'
 import CreditCardConsumptionModal from '@/components/CreditCardConsumptionModal'
+import CreditCardPaymentModal from '@/components/CreditCardPaymentModal'
+import InterestCalculatorModal from '@/components/InterestCalculatorModal'
+import CreditCardProjectionModal from '@/components/CreditCardProjectionModal'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 import { useLoadingState } from '@/hooks/useLoadingState'
 
@@ -82,7 +85,11 @@ export default function Dashboard() {
   const [showExpenseTemplateModal, setShowExpenseTemplateModal] = useState(false)
   const [showCreditCardModal, setShowCreditCardModal] = useState(false)
   const [showCreditCardConsumptionModal, setShowCreditCardConsumptionModal] = useState(false)
+  const [showCreditCardPaymentModal, setShowCreditCardPaymentModal] = useState(false)
+  const [showInterestCalculatorModal, setShowInterestCalculatorModal] = useState(false)
+  const [showCreditCardProjectionModal, setShowCreditCardProjectionModal] = useState(false)
   const [selectedCreditCard, setSelectedCreditCard] = useState<any>(null)
+  const [selectedConsumption, setSelectedConsumption] = useState<any>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Hook para manejar deudas
@@ -226,6 +233,12 @@ export default function Dashboard() {
     setSelectedCreditCard(card)
     setShowCreditCardModal(false)
     setShowCreditCardConsumptionModal(true)
+  }
+
+  const handleSelectConsumption = (consumption: any) => {
+    setSelectedConsumption(consumption)
+    setShowCreditCardConsumptionModal(false)
+    setShowCreditCardPaymentModal(true)
   }
 
   const handleTransactionAction = (type: TransactionType) => {
@@ -502,6 +515,30 @@ export default function Dashboard() {
                 title="Tarjetas de crédito"
               >
                 <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => setShowCreditCardPaymentModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Pagos de tarjetas"
+              >
+                <DollarSign className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => setShowInterestCalculatorModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Calculadora de intereses"
+              >
+                <Calculator className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => setShowCreditCardProjectionModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Proyecciones y simuladores"
+              >
+                <BarChartIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
 
               <div className="flex items-center gap-3">
@@ -1616,6 +1653,34 @@ export default function Dashboard() {
         selectedCard={selectedCreditCard}
         categories={categories}
         subcategories={subcategories}
+      />
+
+      {/* Modal de Pagos de Tarjeta */}
+      <CreditCardPaymentModal
+        isOpen={showCreditCardPaymentModal}
+        onClose={() => {
+          setShowCreditCardPaymentModal(false)
+          setSelectedConsumption(null)
+        }}
+        selectedCard={selectedCreditCard}
+        selectedConsumption={selectedConsumption}
+      />
+
+      {/* Modal de Calculadora de Intereses */}
+      <InterestCalculatorModal
+        isOpen={showInterestCalculatorModal}
+        onClose={() => setShowInterestCalculatorModal(false)}
+        selectedCard={selectedCreditCard}
+        consumptions={[]} // Aquí irían los consumos reales
+      />
+
+      {/* Modal de Proyecciones */}
+      <CreditCardProjectionModal
+        isOpen={showCreditCardProjectionModal}
+        onClose={() => setShowCreditCardProjectionModal(false)}
+        selectedCard={selectedCreditCard}
+        consumptions={[]} // Aquí irían los consumos reales
+        payments={[]} // Aquí irían los pagos reales
       />
 
       {/* Modal de Pagos */}
