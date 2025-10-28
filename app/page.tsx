@@ -383,7 +383,9 @@ export default function Home() {
                   height={40}
                   className="rounded-xl"
                 />
-                <span className="text-2xl font-bold">FindIA</span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  FindIA
+                </span>
               </div>
               <p className="text-gray-400 mb-4">
                 Tu compañero inteligente para alcanzar la libertad financiera. 
