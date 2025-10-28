@@ -74,6 +74,7 @@ export default function Dashboard() {
   const [showGoalsBreakdown, setShowGoalsBreakdown] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Hook para manejar deudas
   const {
@@ -183,6 +184,8 @@ export default function Dashboard() {
   }
 
   const confirmLogout = async () => {
+    setIsLoggingOut(true)
+    setShowLogoutModal(false)
     await signOut({ callbackUrl: '/' })
   }
 
@@ -369,6 +372,34 @@ export default function Dashboard() {
   }
 
   // Usar el estado de carga optimizado del hook
+
+  // Mostrar pantalla de logout inmediata
+  if (isLoggingOut) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 flex items-center justify-center">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="text-center"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 mx-auto mb-6 border-4 border-blue-200 dark:border-gray-700 border-t-blue-500 rounded-full"
+          />
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+            className="text-gray-600 dark:text-gray-300 text-lg font-medium"
+          >
+            Cerrando sesión...
+          </motion.p>
+        </motion.div>
+      </div>
+    )
+  }
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900' : 'bg-[#f7f9fc]'}`}>
