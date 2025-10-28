@@ -16,7 +16,9 @@ import {
   BarChart3,
   Zap,
   Heart,
-  Trophy
+  Trophy,
+  Sun,
+  Moon
 } from 'lucide-react'
 import AuthModal from '@/components/AuthModal'
 
@@ -24,6 +26,7 @@ export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
 
   useEffect(() => {
@@ -31,6 +34,28 @@ export default function Home() {
       router.push('/dashboard')
     }
   }, [status, router])
+
+  // Cargar tema guardado
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('findia-theme')
+    if (savedTheme === 'dark') {
+      setIsDarkMode(true)
+      document.documentElement.classList.add('dark')
+    }
+  }, [])
+
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode
+    setIsDarkMode(newMode)
+    
+    if (newMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('findia-theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('findia-theme', 'light')
+    }
+  }
 
   const handleGetStarted = () => {
     setAuthMode('register')
@@ -105,9 +130,9 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <header className="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-gray-200 z-40">
+      <header className="fixed top-0 w-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <motion.div 
@@ -130,8 +155,16 @@ export default function Home() {
             
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button
+                onClick={toggleDarkMode}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              >
+                {isDarkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400" />}
+              </button>
+              
+              <button
                 onClick={handleLogin}
-                className="text-gray-600 font-medium text-sm sm:text-base cursor-pointer px-3 sm:px-4 py-2 rounded-lg border-1 hover:border-blue-500 dark:hover:bg-blue-950/20 border-gray-600 hover:text-blue-500 hover:scale-105"
+                className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base cursor-pointer px-3 sm:px-4 py-2 rounded-lg border-1 hover:border-blue-500 dark:hover:bg-blue-950/20 border-gray-600 hover:text-blue-500 hover:scale-105"
               >
                 <span className="hidden sm:inline">Ingresar</span>
                 <span className="sm:hidden">Ingresar</span>
@@ -149,7 +182,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-24 pb-20 bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <section className="pt-24 pb-20 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <motion.div
@@ -157,7 +190,7 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
                 Tu{' '}
                 <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Libertad Financiera
@@ -166,7 +199,7 @@ export default function Home() {
                 Comienza Hoy 🚀
               </h1>
               
-              <p className="text-lg sm:text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto px-4 sm:px-0">
+              <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto px-4 sm:px-0">
                 FindIA es tu compañero inteligente para salir de las deudas. 
                 Estrategias personalizadas, seguimiento motivador y IA que te guía paso a paso.
               </p>
@@ -216,13 +249,13 @@ export default function Home() {
         </div>
       </section>
       {/* Features Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
               ¿Por qué elegir FindIA? ✨
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               Herramientas inteligentes diseñadas para acelerar tu camino hacia la libertad financiera
             </p>
           </div>
@@ -234,13 +267,13 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300"
+                className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-600 hover:shadow-xl transition-all duration-300"
               >
                 <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-3 rounded-xl w-fit mb-4">
                   <feature.icon className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">{feature.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -248,13 +281,13 @@ export default function Home() {
       </section>
 
       {/* How it Works */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
+      <section className="py-20 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
               3 Pasos Hacia Tu Libertad 🎯
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-gray-600 dark:text-gray-300">
               Proceso simple y efectivo para transformar tu situación financiera
             </p>
           </div>
@@ -288,7 +321,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.2 }}
-                className="relative bg-white rounded-2xl p-8 shadow-lg text-center"
+                className="relative bg-white dark:bg-gray-700 rounded-2xl p-8 shadow-lg text-center"
               >
                 <div className={`bg-gradient-to-r ${step.color} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6`}>
                   <step.icon className="h-8 w-8 text-white" />
@@ -296,8 +329,8 @@ export default function Home() {
                 <div className="absolute -top-4 -right-4 bg-gray-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
                   {step.step}
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">{step.title}</h3>
-                <p className="text-gray-600">{step.description}</p>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{step.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300">{step.description}</p>
               </motion.div>
             ))}
           </div>
@@ -305,13 +338,13 @@ export default function Home() {
       </section>
 
       {/* Testimonials */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Historias de Éxito Reales 🌟
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-gray-600 dark:text-gray-300">
               Miles de personas han transformado sus vidas financieras con FindIA
             </p>
           </div>
@@ -323,19 +356,19 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-100"
+                className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-600"
               >
                 <div className="flex items-center mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (
                     <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-6 italic">&quot;{testimonial.text}&quot;</p>
+                <p className="text-gray-700 dark:text-gray-300 mb-6 italic">&quot;{testimonial.text}&quot;</p>
                 <div className="flex items-center">
                   <div className="text-3xl mr-3">{testimonial.avatar}</div>
                   <div>
-                    <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                    <div className="text-sm text-gray-600">{testimonial.role}</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">{testimonial.name}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{testimonial.role}</div>
                   </div>
                 </div>
               </motion.div>
