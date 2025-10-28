@@ -20,6 +20,8 @@ import PaymentModal from '@/components/PaymentModal'
 import ExportModal from '@/components/ExportModal'
 import QuickExport from '@/components/QuickExport'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
+import LoadingScreen from '@/components/LoadingScreen'
+import { useLoadingState } from '@/hooks/useLoadingState'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -302,15 +304,18 @@ export default function Dashboard() {
     }
   }
 
-  if (status === 'loading' || debtsLoading) {
-    return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Cargando datos...</p>
-        </div>
-      </div>
-    )
+  // Estado de carga optimizado
+  const { isInitialLoading, isDataLoading, shouldShowSkeleton, isLoading } = useLoadingState({
+    debtsLoading,
+    incomesLoading,
+    expensesLoading,
+    goalsLoading,
+    sessionStatus: status
+  })
+
+  // Mostrar pantalla de carga inicial solo si es necesario
+  if (isInitialLoading) {
+    return <LoadingScreen message="Iniciando sesión..." />
   }
 
   if (debtsError) {
@@ -363,8 +368,7 @@ export default function Dashboard() {
     monthlyMinPayment: stats?.monthlyMinPayment || 0,
   }
 
-  // Estado de carga general
-  const isLoading = debtsLoading || incomesLoading || expensesLoading || goalsLoading
+  // Usar el estado de carga optimizado del hook
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900' : 'bg-[#f7f9fc]'}`}>
@@ -450,7 +454,7 @@ export default function Dashboard() {
 
           {/* Stats Cards - Diseño limpio y con impacto */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
-            {isLoading ? (
+            {shouldShowSkeleton ? (
               <SkeletonStats />
             ) : (
               <>
@@ -619,7 +623,7 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Export */}
-          {!isLoading && (
+          {!shouldShowSkeleton && (
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -639,7 +643,7 @@ export default function Dashboard() {
           )}
 
           {/* Analytics Section */}
-          {isLoading ? (
+          {shouldShowSkeleton ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6">
               <SkeletonCard />
               <SkeletonCard />
@@ -813,7 +817,9 @@ export default function Dashboard() {
                 Mis Transacciones Financieras
               </h3>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                {(() => {
+                {shouldShowSkeleton ? (
+                  <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-4 w-20 rounded"></div>
+                ) : (() => {
                   const allTransactions: TransactionWithType[] = [
                     ...debts.map((debt: any) => ({ ...debt, type: 'debt' } as TransactionWithType)),
                     ...incomes.map((income: any) => ({ ...income, type: 'income' } as TransactionWithType)),
