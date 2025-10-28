@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -27,6 +27,9 @@ import CreditCardConsumptionModal from '@/components/CreditCardConsumptionModal'
 import CreditCardPaymentModal from '@/components/CreditCardPaymentModal'
 import InterestCalculatorModal from '@/components/InterestCalculatorModal'
 import CreditCardProjectionModal from '@/components/CreditCardProjectionModal'
+import CreditCardAlertsModal from '@/components/CreditCardAlertsModal'
+import CreditCardRecommendationsModal from '@/components/CreditCardRecommendationsModal'
+import CreditCardReportsModal from '@/components/CreditCardReportsModal'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 import { useLoadingState } from '@/hooks/useLoadingState'
 
@@ -88,6 +91,9 @@ export default function Dashboard() {
   const [showCreditCardPaymentModal, setShowCreditCardPaymentModal] = useState(false)
   const [showInterestCalculatorModal, setShowInterestCalculatorModal] = useState(false)
   const [showCreditCardProjectionModal, setShowCreditCardProjectionModal] = useState(false)
+  const [showCreditCardAlertsModal, setShowCreditCardAlertsModal] = useState(false)
+  const [showCreditCardRecommendationsModal, setShowCreditCardRecommendationsModal] = useState(false)
+  const [showCreditCardReportsModal, setShowCreditCardReportsModal] = useState(false)
   const [selectedCreditCard, setSelectedCreditCard] = useState<any>(null)
   const [selectedConsumption, setSelectedConsumption] = useState<any>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -539,6 +545,30 @@ export default function Dashboard() {
                 title="Proyecciones y simuladores"
               >
                 <BarChartIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => setShowCreditCardAlertsModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Alertas de tarjetas"
+              >
+                <Bell className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => setShowCreditCardRecommendationsModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Recomendaciones inteligentes"
+              >
+                <Lightbulb className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => setShowCreditCardReportsModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Reportes detallados"
+              >
+                <FileTextIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
 
               <div className="flex items-center gap-3">
@@ -1678,6 +1708,33 @@ export default function Dashboard() {
       <CreditCardProjectionModal
         isOpen={showCreditCardProjectionModal}
         onClose={() => setShowCreditCardProjectionModal(false)}
+        selectedCard={selectedCreditCard}
+        consumptions={[]} // Aquí irían los consumos reales
+        payments={[]} // Aquí irían los pagos reales
+      />
+
+      {/* Modal de Alertas */}
+      <CreditCardAlertsModal
+        isOpen={showCreditCardAlertsModal}
+        onClose={() => setShowCreditCardAlertsModal(false)}
+        selectedCard={selectedCreditCard}
+        consumptions={[]} // Aquí irían los consumos reales
+        payments={[]} // Aquí irían los pagos reales
+      />
+
+      {/* Modal de Recomendaciones */}
+      <CreditCardRecommendationsModal
+        isOpen={showCreditCardRecommendationsModal}
+        onClose={() => setShowCreditCardRecommendationsModal(false)}
+        selectedCard={selectedCreditCard}
+        consumptions={[]} // Aquí irían los consumos reales
+        payments={[]} // Aquí irían los pagos reales
+      />
+
+      {/* Modal de Reportes */}
+      <CreditCardReportsModal
+        isOpen={showCreditCardReportsModal}
+        onClose={() => setShowCreditCardReportsModal(false)}
         selectedCard={selectedCreditCard}
         consumptions={[]} // Aquí irían los consumos reales
         payments={[]} // Aquí irían los pagos reales
