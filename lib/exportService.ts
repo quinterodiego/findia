@@ -47,6 +47,39 @@ class ExportService {
     }).format(amount)
   }
 
+  private translateExpenseType(type?: string): string {
+    const map: Record<string, string> = {
+      fixed: 'Fijo',
+      variable: 'Variable',
+    }
+    if (!type) return 'Variable'
+    const key = String(type).toLowerCase()
+    return map[key] || type
+  }
+
+  private translatePriority(priority?: string): string {
+    const map: Record<string, string> = {
+      high: 'Alta',
+      medium: 'Media',
+      low: 'Baja',
+    }
+    if (!priority) return 'Media'
+    const key = String(priority).toLowerCase()
+    return map[key] || priority
+  }
+
+  private translateFrequency(freq?: string): string {
+    const map: Record<string, string> = {
+      daily: 'Diaria',
+      weekly: 'Semanal',
+      monthly: 'Mensual',
+      yearly: 'Anual',
+    }
+    if (!freq) return 'Mensual'
+    const key = String(freq).toLowerCase()
+    return map[key] || freq
+  }
+
   private async addLogoToPDF(doc: jsPDF): Promise<void> {
     try {
       // Crear un canvas para convertir la imagen
@@ -200,7 +233,7 @@ class ExportService {
         expense.category || 'Sin categoría',
         this.formatCurrency(expense.amount),
         this.formatDate(expense.date),
-        expense.expenseType || 'Variable',
+        this.translateExpenseType(expense.expenseType),
         expense.notes || ''
       ])
 
@@ -234,7 +267,7 @@ class ExportService {
         `${debt.interestRate || 0}%`,
         this.formatCurrency(debt.minPayment || 0),
         this.formatDate(debt.dueDate || ''),
-        debt.priority || 'Media',
+        this.translatePriority(debt.priority),
         debt.notes || ''
       ])
 
@@ -367,7 +400,7 @@ class ExportService {
           income.date,
           'Ingreso',
           income.isRecurring ? 'Sí' : 'No',
-          income.frequency || 'Mensual',
+          this.translateFrequency(income.frequency),
           income.notes || ''
         ])
       ]
@@ -395,9 +428,9 @@ class ExportService {
           expense.category || 'Sin categoría',
           expense.amount,
           expense.date,
-          expense.expenseType || 'Variable',
+          this.translateExpenseType(expense.expenseType),
           expense.isRecurring ? 'Sí' : 'No',
-          expense.frequency || 'Mensual',
+          this.translateFrequency(expense.frequency),
           expense.notes || ''
         ])
       ]
@@ -428,7 +461,7 @@ class ExportService {
           debt.interestRate || 0,
           debt.minPayment || 0,
           debt.dueDate || '',
-          debt.priority || 'Media',
+          this.translatePriority(debt.priority),
           debt.notes || ''
         ])
       ]
