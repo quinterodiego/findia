@@ -4,13 +4,15 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useGoals } from '@/hooks/useGoals'
+import { useCategories } from '@/hooks/useCategories'
+import { useSubcategories } from '@/hooks/useSubcategories'
 import type { Income, Expense, Goal } from '@/types'
 import FloatingActionButton from '@/components/FloatingActionButton'
 import TransactionModal from '@/components/TransactionModal'
@@ -19,6 +21,7 @@ import ConfirmModal from '@/components/ConfirmModal'
 import PaymentModal from '@/components/PaymentModal'
 import ExportModal from '@/components/ExportModal'
 import QuickExport from '@/components/QuickExport'
+import ExpenseTemplateModal from '@/components/ExpenseTemplateModal'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 import { useLoadingState } from '@/hooks/useLoadingState'
 
@@ -74,6 +77,7 @@ export default function Dashboard() {
   const [showGoalsBreakdown, setShowGoalsBreakdown] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [showExpenseTemplateModal, setShowExpenseTemplateModal] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Hook para manejar deudas
@@ -128,6 +132,12 @@ export default function Dashboard() {
     updateGoal,
     deleteGoal,
   } = useGoals()
+
+  // Hook para manejar categorías
+  const { categories = [] } = useCategories()
+  
+  // Hook para manejar subcategorías
+  const { subcategories = [] } = useSubcategories()
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -187,6 +197,24 @@ export default function Dashboard() {
     setIsLoggingOut(true)
     setShowLogoutModal(false)
     await signOut({ callbackUrl: '/' })
+  }
+
+  const handleApplyTemplate = (template: any) => {
+    // Cerrar el modal de plantillas
+    setShowExpenseTemplateModal(false)
+    
+    // Abrir el modal de transacciones con los datos de la plantilla
+    setTransactionType('expense')
+    setEditingIncome({
+      name: template.name,
+      amount: template.amount,
+      date: new Date().toISOString().split('T')[0],
+      category: template.category,
+      subcategory: template.subcategory,
+      expenseType: template.expenseType,
+      description: template.description || ''
+    })
+    setShowTransactionModal(true)
   }
 
   const handleTransactionAction = (type: TransactionType) => {
@@ -447,6 +475,14 @@ export default function Dashboard() {
                 title="Exportar datos"
               >
                 <Download className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => setShowExpenseTemplateModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Plantillas de gastos"
+              >
+                <FileText className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
 
               <div className="flex items-center gap-3">
@@ -1534,6 +1570,15 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Modal de Plantillas de Gastos */}
+      <ExpenseTemplateModal
+        isOpen={showExpenseTemplateModal}
+        onClose={() => setShowExpenseTemplateModal(false)}
+        onApplyTemplate={handleApplyTemplate}
+        categories={categories}
+        subcategories={subcategories}
+      />
 
       {/* Modal de Pagos */}
       <PaymentModal
