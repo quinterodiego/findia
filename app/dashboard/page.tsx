@@ -345,7 +345,15 @@ export default function Dashboard() {
   const netBalance = totalIncomes - totalExpenses;
   const completedGoals = goals.filter(goal => (goal.currentAmount || 0) >= goal.amount).length;
   const totalGoals = goals.length;
-  const goalsProgress = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0;
+  
+  // Calcular progreso ponderado por valor de meta (más inteligente)
+  const totalGoalValue = goals.reduce((sum, goal) => sum + goal.amount, 0);
+  const totalCurrentValue = goals.reduce((sum, goal) => sum + (goal.currentAmount || 0), 0);
+  const goalsProgress = totalGoalValue > 0 ? (totalCurrentValue / totalGoalValue) * 100 : 0;
+  
+  // Calcular progreso promedio simple (para comparación)
+  const averageProgress = totalGoals > 0 ? 
+    goals.reduce((sum, goal) => sum + Math.min((goal.currentAmount || 0) / goal.amount * 100, 100), 0) / totalGoals : 0;
   
   // Calcular gastos fijos y variables
   const totalFixedExpenses = expenses
@@ -362,8 +370,11 @@ export default function Dashboard() {
     totalVariableExpenses,
     netBalance,
     goalsProgress,
+    averageProgress,
     completedGoals,
     totalGoals,
+    totalGoalValue,
+    totalCurrentValue,
     // Mantener estadísticas de deudas para compatibilidad
     totalBalance: stats?.totalBalance || 0,
     totalPaid: stats?.totalPaid || 0,
@@ -607,9 +618,22 @@ export default function Dashboard() {
                   >
                     {displayStats.goalsProgress.toFixed(1)}%
                   </motion.p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
-                    {displayStats.completedGoals} de {displayStats.totalGoals} completadas
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                      {displayStats.completedGoals} de {displayStats.totalGoals} completadas
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                      ${displayStats.totalCurrentValue.toLocaleString('es-CO')} / ${displayStats.totalGoalValue.toLocaleString('es-CO')}
+                    </p>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(displayStats.goalsProgress, 100)}%` }}
+                        transition={{ duration: 0.8, delay: 0.6 }}
+                        className="bg-gradient-to-r from-purple-400 to-purple-500 h-2 rounded-full"
+                      />
+                    </div>
+                  </div>
                   {goals.length > 0 && (
                     <motion.button
                       whileHover={{ scale: 1.05 }}
@@ -1343,11 +1367,11 @@ export default function Dashboard() {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowGoalsBreakdown(false)}
           />
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md">
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Desglose de Metas
+                  Desglose Detallado de Metas
                 </h3>
                 <button
                   onClick={() => setShowGoalsBreakdown(false)}
@@ -1357,47 +1381,135 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Metas Completadas</p>
-                  <p className="text-2xl font-bold text-green-400 dark:text-green-300">
-                    {displayStats.completedGoals}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {goals.filter((g: any) => (g.currentAmount || 0) >= g.amount).length} metas alcanzadas
-                  </p>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* Resumen General */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Metas Completadas</p>
+                    <p className="text-2xl font-bold text-green-400 dark:text-green-300">
+                      {displayStats.completedGoals}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {goals.filter((g: any) => (g.currentAmount || 0) >= g.amount).length} metas alcanzadas
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-200 rounded-xl flex items-center justify-center">
+                    <Trophy className="w-6 h-6 text-green-400" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-green-200 rounded-xl flex items-center justify-center">
-                  <Trophy className="w-6 h-6 text-green-400" />
+
+                <div className="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">En Progreso</p>
+                    <p className="text-2xl font-bold text-yellow-400 dark:text-yellow-300">
+                      {displayStats.totalGoals - displayStats.completedGoals}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {goals.filter((g: any) => (g.currentAmount || 0) < g.amount).length} metas pendientes
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-yellow-200 rounded-xl flex items-center justify-center">
+                    <Target className="w-6 h-6 text-yellow-400" />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Progreso Ponderado</p>
+                    <p className="text-2xl font-bold text-purple-400 dark:text-purple-300">
+                      {displayStats.goalsProgress.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      ${displayStats.totalCurrentValue.toLocaleString('es-CO')} / ${displayStats.totalGoalValue.toLocaleString('es-CO')}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-purple-400" />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">En Progreso</p>
-                  <p className="text-2xl font-bold text-yellow-400 dark:text-yellow-300">
-                    {displayStats.totalGoals - displayStats.completedGoals}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {goals.filter((g: any) => (g.currentAmount || 0) < g.amount).length} metas pendientes
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-yellow-200 rounded-xl flex items-center justify-center">
-                  <Target className="w-6 h-6 text-yellow-400" />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Progreso General</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {displayStats.goalsProgress.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {displayStats.totalGoals} metas totales
-                  </p>
-                </div>
+              {/* Lista Detallada de Metas */}
+              <div className="space-y-3">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Detalle por Meta
+                </h4>
+                {goals.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <Trophy className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                    <p>No tienes metas de ahorro configuradas</p>
+                    <p className="text-sm">¡Crea tu primera meta para comenzar!</p>
+                  </div>
+                ) : (
+                  goals.map((goal: any, index: number) => {
+                    const progress = goal.amount > 0 ? Math.min(((goal.currentAmount || 0) / goal.amount) * 100, 100) : 0;
+                    const isCompleted = (goal.currentAmount || 0) >= goal.amount;
+                    const remaining = Math.max(goal.amount - (goal.currentAmount || 0), 0);
+                    
+                    return (
+                      <motion.div
+                        key={goal.id || index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                        className={`p-4 rounded-xl border transition-all duration-200 ${
+                          isCompleted 
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                            : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h5 className="font-semibold text-gray-900 dark:text-white mb-1">
+                              {goal.name || 'Meta sin nombre'}
+                            </h5>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                              <span>Meta: ${goal.amount.toLocaleString('es-CO')}</span>
+                              <span>Ahorrado: ${(goal.currentAmount || 0).toLocaleString('es-CO')}</span>
+                              {!isCompleted && (
+                                <span className="text-orange-500">Falta: ${remaining.toLocaleString('es-CO')}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-2xl font-bold ${
+                              isCompleted 
+                                ? 'text-green-400 dark:text-green-300' 
+                                : 'text-purple-400 dark:text-purple-300'
+                            }`}>
+                              {progress.toFixed(1)}%
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {isCompleted ? 'Completada' : 'En progreso'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Barra de progreso individual */}
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            transition={{ duration: 0.8, delay: 0.5 + (index * 0.1) }}
+                            className={`h-2 rounded-full ${
+                              isCompleted 
+                                ? 'bg-gradient-to-r from-green-400 to-green-500' 
+                                : 'bg-gradient-to-r from-purple-400 to-purple-500'
+                            }`}
+                          />
+                        </div>
+                        
+                        {/* Información adicional */}
+                        {goal.description && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
+                            {goal.description}
+                          </p>
+                        )}
+                      </motion.div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
