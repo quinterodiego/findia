@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -22,6 +22,8 @@ import PaymentModal from '@/components/PaymentModal'
 import ExportModal from '@/components/ExportModal'
 import QuickExport from '@/components/QuickExport'
 import ExpenseTemplateModal from '@/components/ExpenseTemplateModal'
+import CreditCardModal from '@/components/CreditCardModal'
+import CreditCardConsumptionModal from '@/components/CreditCardConsumptionModal'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 import { useLoadingState } from '@/hooks/useLoadingState'
 
@@ -78,6 +80,9 @@ export default function Dashboard() {
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [showExpenseTemplateModal, setShowExpenseTemplateModal] = useState(false)
+  const [showCreditCardModal, setShowCreditCardModal] = useState(false)
+  const [showCreditCardConsumptionModal, setShowCreditCardConsumptionModal] = useState(false)
+  const [selectedCreditCard, setSelectedCreditCard] = useState<any>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Hook para manejar deudas
@@ -215,6 +220,12 @@ export default function Dashboard() {
       description: template.description || ''
     })
     setShowTransactionModal(true)
+  }
+
+  const handleSelectCreditCard = (card: any) => {
+    setSelectedCreditCard(card)
+    setShowCreditCardModal(false)
+    setShowCreditCardConsumptionModal(true)
   }
 
   const handleTransactionAction = (type: TransactionType) => {
@@ -483,6 +494,14 @@ export default function Dashboard() {
                 title="Plantillas de gastos"
               >
                 <FileText className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => setShowCreditCardModal(true)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Tarjetas de crédito"
+              >
+                <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
 
               <div className="flex items-center gap-3">
@@ -1576,6 +1595,25 @@ export default function Dashboard() {
         isOpen={showExpenseTemplateModal}
         onClose={() => setShowExpenseTemplateModal(false)}
         onApplyTemplate={handleApplyTemplate}
+        categories={categories}
+        subcategories={subcategories}
+      />
+
+      {/* Modal de Tarjetas de Crédito */}
+      <CreditCardModal
+        isOpen={showCreditCardModal}
+        onClose={() => setShowCreditCardModal(false)}
+        onSelectCard={handleSelectCreditCard}
+      />
+
+      {/* Modal de Consumos de Tarjeta */}
+      <CreditCardConsumptionModal
+        isOpen={showCreditCardConsumptionModal}
+        onClose={() => {
+          setShowCreditCardConsumptionModal(false)
+          setSelectedCreditCard(null)
+        }}
+        selectedCard={selectedCreditCard}
         categories={categories}
         subcategories={subcategories}
       />
