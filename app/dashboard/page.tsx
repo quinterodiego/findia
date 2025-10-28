@@ -512,13 +512,9 @@ export default function Dashboard() {
                         {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'} este mes
                       </p>
                     </div>
-                    <motion.div 
-                      whileHover={{ rotate: 5, scale: 1.1 }}
-                      transition={{ duration: 0.2 }}
-                      className="w-14 h-14 bg-green-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
-                    >
+                    <div className="w-14 h-14 bg-green-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                       <TrendingUp className="w-7 h-7 text-green-400" />
-                    </motion.div>
+                    </div>
                   </div>
                 </motion.div>
 
@@ -561,13 +557,9 @@ export default function Dashboard() {
                     </motion.button>
                   )}
                 </div>
-                <motion.div 
-                  whileHover={{ rotate: -5, scale: 1.1 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-14 h-14 bg-red-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
-                >
+                <div className="w-14 h-14 bg-red-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Target className="w-7 h-7 text-red-400" />
-                </motion.div>
+                </div>
               </div>
             </motion.div>
 
@@ -594,13 +586,9 @@ export default function Dashboard() {
                     {displayStats.netBalance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
                   </p>
                 </div>
-                <motion.div 
-                  whileHover={{ rotate: 10, scale: 1.1 }}
-                  transition={{ duration: 0.2 }}
-                  className={`w-14 h-14 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${displayStats.netBalance >= 0 ? 'bg-green-200' : 'bg-red-200'}`}
-                >
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${displayStats.netBalance >= 0 ? 'bg-green-200' : 'bg-red-200'}`}>
                   <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`} />
-                </motion.div>
+                </div>
               </div>
             </motion.div>
 
@@ -640,13 +628,9 @@ export default function Dashboard() {
                     </motion.button>
                   )}
                 </div>
-                <motion.div 
-                  whileHover={{ rotate: 15, scale: 1.1 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-14 h-14 bg-purple-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
-                >
+                <div className="w-14 h-14 bg-purple-200 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Trophy className="w-7 h-7 text-purple-400" />
-                </motion.div>
+                </div>
               </div>
             </motion.div>
               </>
@@ -689,7 +673,7 @@ export default function Dashboard() {
               {/* Gráfica de Ingresos vs Gastos */}
               <motion.div 
                 whileHover={{ scale: 1.02, y: -5 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.1 }}
                 className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
               >
                 <div className="flex items-center justify-between mb-6">
@@ -697,13 +681,9 @@ export default function Dashboard() {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Balance Financiero</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Ingresos vs Gastos</p>
                   </div>
-                  <motion.div 
-                    whileHover={{ rotate: 5, scale: 1.1 }}
-                    transition={{ duration: 0.2 }}
-                    className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-xl flex items-center justify-center"
-                  >
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-xl flex items-center justify-center">
                     <BarChart3 className="w-6 h-6 text-white" />
-                  </motion.div>
+                  </div>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart 
@@ -779,7 +759,7 @@ export default function Dashboard() {
                 return (
                   <motion.div 
                     whileHover={{ scale: 1.02, y: -5 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: 0.1 }}
                     className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
                   >
                     <div className="flex items-center justify-between mb-6">
@@ -787,13 +767,9 @@ export default function Dashboard() {
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gastos por Categoría</h3>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Distribución de gastos</p>
                       </div>
-                      <motion.div 
-                        whileHover={{ rotate: -5, scale: 1.1 }}
-                        transition={{ duration: 0.2 }}
-                        className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-xl flex items-center justify-center"
-                      >
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-400 rounded-xl flex items-center justify-center">
                         <PieChart className="w-6 h-6 text-white" />
-                      </motion.div>
+                      </div>
                     </div>
                     <ResponsiveContainer width="100%" height={300}>
                       <RechartPieChart>
