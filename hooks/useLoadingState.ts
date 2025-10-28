@@ -18,30 +18,24 @@ export function useLoadingState({
   sessionStatus
 }: UseLoadingStateProps) {
   const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const [showSkeleton, setShowSkeleton] = useState(false)
+  const [hasBeenAuthenticated, setHasBeenAuthenticated] = useState(false)
 
-  // Determinar si estamos en carga inicial (primera vez)
-  const isInitialLoading = sessionStatus === 'loading' || isInitialLoad
+  // Determinar si estamos en carga inicial (solo si nunca hemos estado autenticados)
+  const isInitialLoading = sessionStatus === 'loading' && !hasBeenAuthenticated && isInitialLoad
 
   // Determinar si estamos en carga de datos (después de autenticación)
   const isDataLoading = debtsLoading || incomesLoading || expensesLoading || goalsLoading
 
-  // Determinar si debemos mostrar skeleton (datos parciales)
-  const shouldShowSkeleton = !isInitialLoading && isDataLoading
+  // Determinar si debemos mostrar skeleton (datos parciales o recarga)
+  const shouldShowSkeleton = (sessionStatus === 'loading' && hasBeenAuthenticated) || 
+                             (sessionStatus === 'authenticated' && isDataLoading)
 
   useEffect(() => {
-    if (sessionStatus === 'authenticated' && isInitialLoad) {
+    if (sessionStatus === 'authenticated') {
+      setHasBeenAuthenticated(true)
       setIsInitialLoad(false)
     }
-  }, [sessionStatus, isInitialLoad])
-
-  useEffect(() => {
-    if (isDataLoading && !isInitialLoading) {
-      setShowSkeleton(true)
-    } else {
-      setShowSkeleton(false)
-    }
-  }, [isDataLoading, isInitialLoading])
+  }, [sessionStatus])
 
   return {
     isInitialLoading,
