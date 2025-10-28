@@ -494,7 +494,6 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.1 }}
-                  whileHover={{ scale: 1.01, y: -2 }}
                   className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group"
                 >
                   <div className="flex items-start justify-between">
@@ -523,7 +522,6 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              whileHover={{ scale: 1.01, y: -2 }}
               className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group relative"
             >
               <div className="flex items-start justify-between">
@@ -568,7 +566,6 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              whileHover={{ scale: 1.01, y: -2 }}
               className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group"
             >
               <div className="flex items-start justify-between">
@@ -597,7 +594,6 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              whileHover={{ scale: 1.01, y: -2 }}
               className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group"
             >
               <div className="flex items-start justify-between">
@@ -672,8 +668,6 @@ export default function Dashboard() {
             >
               {/* Gráfica de Ingresos vs Gastos */}
               <motion.div 
-                whileHover={{ scale: 1.01, y: -2 }}
-                transition={{ duration: 0.05 }}
                 className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
               >
                 <div className="flex items-center justify-between mb-6">
@@ -758,8 +752,6 @@ export default function Dashboard() {
 
                 return (
                   <motion.div 
-                    whileHover={{ scale: 1.01, y: -2 }}
-                    transition={{ duration: 0.05 }}
                     className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
                   >
                     <div className="flex items-center justify-between mb-6">
@@ -1065,7 +1057,6 @@ export default function Dashboard() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3, delay: 0.1 }}
-                        whileHover={{ scale: 1.01, y: -1 }}
                         className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all duration-300 group cursor-pointer"
                         onClick={() => {
                           setSelectedTransaction(transaction);
