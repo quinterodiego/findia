@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Plus, Edit2, Trash2, CreditCard, Calendar, DollarSign, AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { X, Plus, Edit2, Trash2, CreditCard, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Search, ChevronDown } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
+import { argentineBanks, searchBanks } from '@/lib/argentineBanks'
 
 interface CreditCard {
   id: string
@@ -34,6 +35,9 @@ export default function CreditCardModal({
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showBankDropdown, setShowBankDropdown] = useState(false)
+  const [bankSearchQuery, setBankSearchQuery] = useState('')
+  const [filteredBanks, setFilteredBanks] = useState(argentineBanks)
   const { success, error } = useToastContext()
 
   // Form state
@@ -55,6 +59,39 @@ export default function CreditCardModal({
       loadCards()
     }
   }, [isOpen])
+
+  // Filtrar bancos cuando cambia la búsqueda
+  useEffect(() => {
+    setFilteredBanks(searchBanks(bankSearchQuery))
+  }, [bankSearchQuery])
+
+  // Cerrar dropdown cuando se hace click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.bank-dropdown-container')) {
+        setShowBankDropdown(false)
+      }
+    }
+
+    if (showBankDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showBankDropdown])
+
+  const handleBankSearch = (query: string) => {
+    setBankSearchQuery(query)
+  }
+
+  const handleBankSelect = (bankName: string) => {
+    setFormData(prev => ({ ...prev, bank: bankName }))
+    setShowBankDropdown(false)
+    setBankSearchQuery('')
+  }
 
   const loadCards = async () => {
     try {
@@ -319,13 +356,53 @@ export default function CreditCardModal({
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Banco *
                       </label>
-                      <input
-                        type="text"
-                        value={formData.bank}
-                        onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                        placeholder="Ej: Bancolombia, BBVA, Davivienda..."
-                      />
+                      <div className="relative bank-dropdown-container">
+                        <input
+                          type="text"
+                          value={formData.bank}
+                          onChange={(e) => {
+                            setFormData(prev => ({ ...prev, bank: e.target.value }))
+                            handleBankSearch(e.target.value)
+                            setShowBankDropdown(true)
+                          }}
+                          onFocus={() => setShowBankDropdown(true)}
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                          placeholder="Buscar banco..."
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowBankDropdown(!showBankDropdown)}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors cursor-pointer"
+                        >
+                          <ChevronDown className="w-4 h-4 text-gray-500" />
+                        </button>
+                        
+                        {showBankDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                            {filteredBanks.length > 0 ? (
+                              filteredBanks.map((bank) => (
+                                <button
+                                  key={bank.code}
+                                  type="button"
+                                  onClick={() => handleBankSelect(bank.name)}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-sm"
+                                >
+                                  <div className="font-medium text-gray-900 dark:text-white">
+                                    {bank.name}
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {bank.code}
+                                  </div>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                No se encontraron bancos
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div>
