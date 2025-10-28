@@ -47,6 +47,49 @@ class ExportService {
     }).format(amount)
   }
 
+  private async addLogoToPDF(doc: jsPDF): Promise<void> {
+    try {
+      // Crear un canvas para convertir la imagen
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      
+      if (!ctx) return
+
+      // Crear una imagen
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      
+      return new Promise((resolve) => {
+        img.onload = () => {
+          // Configurar el canvas
+          canvas.width = 40
+          canvas.height = 40
+          
+          // Dibujar la imagen en el canvas
+          ctx.drawImage(img, 0, 0, 40, 40)
+          
+          // Convertir a base64
+          const dataURL = canvas.toDataURL('image/png')
+          
+          // Agregar la imagen al PDF
+          doc.addImage(dataURL, 'PNG', 20, 15, 15, 15)
+          
+          resolve()
+        }
+        
+        img.onerror = () => {
+          // Si falla la carga de la imagen, continuar sin logo
+          resolve()
+        }
+        
+        // Cargar la imagen
+        img.src = '/images/logo.png'
+      })
+    } catch (error) {
+      console.warn('No se pudo cargar el logo:', error)
+    }
+  }
+
   private formatDate(date: string): string {
     return new Date(date).toLocaleDateString('es-CO')
   }
@@ -69,17 +112,20 @@ class ExportService {
       creator: 'FindIA App'
     })
 
+    // Agregar logo
+    await this.addLogoToPDF(doc)
+
     let yPosition = 20
 
-    // Header
+    // Header con logo
     doc.setFontSize(20)
     doc.setFont('helvetica', 'bold')
-    doc.text('Reporte Financiero FindIA', 20, yPosition)
+    doc.text('Reporte Financiero FindIA', 40, yPosition) // Mover texto a la derecha del logo
     yPosition += 10
 
     doc.setFontSize(12)
     doc.setFont('helvetica', 'normal')
-    doc.text(`Generado el: ${new Date().toLocaleDateString('es-CO')}`, 20, yPosition)
+    doc.text(`Generado el: ${new Date().toLocaleDateString('es-CO')}`, 40, yPosition)
     yPosition += 20
 
     // Estadísticas generales
@@ -245,9 +291,33 @@ class ExportService {
     const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
+      
+      // Agregar logo pequeño en el footer
+      try {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        
+        if (ctx) {
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          
+          img.onload = () => {
+            canvas.width = 20
+            canvas.height = 20
+            ctx.drawImage(img, 0, 0, 20, 20)
+            const dataURL = canvas.toDataURL('image/png')
+            doc.addImage(dataURL, 'PNG', 20, doc.internal.pageSize.height - 15, 8, 8)
+          }
+          
+          img.src = '/images/logo.png'
+        }
+      } catch (error) {
+        // Continuar sin logo si hay error
+      }
+      
       doc.setFontSize(8)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Página ${i} de ${pageCount}`, 20, doc.internal.pageSize.height - 10)
+      doc.text(`Página ${i} de ${pageCount}`, 35, doc.internal.pageSize.height - 10) // Mover texto a la derecha del logo
       doc.text('Generado por FindIA', doc.internal.pageSize.width - 50, doc.internal.pageSize.height - 10)
     }
 

@@ -377,15 +377,15 @@ export default function Home() {
             <div className="md:col-span-2">
               <div className="flex items-center space-x-2 mb-4">
                 <Image 
-                  src="/images/logo-dark.png" 
+                  src="/images/logo.png" 
                   alt="FindIA Logo" 
                   width={40} 
                   height={40}
                   className="rounded-xl"
                 />
-                <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   FindIA
-                </span>
+                </p>
               </div>
               <p className="text-gray-400 mb-4">
                 Tu compañero inteligente para alcanzar la libertad financiera. 
