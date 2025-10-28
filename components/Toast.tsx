@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, createContext, useContext } from 'react'
 
 export interface Toast {
   id: string
@@ -144,4 +144,27 @@ export function useToast() {
     warning,
     info
   }
+}
+
+// Context para compartir el estado de toasts
+
+const ToastContext = createContext<ReturnType<typeof useToast> | null>(null)
+
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const toastMethods = useToast()
+  
+  return (
+    <ToastContext.Provider value={toastMethods}>
+      {children}
+      <ToastContainer />
+    </ToastContext.Provider>
+  )
+}
+
+export function useToastContext() {
+  const context = useContext(ToastContext)
+  if (!context) {
+    throw new Error('useToastContext must be used within a ToastProvider')
+  }
+  return context
 }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Download, FileText, Table } from 'lucide-react'
 import { exportService, ExportData, ExportOptions } from '@/lib/exportService'
-import { useToast } from '@/components/Toast'
+import { useToastContext } from '@/components/Toast'
 
 interface QuickExportProps {
   data: ExportData
@@ -12,7 +12,7 @@ interface QuickExportProps {
 
 export default function QuickExport({ data }: QuickExportProps) {
   const [isExporting, setIsExporting] = useState(false)
-  const { showToast } = useToast()
+  const { success, error } = useToastContext()
 
   const handleQuickExport = async (format: 'pdf' | 'excel') => {
     setIsExporting(true)
@@ -26,18 +26,16 @@ export default function QuickExport({ data }: QuickExportProps) {
 
       await exportService.export(data, options)
       
-      showToast({
-        type: 'success',
-        title: 'Exportación exitosa',
-        message: `Reporte ${format.toUpperCase()} generado correctamente`
-      })
+      success(
+        'Exportación exitosa',
+        `Reporte ${format.toUpperCase()} generado correctamente`
+      )
     } catch (error) {
       console.error('Error en la exportación:', error)
-      showToast({
-        type: 'error',
-        title: 'Error en la exportación',
-        message: 'No se pudo generar el archivo. Inténtalo de nuevo.'
-      })
+      error(
+        'Error en la exportación',
+        'No se pudo generar el archivo. Inténtalo de nuevo.'
+      )
     } finally {
       setIsExporting(false)
     }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, FileText, Table, Calendar, BarChart3, Download } from 'lucide-react'
 import { exportService, ExportData, ExportOptions } from '@/lib/exportService'
-import { useToast } from '@/components/Toast'
+import { useToastContext } from '@/components/Toast'
 
 interface ExportModalProps {
   isOpen: boolean
@@ -21,7 +21,7 @@ export default function ExportModal({ isOpen, onClose, data }: ExportModalProps)
     start: '',
     end: ''
   })
-  const { showToast } = useToast()
+  const { success, error } = useToastContext()
 
   const handleExport = async () => {
     setIsExporting(true)
@@ -40,20 +40,18 @@ export default function ExportModal({ isOpen, onClose, data }: ExportModalProps)
       await exportService.export(data, options)
       
       // Mostrar mensaje de éxito
-      showToast({
-        type: 'success',
-        title: 'Exportación exitosa',
-        message: `Archivo ${exportFormat.toUpperCase()} generado correctamente`
-      })
+      success(
+        'Exportación exitosa',
+        `Archivo ${exportFormat.toUpperCase()} generado correctamente`
+      )
       onClose()
     } catch (error) {
       console.error('Error en la exportación:', error)
       // Mostrar mensaje de error
-      showToast({
-        type: 'error',
-        title: 'Error en la exportación',
-        message: 'No se pudo generar el archivo. Inténtalo de nuevo.'
-      })
+      error(
+        'Error en la exportación',
+        'No se pudo generar el archivo. Inténtalo de nuevo.'
+      )
     } finally {
       setIsExporting(false)
     }
