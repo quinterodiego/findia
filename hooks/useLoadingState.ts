@@ -30,7 +30,7 @@ export function useLoadingState({
   const shouldShowSkeleton = !isInitialLoading && isDataLoading
 
   useEffect(() => {
-    if (sessionStatus === 'authenticated' && !isInitialLoad) {
+    if (sessionStatus === 'authenticated' && isInitialLoad) {
       setIsInitialLoad(false)
     }
   }, [sessionStatus, isInitialLoad])
