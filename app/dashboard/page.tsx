@@ -673,7 +673,7 @@ export default function Dashboard() {
               {/* Gráfica de Ingresos vs Gastos */}
               <motion.div 
                 whileHover={{ scale: 1.01, y: -2 }}
-                transition={{ duration: 0.1 }}
+                transition={{ duration: 0.05 }}
                 className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
               >
                 <div className="flex items-center justify-between mb-6">
@@ -759,7 +759,7 @@ export default function Dashboard() {
                 return (
                   <motion.div 
                     whileHover={{ scale: 1.01, y: -2 }}
-                    transition={{ duration: 0.1 }}
+                    transition={{ duration: 0.05 }}
                     className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
                   >
                     <div className="flex items-center justify-between mb-6">
