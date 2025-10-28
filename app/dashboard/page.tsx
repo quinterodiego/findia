@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, MoreHorizontal } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, MoreHorizontal, Home, Plus } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -97,6 +97,7 @@ export default function Dashboard() {
   const [showCreditCardDropdown, setShowCreditCardDropdown] = useState(false)
   const [showAnalysisDropdown, setShowAnalysisDropdown] = useState(false)
   const [showToolsDropdown, setShowToolsDropdown] = useState(false)
+  const [showBottomNav, setShowBottomNav] = useState(false)
   const [selectedCreditCard, setSelectedCreditCard] = useState<any>(null)
   const [selectedConsumption, setSelectedConsumption] = useState<any>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -195,6 +196,24 @@ export default function Dashboard() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showCreditCardDropdown, showAnalysisDropdown, showToolsDropdown])
+
+  // Cerrar bottom nav cuando se hace click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.bottom-nav-container')) {
+        setShowBottomNav(false)
+      }
+    }
+
+    if (showBottomNav) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showBottomNav])
 
   // Cargar tema guardado al iniciar
   useEffect(() => {
@@ -522,8 +541,8 @@ export default function Dashboard() {
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-gray-600" />}
               </button>
 
-              {/* Dropdown de Tarjetas de Crédito */}
-              <div className="relative dropdown-container">
+              {/* Dropdown de Tarjetas de Crédito - Solo Desktop */}
+              <div className="relative dropdown-container hidden md:block">
                 <button
                   onClick={() => setShowCreditCardDropdown(!showCreditCardDropdown)}
                   className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1"
@@ -601,8 +620,8 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Dropdown de Análisis */}
-              <div className="relative dropdown-container">
+              {/* Dropdown de Análisis - Solo Desktop */}
+              <div className="relative dropdown-container hidden md:block">
                 <button
                   onClick={() => setShowAnalysisDropdown(!showAnalysisDropdown)}
                   className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1"
@@ -666,8 +685,8 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Dropdown de Herramientas */}
-              <div className="relative dropdown-container">
+              {/* Dropdown de Herramientas - Solo Desktop */}
+              <div className="relative dropdown-container hidden md:block">
                 <button
                   onClick={() => setShowToolsDropdown(!showToolsDropdown)}
                   className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1"
@@ -742,6 +761,15 @@ export default function Dashboard() {
                   title="Cerrar sesión"
                 >
                   <LogOut className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                </button>
+
+                {/* Botón de menú móvil */}
+                <button
+                  onClick={() => setShowBottomNav(!showBottomNav)}
+                  className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  title="Menú"
+                >
+                  <MoreHorizontal className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 </button>
               </div>
             </div>
@@ -1901,6 +1929,132 @@ export default function Dashboard() {
         debt={selectedDebt}
         loading={debtsLoading}
       />
+
+      {/* Bottom Navigation Bar - Solo Mobile */}
+      <AnimatePresence>
+        {showBottomNav && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
+          >
+            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-2xl bottom-nav-container">
+              <div className="px-4 py-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Sección Tarjetas de Crédito */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Tarjetas de Crédito
+                    </h3>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setShowCreditCardModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <CreditCard className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Gestión</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCreditCardPaymentModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <DollarSign className="w-4 h-4 text-green-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Pagos</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowInterestCalculatorModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <Calculator className="w-4 h-4 text-purple-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Intereses</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCreditCardProjectionModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <BarChartIcon className="w-4 h-4 text-orange-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Proyecciones</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sección Análisis y Herramientas */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Análisis & Herramientas
+                    </h3>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setShowCreditCardAlertsModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <Bell className="w-4 h-4 text-red-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Alertas</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCreditCardRecommendationsModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <Lightbulb className="w-4 h-4 text-yellow-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Recomendaciones</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCreditCardReportsModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <FileTextIcon className="w-4 h-4 text-indigo-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Reportes</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowExportModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <Download className="w-4 h-4 text-green-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Exportar</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowExpenseTemplateModal(true)
+                          setShowBottomNav(false)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <FileText className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">Plantillas</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
