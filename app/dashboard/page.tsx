@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, MoreHorizontal } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -94,6 +94,9 @@ export default function Dashboard() {
   const [showCreditCardAlertsModal, setShowCreditCardAlertsModal] = useState(false)
   const [showCreditCardRecommendationsModal, setShowCreditCardRecommendationsModal] = useState(false)
   const [showCreditCardReportsModal, setShowCreditCardReportsModal] = useState(false)
+  const [showCreditCardDropdown, setShowCreditCardDropdown] = useState(false)
+  const [showAnalysisDropdown, setShowAnalysisDropdown] = useState(false)
+  const [showToolsDropdown, setShowToolsDropdown] = useState(false)
   const [selectedCreditCard, setSelectedCreditCard] = useState<any>(null)
   const [selectedConsumption, setSelectedConsumption] = useState<any>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -172,6 +175,26 @@ export default function Dashboard() {
       return
     }
   }, [session, status, router])
+
+  // Cerrar dropdowns cuando se hace click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.dropdown-container')) {
+        setShowCreditCardDropdown(false)
+        setShowAnalysisDropdown(false)
+        setShowToolsDropdown(false)
+      }
+    }
+
+    if (showCreditCardDropdown || showAnalysisDropdown || showToolsDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCreditCardDropdown, showAnalysisDropdown, showToolsDropdown])
 
   // Cargar tema guardado al iniciar
   useEffect(() => {
@@ -499,77 +522,200 @@ export default function Dashboard() {
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-gray-600" />}
               </button>
 
-              <button
-                onClick={() => setShowExportModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Exportar datos"
-              >
-                <Download className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
+              {/* Dropdown de Tarjetas de Crédito */}
+              <div className="relative dropdown-container">
+                <button
+                  onClick={() => setShowCreditCardDropdown(!showCreditCardDropdown)}
+                  className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Tarjetas de crédito"
+                >
+                  <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <ChevronDown className="w-3 h-3 text-gray-500" />
+                </button>
+                
+                {showCreditCardDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50"
+                  >
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          setShowCreditCardModal(true)
+                          setShowCreditCardDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <CreditCard className="w-4 h-4 text-blue-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Gestión de Tarjetas</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Crear, editar, eliminar</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setShowCreditCardPaymentModal(true)
+                          setShowCreditCardDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <DollarSign className="w-4 h-4 text-green-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Pagos</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Registrar pagos</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setShowInterestCalculatorModal(true)
+                          setShowCreditCardDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <Calculator className="w-4 h-4 text-purple-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Calculadora de Intereses</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Calcular intereses por mora</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setShowCreditCardProjectionModal(true)
+                          setShowCreditCardDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <BarChartIcon className="w-4 h-4 text-orange-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Proyecciones</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Simuladores y escenarios</div>
+                        </div>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
 
-              <button
-                onClick={() => setShowExpenseTemplateModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Plantillas de gastos"
-              >
-                <FileText className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
+              {/* Dropdown de Análisis */}
+              <div className="relative dropdown-container">
+                <button
+                  onClick={() => setShowAnalysisDropdown(!showAnalysisDropdown)}
+                  className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Análisis y reportes"
+                >
+                  <BarChart3 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <ChevronDown className="w-3 h-3 text-gray-500" />
+                </button>
+                
+                {showAnalysisDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50"
+                  >
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          setShowCreditCardAlertsModal(true)
+                          setShowAnalysisDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <Bell className="w-4 h-4 text-red-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Alertas</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Notificaciones automáticas</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setShowCreditCardRecommendationsModal(true)
+                          setShowAnalysisDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <Lightbulb className="w-4 h-4 text-yellow-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Recomendaciones</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Optimización inteligente</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setShowCreditCardReportsModal(true)
+                          setShowAnalysisDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <FileTextIcon className="w-4 h-4 text-indigo-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Reportes</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Análisis detallados</div>
+                        </div>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
 
-              <button
-                onClick={() => setShowCreditCardModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Tarjetas de crédito"
-              >
-                <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => setShowCreditCardPaymentModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Pagos de tarjetas"
-              >
-                <DollarSign className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => setShowInterestCalculatorModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Calculadora de intereses"
-              >
-                <Calculator className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => setShowCreditCardProjectionModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Proyecciones y simuladores"
-              >
-                <BarChartIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => setShowCreditCardAlertsModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Alertas de tarjetas"
-              >
-                <Bell className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => setShowCreditCardRecommendationsModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Recomendaciones inteligentes"
-              >
-                <Lightbulb className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => setShowCreditCardReportsModal(true)}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Reportes detallados"
-              >
-                <FileTextIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
+              {/* Dropdown de Herramientas */}
+              <div className="relative dropdown-container">
+                <button
+                  onClick={() => setShowToolsDropdown(!showToolsDropdown)}
+                  className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Herramientas"
+                >
+                  <MoreHorizontal className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <ChevronDown className="w-3 h-3 text-gray-500" />
+                </button>
+                
+                {showToolsDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50"
+                  >
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          setShowExportModal(true)
+                          setShowToolsDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <Download className="w-4 h-4 text-green-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Exportar Datos</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">PDF y Excel</div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setShowExpenseTemplateModal(true)
+                          setShowToolsDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                      >
+                        <FileText className="w-4 h-4 text-blue-500" />
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">Plantillas de Gastos</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Gastos recurrentes</div>
+                        </div>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
 
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full overflow-hidden">
