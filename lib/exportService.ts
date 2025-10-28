@@ -71,8 +71,8 @@ class ExportService {
           // Convertir a base64
           const dataURL = canvas.toDataURL('image/png')
           
-          // Agregar la imagen al PDF
-          doc.addImage(dataURL, 'PNG', 20, 15, 15, 15)
+          // Agregar la imagen al PDF (más pequeño)
+          doc.addImage(dataURL, 'PNG', 20, 15, 10, 10)
           
           resolve()
         }
@@ -120,12 +120,12 @@ class ExportService {
     // Header con logo
     doc.setFontSize(20)
     doc.setFont('helvetica', 'bold')
-    doc.text('Reporte Financiero FindIA', 40, yPosition) // Mover texto a la derecha del logo
+    doc.text('Reporte Financiero FindIA', 35, yPosition) // Ajuste por logo más pequeño
     yPosition += 10
 
     doc.setFontSize(12)
     doc.setFont('helvetica', 'normal')
-    doc.text(`Generado el: ${new Date().toLocaleDateString('es-CO')}`, 40, yPosition)
+    doc.text(`Generado el: ${new Date().toLocaleDateString('es-CO')}`, 35, yPosition)
     yPosition += 20
 
     // Estadísticas generales
@@ -302,11 +302,11 @@ class ExportService {
           img.crossOrigin = 'anonymous'
           
           img.onload = () => {
-            canvas.width = 20
-            canvas.height = 20
-            ctx.drawImage(img, 0, 0, 20, 20)
+            canvas.width = 12
+            canvas.height = 12
+            ctx.drawImage(img, 0, 0, 12, 12)
             const dataURL = canvas.toDataURL('image/png')
-            doc.addImage(dataURL, 'PNG', 20, doc.internal.pageSize.height - 15, 8, 8)
+            doc.addImage(dataURL, 'PNG', 20, doc.internal.pageSize.height - 13, 6, 6)
           }
           
           img.src = '/images/logo.png'
