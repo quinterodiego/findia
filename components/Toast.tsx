@@ -38,7 +38,7 @@ function ToastComponent({ toast, onRemove }: ToastProps) {
       case 'warning':
         return <AlertCircle className="w-5 h-5 text-yellow-500" />
       case 'info':
-        return <Info className="w-5 h-5 text-gray-600" />
+        return null // Sin icono para mensajes informativos (saludo)
     }
   }
 
