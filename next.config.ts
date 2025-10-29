@@ -71,6 +71,18 @@ export default withPWA({
       },
     },
     {
+      urlPattern: /manifest\.json$/i,
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "manifest",
+        expiration: {
+          maxEntries: 1,
+          maxAgeSeconds: 0, // No cachear el manifest, siempre obtener la versión más reciente
+        },
+        networkTimeoutSeconds: 5,
+      },
+    },
+    {
       urlPattern: /\/_next\/image\?url=.+$/i,
       handler: "StaleWhileRevalidate",
       options: {
