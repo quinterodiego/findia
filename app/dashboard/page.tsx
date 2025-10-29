@@ -399,7 +399,7 @@ export default function Dashboard() {
           <p className="text-gray-600 dark:text-gray-300 mb-4">{debtsError}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
+            className="px-4 py-2 bg-[#FF3A5F] text-white rounded-lg hover:bg-[#FF3A5F]/90 transition-colors cursor-pointer"
           >
             Reintentar
           </button>
@@ -466,7 +466,7 @@ export default function Dashboard() {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-16 h-16 mx-auto mb-6 border-4 border-blue-200 dark:border-gray-700 border-t-blue-500 rounded-full"
+            className="w-16 h-16 mx-auto mb-6 border-4 border-[#FF3A5F]/20 dark:border-gray-700 border-t-[#FF3A5F] rounded-full"
           />
           <motion.p
             initial={{ opacity: 0, y: 10 }}
@@ -1168,7 +1168,7 @@ export default function Dashboard() {
                   placeholder="Buscar por nombre, categoría o notas..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
                 />
               </div>
 
@@ -1178,7 +1178,7 @@ export default function Dashboard() {
                   onClick={() => setFilterType('all')}
                   className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
                     filterType === 'all'
-                      ? 'bg-blue-400 text-white'
+                      ? 'bg-[#FF3A5F] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
@@ -1232,7 +1232,7 @@ export default function Dashboard() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer"
                 >
                   <option value="date">Ordenar por fecha</option>
                   <option value="amount">Ordenar por monto</option>
