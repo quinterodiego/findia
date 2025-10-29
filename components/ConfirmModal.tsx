@@ -40,7 +40,7 @@ export default function ConfirmModal({
       case 'info':
         return 'bg-blue-400';
       case 'brand':
-        return 'bg-linear-to-r from-blue-600 to-[#5A4FD9]';
+        return 'bg-gradient-to-r from-[#FF3A5F] to-[#FF007A]';
       default:
         return 'bg-gray-400';
     }
@@ -55,7 +55,7 @@ export default function ConfirmModal({
       case 'info':
         return 'text-blue-400 dark:text-blue-300';
       case 'brand':
-        return 'text-blue-500 dark:text-indigo-300';
+        return 'text-[#FF3A5F] dark:text-[#FF007A]';
       default:
         return 'text-gray-400 dark:text-gray-300';
     }
