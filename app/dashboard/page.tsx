@@ -182,18 +182,27 @@ export default function Dashboard() {
     }
   }, [session, status, router])
 
-  // Mostrar mensaje de bienvenida como toast flotante (solo una vez por sesión)
+  // Mostrar mensaje de bienvenida como toast flotante SOLO al iniciar sesión (no en cada refresh)
   useEffect(() => {
-    if (session?.user && !welcomeShown && status === 'authenticated') {
+    if (status !== 'authenticated' || !session?.user) return
+
+    const userId = (session.user as any).id || session.user.email || 'current'
+    const storageKey = `welcome-toast-shown:${userId}`
+
+    // Si ya se mostró en esta sesión de pestaña, no volver a mostrar
+    if (sessionStorage.getItem(storageKey)) return
+
+    if (!welcomeShown) {
       const userName = session.user.name?.split(' ')[0] || 'Usuario'
       info(
         `¡Hola, ${userName}! 👋`,
         'Bienvenido a tu dashboard de libertad financiera',
-        4000 // 4 segundos
+        4000
       )
+      sessionStorage.setItem(storageKey, 'true')
       setWelcomeShown(true)
     }
-  }, [session, status, welcomeShown, info])
+  }, [status, session, welcomeShown, info])
 
   // Cerrar dropdowns cuando se hace click fuera
   useEffect(() => {
@@ -239,6 +248,14 @@ export default function Dashboard() {
   }
 
   const confirmLogout = async () => {
+    try {
+      // Limpiar el flag del toast de bienvenida para mostrarlo en el próximo login
+      if (session?.user) {
+        const userId = (session.user as any).id || session.user.email || 'current'
+        const storageKey = `welcome-toast-shown:${userId}`
+        sessionStorage.removeItem(storageKey)
+      }
+    } catch {}
     setIsLoggingOut(true)
     setShowLogoutModal(false)
     await signOut({ callbackUrl: '/' })
