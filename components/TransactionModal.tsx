@@ -19,25 +19,25 @@ const typeConfig = {
   debt: {
     title: 'Agregar Deuda',
     icon: CreditCard,
-    color: 'from-rose-200 to-pink-300',
+    color: 'from-rose-400 to-pink-500',
     description: 'Registra una nueva deuda, préstamo o crédito'
   },
   expense: {
     title: 'Agregar Gasto',
     icon: DollarSign,
-    color: 'from-orange-200 to-amber-300',
+    color: 'from-orange-400 to-amber-500',
     description: 'Registra un gasto o compra realizada'
   },
   income: {
     title: 'Agregar Ingreso',
     icon: TrendingUp,
-    color: 'from-emerald-200 to-green-300',
+    color: 'from-emerald-400 to-green-500',
     description: 'Registra un ingreso o entrada de dinero'
   },
   goal: {
     title: 'Agregar Meta',
     icon: Target,
-    color: 'from-sky-200 to-blue-300',
+    color: 'from-sky-400 to-blue-500',
     description: 'Define una meta de ahorro u objetivo financiero'
   }
 };
@@ -225,7 +225,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
         >
           {/* Header */}
-          <div className={`p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r ${config.color} text-gray-800 rounded-t-2xl`}>
+          <div className={`p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r ${config.color} text-white rounded-t-2xl`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Icon className="w-6 h-6" />
@@ -233,7 +233,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   <h2 className="text-xl font-semibold">
                     {editingTransaction ? `Editar ${type === 'debt' ? 'Deuda' : type === 'expense' ? 'Gasto' : type === 'income' ? 'Ingreso' : 'Meta'}` : config.title}
                   </h2>
-                  <p className="text-gray-700 text-sm">
+                  <p className="text-white/90 text-sm">
                     {editingTransaction ? `Actualiza los datos de ${type === 'debt' ? 'la deuda' : type === 'expense' ? 'el gasto' : type === 'income' ? 'el ingreso' : 'la meta'}` : config.description}
                   </p>
                 </div>
