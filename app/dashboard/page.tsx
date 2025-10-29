@@ -34,6 +34,7 @@ import CreditCardReportsModal from '@/components/CreditCardReportsModal'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 import { useLoadingState } from '@/hooks/useLoadingState'
 import ThemeToggle from '@/components/ThemeToggle'
+import { useToast, ToastContainer } from '@/components/Toast'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -65,6 +66,8 @@ interface TransactionWithType {
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { toasts, removeToast, info } = useToast()
+  const [welcomeShown, setWelcomeShown] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionType, setTransactionType] = useState<TransactionType>('debt')
   const [editingIncome, setEditingIncome] = useState<any>(null)
@@ -178,6 +181,19 @@ export default function Dashboard() {
       return
     }
   }, [session, status, router])
+
+  // Mostrar mensaje de bienvenida como toast flotante (solo una vez por sesión)
+  useEffect(() => {
+    if (session?.user && !welcomeShown && status === 'authenticated') {
+      const userName = session.user.name?.split(' ')[0] || 'Usuario'
+      info(
+        `¡Hola, ${userName}! 👋`,
+        'Bienvenido a tu dashboard de libertad financiera',
+        4000 // 4 segundos
+      )
+      setWelcomeShown(true)
+    }
+  }, [session, status, welcomeShown, info])
 
   // Cerrar dropdowns cuando se hace click fuera
   useEffect(() => {
@@ -746,7 +762,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           {/* Welcome Message */}
           <div className="text-center mb-8">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+            <h1 className="text-xl font-bold text-gray-600 dark:text-white mb-1">
               ¡Hola, {session?.user?.name?.split(' ')[0] || 'Usuario'}! 👋
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -1570,7 +1586,7 @@ export default function Dashboard() {
                 </h3>
                 <button
                   onClick={() => setShowExpenseBreakdown(false)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 </button>
