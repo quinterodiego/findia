@@ -163,17 +163,25 @@ export default function DebtModal({ isOpen, onClose, onSave, debt, loading = fal
             className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-2xl shadow-2xl"
           >
             {/* Header */}
-            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+            <div className="sticky top-0 bg-gradient-to-r from-rose-200 to-pink-300 border-b border-gray-200 dark:border-gray-700 px-6 py-4 rounded-t-2xl">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {debt ? 'Editar Deuda' : 'Nueva Deuda'}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-6 h-6 text-gray-800" />
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">
+                      {debt ? 'Editar Deuda' : 'Nueva Deuda'}
+                    </h2>
+                    <p className="text-gray-700 text-sm">
+                      {debt ? 'Actualiza los datos de la deuda' : 'Registra una nueva deuda o préstamo'}
+                    </p>
+                  </div>
+                </div>
                 <button
                   onClick={handleClose}
                   disabled={loading}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+                  className="p-2 hover:bg-gray-600/20 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-gray-800" />
                 </button>
               </div>
             </div>

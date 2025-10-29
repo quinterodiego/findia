@@ -122,7 +122,7 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={toggleMenu}
-          className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-linear-to-r from-blue-400 to-purple-500 shadow-lg flex items-center justify-center transition-all duration-300 group cursor-pointer ${
+          className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] shadow-lg flex items-center justify-center transition-all duration-300 group cursor-pointer ${
             isOpen ? 'rotate-45' : 'rotate-0'
           }`}
         >

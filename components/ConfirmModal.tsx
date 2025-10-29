@@ -123,7 +123,7 @@ export default function ConfirmModal({
                   : type === 'warning'
                   ? 'bg-orange-400 hover:bg-orange-500'
                   : type === 'brand'
-                  ? 'bg-gradient-to-r from-blue-600 to-[#5A4FD9] hover:from-blue-700 hover:to-[#4a40c9]'
+                  ? 'bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90'
                   : 'bg-blue-400 hover:bg-blue-500'
               } text-white rounded-xl transition-colors font-semibold cursor-pointer`}
             >

@@ -16,17 +16,15 @@ import {
   BarChart3,
   Zap,
   Heart,
-  Trophy,
-  Sun,
-  Moon
+  Trophy
 } from 'lucide-react'
 import AuthModal from '@/components/AuthModal'
+import ThemeToggle from '@/components/ThemeToggle'
 
 export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [isDarkMode, setIsDarkMode] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
 
   useEffect(() => {
@@ -34,28 +32,6 @@ export default function Home() {
       router.push('/dashboard')
     }
   }, [status, router])
-
-  // Cargar tema guardado
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('findia-theme')
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true)
-      document.documentElement.classList.add('dark')
-    }
-  }, [])
-
-  const toggleDarkMode = () => {
-    const newMode = !isDarkMode
-    setIsDarkMode(newMode)
-    
-    if (newMode) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('findia-theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('findia-theme', 'light')
-    }
-  }
 
   const handleGetStarted = () => {
     setAuthMode('register')
@@ -123,14 +99,14 @@ export default function Home() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FF3A5F]/10 to-[#FF007A]/10">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF3A5F]"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-b from-[#FF3A5F]/5 via-white to-[#FF007A]/5 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
       <header className="fixed top-0 w-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -148,30 +124,24 @@ export default function Home() {
                 height={40}
                 className="rounded-xl"
               />
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] bg-clip-text text-transparent">
                 FindIA
               </span>
             </motion.div>
             
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-              >
-                {isDarkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400" />}
-              </button>
+              <ThemeToggle />
               
               <button
                 onClick={handleLogin}
-                className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base cursor-pointer px-3 sm:px-4 py-2 rounded-lg border-1 hover:border-blue-500 dark:hover:bg-blue-950/20 border-gray-600 hover:text-blue-500 hover:scale-105"
+                className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base cursor-pointer px-3 sm:px-4 py-2 rounded-lg border-1 hover:border-[#FF3A5F] dark:hover:bg-[#FF3A5F]/20 border-gray-600 hover:text-[#FF3A5F] hover:scale-105"
               >
                 <span className="hidden sm:inline">Ingresar</span>
                 <span className="sm:hidden">Ingresar</span>
               </button>
               <button
                 onClick={handleGetStarted}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 sm:px-6 py-2 rounded-lg font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-200 text-sm sm:text-base cursor-pointer transform hover:scale-105"
+                className="bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white px-3 sm:px-6 py-2 rounded-lg font-semibold hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 transition-all duration-200 text-sm sm:text-base cursor-pointer transform hover:scale-105"
               >
                 <span className="hidden sm:inline">Empezar Gratis</span>
                 <span className="sm:hidden">Empezar</span>
@@ -182,7 +152,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-24 pb-20 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800">
+      <section className="pt-24 pb-20 bg-gradient-to-br from-[#FF3A5F]/5 via-white to-[#FF007A]/5 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <motion.div
@@ -192,7 +162,7 @@ export default function Home() {
             >
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
                 Tu{' '}
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] bg-clip-text text-transparent">
                   Libertad Financiera
                 </span>
                 <br />
@@ -207,7 +177,7 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center mb-12 px-4 sm:px-0">
                 <motion.button
                   onClick={handleGetStarted}
-                  className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 sm:px-8 py-4 rounded-xl font-semibold text-base sm:text-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                  className="w-full sm:w-auto bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white px-6 sm:px-8 py-4 rounded-xl font-semibold text-base sm:text-lg hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -238,7 +208,7 @@ export default function Home() {
               {stats.map((stat, index) => (
                 <div key={index} className="text-center">
                   <div className="bg-white/70 backdrop-blur-sm dark:bg-gray-700 dark:backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-600 hover:shadow-xl transition-all duration-300">
-                    <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-3 rounded-xl w-fit mx-auto mb-3">
+                    <div className="bg-gradient-to-br from-[#FF3A5F] to-[#FF007A] p-3 rounded-xl w-fit mx-auto mb-3">
                       <stat.icon className="h-6 w-6 text-white" />
                     </div>
                     <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{stat.number}</div>
@@ -271,7 +241,7 @@ export default function Home() {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-600 hover:shadow-xl transition-all duration-300"
               >
-                <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-3 rounded-xl w-fit mb-4">
+                <div className="bg-gradient-to-br from-[#FF3A5F] to-[#FF007A] p-3 rounded-xl w-fit mb-4">
                   <feature.icon className="h-6 w-6 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">{feature.title}</h3>
@@ -283,7 +253,7 @@ export default function Home() {
       </section>
 
       {/* How it Works */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-900">
+      <section className="py-20 bg-gradient-to-br from-gray-50 to-[#FF3A5F]/5 dark:from-gray-800 dark:to-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
@@ -380,7 +350,7 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-700">
+      <section className="py-20 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A]">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -390,12 +360,12 @@ export default function Home() {
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
               ¿Listo para tu Transformación? 🚀
             </h2>
-            <p className="text-xl text-blue-100 mb-8">
+            <p className="text-xl text-white/90 mb-8">
               Únete a miles de personas que han recuperado su libertad financiera
             </p>
             <motion.button
               onClick={handleGetStarted}
-              className="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-lg cursor-pointer"
+              className="bg-white text-[#FF3A5F] px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-lg cursor-pointer"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -418,7 +388,7 @@ export default function Home() {
                   height={40}
                   className="rounded-xl"
                 />
-                <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <p className="text-2xl font-bold bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] bg-clip-text text-transparent">
                   FindIA
                 </p>
               </div>

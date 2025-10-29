@@ -4,6 +4,8 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import {
   getIncomesByUser,
   createIncome,
+  updateIncome,
+  deleteIncome,
 } from '@/lib/googleSheets';
 
 /**

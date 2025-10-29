@@ -23,6 +23,7 @@ import ExportModal from '@/components/ExportModal'
 import QuickExport from '@/components/QuickExport'
 import ExpenseTemplateModal from '@/components/ExpenseTemplateModal'
 import CreditCardModal from '@/components/CreditCardModal'
+import CreditCardCenter from '@/components/CreditCardCenter'
 import CreditCardConsumptionModal from '@/components/CreditCardConsumptionModal'
 import CreditCardPaymentModal from '@/components/CreditCardPaymentModal'
 import InterestCalculatorModal from '@/components/InterestCalculatorModal'
@@ -32,6 +33,7 @@ import CreditCardRecommendationsModal from '@/components/CreditCardRecommendatio
 import CreditCardReportsModal from '@/components/CreditCardReportsModal'
 import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 import { useLoadingState } from '@/hooks/useLoadingState'
+import ThemeToggle from '@/components/ThemeToggle'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -63,7 +65,6 @@ interface TransactionWithType {
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [isDarkMode, setIsDarkMode] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionType, setTransactionType] = useState<TransactionType>('debt')
   const [editingIncome, setEditingIncome] = useState<any>(null)
@@ -87,6 +88,7 @@ export default function Dashboard() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [showExpenseTemplateModal, setShowExpenseTemplateModal] = useState(false)
   const [showCreditCardModal, setShowCreditCardModal] = useState(false)
+  const [showCreditCardCenter, setShowCreditCardCenter] = useState(false)
   const [showCreditCardConsumptionModal, setShowCreditCardConsumptionModal] = useState(false)
   const [showCreditCardPaymentModal, setShowCreditCardPaymentModal] = useState(false)
   const [showInterestCalculatorModal, setShowInterestCalculatorModal] = useState(false)
@@ -215,39 +217,6 @@ export default function Dashboard() {
     }
   }, [showBottomNav])
 
-  // Cargar tema guardado al iniciar
-  useEffect(() => {
-    // Verificar el tema guardado en localStorage
-    const savedTheme = localStorage.getItem('findia-theme')
-    
-    // Si no hay tema guardado, establecer light por defecto
-    if (!savedTheme) {
-      localStorage.setItem('findia-theme', 'light')
-    }
-    
-    // Default to light mode if no saved theme
-    const shouldUseDark = savedTheme === 'dark'
-    
-    setIsDarkMode(shouldUseDark)
-    
-    if (shouldUseDark) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [])
-
-  const toggleDarkMode = () => {
-    const newMode = !isDarkMode
-    setIsDarkMode(newMode)
-    if (newMode) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('findia-theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('findia-theme', 'light')
-    }
-  }
 
   const handleSignOut = () => {
     setShowLogoutModal(true)
@@ -423,7 +392,7 @@ export default function Dashboard() {
 
   if (debtsError) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#FF3A5F]/5 via-white to-[#FF007A]/5 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center p-8">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error al cargar datos</h2>
@@ -487,7 +456,7 @@ export default function Dashboard() {
   // Mostrar pantalla de logout inmediata
   if (isLoggingOut) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#FF3A5F]/5 via-white to-[#FF007A]/5 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -513,7 +482,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900' : 'bg-[#f7f9fc]'}`}>
+    <div className="min-h-screen bg-[#f7f9fc] dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6">
@@ -527,19 +496,14 @@ export default function Dashboard() {
                 height={40}
                 className="rounded-xl"
               />
-              <span className="text-lg sm:text-xl font-bold bg-linear-to-r from-blue-600 to-[#5A4FD9] bg-clip-text text-transparent">
+              <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] bg-clip-text text-transparent">
                 FindIA
               </span>
             </div>
 
             {/* User Menu */}
             <div className="flex items-center gap-2 sm:gap-4">
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-              >
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-gray-600" />}
-              </button>
+              <ThemeToggle />
 
               {/* Dropdown de Tarjetas de Crédito - Solo Desktop */}
               <div className="relative dropdown-container hidden md:block">
@@ -562,15 +526,15 @@ export default function Dashboard() {
                     <div className="p-2">
                       <button
                         onClick={() => {
-                          setShowCreditCardModal(true)
+                          setShowCreditCardCenter(true)
                           setShowCreditCardDropdown(false)
                         }}
                         className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"
                       >
                         <CreditCard className="w-4 h-4 text-blue-500" />
                         <div>
-                          <div className="font-medium text-gray-900 dark:text-white">Gestión de Tarjetas</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">Crear, editar, eliminar</div>
+                          <div className="font-medium text-gray-900 dark:text-white">Centro de Control</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Estrategias y plan de pago</div>
                         </div>
                       </button>
                       
@@ -747,7 +711,7 @@ export default function Dashboard() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-linear-to-r from-blue-500 to-[#5A4FD9] flex items-center justify-center text-white font-semibold text-sm">
+                    <div className="w-full h-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] flex items-center justify-center text-white font-semibold text-sm">
                       {session?.user?.name?.charAt(0) || 'U'}
                     </div>
                   )}
@@ -792,7 +756,7 @@ export default function Dashboard() {
 
           {/* Stats Cards - Diseño limpio y con impacto */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
-            {shouldShowSkeleton ? (
+            {(shouldShowSkeleton && (debtsLoading || incomesLoading || expensesLoading || goalsLoading)) ? (
               <SkeletonStats />
             ) : (
               <>
@@ -995,7 +959,7 @@ export default function Dashboard() {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Balance Financiero</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Ingresos vs Gastos</p>
                   </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#FF3A5F] to-[#FF007A] rounded-xl flex items-center justify-center">
                     <BarChart3 className="w-6 h-6 text-white" />
                   </div>
                 </div>
@@ -1847,6 +1811,14 @@ export default function Dashboard() {
         onSelectCard={handleSelectCreditCard}
       />
 
+      {/* Centro de Control de Tarjetas */}
+      <CreditCardCenter
+        isOpen={showCreditCardCenter}
+        onClose={() => setShowCreditCardCenter(false)}
+        categories={categories}
+        subcategories={subcategories}
+      />
+
       {/* Modal de Consumos de Tarjeta */}
       <CreditCardConsumptionModal
         isOpen={showCreditCardConsumptionModal}
@@ -1950,7 +1922,7 @@ export default function Dashboard() {
                     <div className="space-y-1">
                       <button
                         onClick={() => {
-                          setShowCreditCardModal(true)
+                          setShowCreditCardCenter(true)
                           setShowBottomNav(false)
                         }}
                         className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left"

@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import bcrypt from 'bcrypt';
-import type { Debt, Payment } from '@/types';
+import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption } from '@/types';
 
 // Configuración de autenticación con Service Account
 const auth = new google.auth.GoogleAuth({
@@ -22,6 +22,9 @@ const SHEETS = {
   EXPENSES: 'Expenses',
   INCOMES: 'Incomes',
   GOALS: 'Goals',
+  CREDIT_CARDS: 'CreditCards',
+  CREDIT_CARD_PAYMENTS: 'CreditCardPayments',
+  CREDIT_CARD_CONSUMPTIONS: 'CreditCardConsumptions',
 } as const;
 
 // ============================================================================
@@ -260,6 +263,52 @@ export async function initializeSheets() {
       'date',
       'category',
       'notes',
+      'createdAt',
+    ]);
+    
+    // Crear hoja de CreditCards
+    await createSheetIfNotExists(SHEETS.CREDIT_CARDS, [
+      'id',
+      'userId',
+      'name',
+      'bank',
+      'cardNumber',
+      'limit',
+      'currentBalance',
+      'cutDate',
+      'paymentDate',
+      'interestRate',
+      'status',
+      'createdAt',
+      'updatedAt',
+    ]);
+    
+    // Crear hoja de CreditCardPayments
+    await createSheetIfNotExists(SHEETS.CREDIT_CARD_PAYMENTS, [
+      'id',
+      'creditCardId',
+      'userId',
+      'amount',
+      'date',
+      'paymentMethod',
+      'notes',
+      'createdAt',
+    ]);
+    
+    // Crear hoja de CreditCardConsumptions
+    await createSheetIfNotExists(SHEETS.CREDIT_CARD_CONSUMPTIONS, [
+      'id',
+      'creditCardId',
+      'userId',
+      'merchant',
+      'amount',
+      'installments',
+      'currentInstallment',
+      'monthlyPayment',
+      'date',
+      'categoryId',
+      'subcategoryId',
+      'description',
       'createdAt',
     ]);
     
@@ -1530,6 +1579,411 @@ export async function deleteGoal(goalId: string, userId: string): Promise<void> 
     console.log('✅ Meta eliminada exitosamente:', goalId);
   } catch (error) {
     console.error('❌ Error en deleteGoal:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// OPERACIONES CRUD - CREDIT CARDS
+// ============================================================================
+
+/**
+ * Obtiene todas las tarjetas de crédito de un usuario
+ */
+export async function getCreditCardsByUser(userId: string): Promise<CreditCard[]> {
+  try {
+    // Verificar si la hoja existe antes de intentar leerla
+    const exists = await sheetExists(SHEETS.CREDIT_CARDS);
+    if (!exists) {
+      console.log('Hoja CreditCards no existe, devolviendo array vacío');
+      return [];
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARDS}!A2:M`,
+    });
+    
+    const rows = response.data.values || [];
+    const cards = rows
+      .filter(row => row[1] === userId)
+      .map(row => ({
+        id: row[0],
+        userId: row[1],
+        name: row[2],
+        bank: row[3],
+        cardNumber: row[4],
+        limit: parseFloat(row[5] || '0'),
+        currentBalance: parseFloat(row[6] || '0'),
+        cutDate: parseInt(row[7] || '1'),
+        paymentDate: parseInt(row[8] || '1'),
+        interestRate: parseFloat(row[9] || '0'),
+        status: (row[10] as 'active' | 'blocked' | 'expired') || 'active',
+        createdAt: row[11] || new Date().toISOString(),
+        updatedAt: row[12] || new Date().toISOString(),
+      }));
+    
+    return cards;
+  } catch (error: any) {
+    // Si el error es que la hoja no existe, devolver array vacío en lugar de fallar
+    if (error?.code === 400 && error?.message?.includes('Unable to parse range')) {
+      console.log('Hoja CreditCards no existe aún, devolviendo array vacío');
+      return [];
+    }
+    console.error('Error obteniendo tarjetas de crédito:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crea una nueva tarjeta de crédito
+ */
+export async function createCreditCard(
+  userId: string,
+  cardData: {
+    name: string;
+    bank: string;
+    cardNumber: string;
+    limit: number;
+    currentBalance: number;
+    cutDate: number;
+    paymentDate: number;
+    interestRate: number;
+    status?: 'active' | 'blocked' | 'expired';
+  }
+): Promise<CreditCard> {
+  try {
+    const now = new Date().toISOString();
+    const newCard: CreditCard = {
+      id: generateId(),
+      userId,
+      name: cardData.name,
+      bank: cardData.bank,
+      cardNumber: cardData.cardNumber,
+      limit: cardData.limit,
+      currentBalance: cardData.currentBalance,
+      cutDate: cardData.cutDate,
+      paymentDate: cardData.paymentDate,
+      interestRate: cardData.interestRate,
+      status: cardData.status || 'active',
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARDS}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          newCard.id,
+          newCard.userId,
+          newCard.name,
+          newCard.bank,
+          newCard.cardNumber,
+          newCard.limit,
+          newCard.currentBalance,
+          newCard.cutDate,
+          newCard.paymentDate,
+          newCard.interestRate,
+          newCard.status,
+          newCard.createdAt,
+          newCard.updatedAt,
+        ]],
+      },
+    });
+    
+    console.log('✅ Tarjeta de crédito creada:', newCard.id);
+    return newCard;
+  } catch (error) {
+    console.error('Error creando tarjeta de crédito:', error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza una tarjeta de crédito existente
+ */
+export async function updateCreditCard(
+  cardId: string,
+  userId: string,
+  cardData: Partial<{
+    name: string;
+    bank: string;
+    cardNumber: string;
+    limit: number;
+    currentBalance: number;
+    cutDate: number;
+    paymentDate: number;
+    interestRate: number;
+    status: 'active' | 'blocked' | 'expired';
+  }>
+): Promise<CreditCard> {
+  try {
+    // Asegurar que la hoja existe antes de intentar actualizar
+    const exists = await sheetExists(SHEETS.CREDIT_CARDS);
+    if (!exists) {
+      throw new Error('La hoja CreditCards no existe. Inicializa las hojas primero.');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARDS}!A2:M`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === cardId && row[1] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Tarjeta de crédito no encontrada');
+    }
+    
+    const currentRow = rows[rowIndex];
+    const actualRowIndex = rowIndex + 2;
+    
+    const updatedCard: CreditCard = {
+      id: currentRow[0],
+      userId: currentRow[1],
+      name: cardData.name ?? currentRow[2],
+      bank: cardData.bank ?? currentRow[3],
+      cardNumber: cardData.cardNumber ?? currentRow[4],
+      limit: cardData.limit !== undefined ? cardData.limit : parseFloat(currentRow[5]),
+      currentBalance: cardData.currentBalance !== undefined ? cardData.currentBalance : parseFloat(currentRow[6]),
+      cutDate: cardData.cutDate !== undefined ? cardData.cutDate : parseInt(currentRow[7]),
+      paymentDate: cardData.paymentDate !== undefined ? cardData.paymentDate : parseInt(currentRow[8]),
+      interestRate: cardData.interestRate !== undefined ? cardData.interestRate : parseFloat(currentRow[9]),
+      status: (cardData.status ?? currentRow[10]) as 'active' | 'blocked' | 'expired',
+      createdAt: currentRow[11],
+      updatedAt: new Date().toISOString(),
+    };
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARDS}!A${actualRowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          updatedCard.id,
+          updatedCard.userId,
+          updatedCard.name,
+          updatedCard.bank,
+          updatedCard.cardNumber,
+          updatedCard.limit,
+          updatedCard.currentBalance,
+          updatedCard.cutDate,
+          updatedCard.paymentDate,
+          updatedCard.interestRate,
+          updatedCard.status,
+          updatedCard.createdAt,
+          updatedCard.updatedAt,
+        ]],
+      },
+    });
+    
+    console.log('✅ Tarjeta de crédito actualizada:', cardId);
+    return updatedCard;
+  } catch (error) {
+    console.error('Error actualizando tarjeta de crédito:', error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina una tarjeta de crédito
+ */
+export async function deleteCreditCard(cardId: string, userId: string): Promise<void> {
+  try {
+    // Verificar si la hoja existe
+    const exists = await sheetExists(SHEETS.CREDIT_CARDS);
+    if (!exists) {
+      throw new Error('La hoja CreditCards no existe.');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARDS}!A2:M`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === cardId && row[1] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Tarjeta de crédito no encontrada');
+    }
+    
+    const actualRowIndex = rowIndex + 2;
+    
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: await getSheetId(SHEETS.CREDIT_CARDS),
+                dimension: 'ROWS',
+                startIndex: actualRowIndex - 1,
+                endIndex: actualRowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+    
+    console.log('✅ Tarjeta de crédito eliminada:', cardId);
+  } catch (error) {
+    console.error('Error eliminando tarjeta de crédito:', error);
+    throw error;
+  }
+}
+
+/**
+ * Registra un pago de tarjeta de crédito
+ */
+export async function createCreditCardPayment(
+  userId: string,
+  paymentData: {
+    creditCardId: string;
+    amount: number;
+    date: string;
+    paymentMethod: 'transfer' | 'cash' | 'debit' | 'other';
+    notes?: string;
+  }
+): Promise<CreditCardPayment> {
+  try {
+    const now = new Date().toISOString();
+    const newPayment: CreditCardPayment = {
+      id: generateId(),
+      creditCardId: paymentData.creditCardId,
+      userId,
+      amount: paymentData.amount,
+      date: paymentData.date,
+      paymentMethod: paymentData.paymentMethod,
+      notes: paymentData.notes,
+      createdAt: now,
+    };
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARD_PAYMENTS}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          newPayment.id,
+          newPayment.creditCardId,
+          newPayment.userId,
+          newPayment.amount,
+          newPayment.date,
+          newPayment.paymentMethod,
+          newPayment.notes || '',
+          newPayment.createdAt,
+        ]],
+      },
+    });
+    
+    // Actualizar el balance de la tarjeta
+    try {
+      const card = await getCreditCardsByUser(userId);
+      const targetCard = card.find(c => c.id === paymentData.creditCardId);
+      if (targetCard) {
+        await updateCreditCard(paymentData.creditCardId, userId, {
+          currentBalance: Math.max(0, targetCard.currentBalance - paymentData.amount),
+        });
+      }
+    } catch (err) {
+      console.log('No se pudo actualizar el balance de la tarjeta (puede que la hoja no exista aún):', err);
+    }
+    
+    console.log('✅ Pago de tarjeta registrado:', newPayment.id);
+    return newPayment;
+  } catch (error) {
+    console.error('Error registrando pago de tarjeta:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene los pagos de una tarjeta de crédito
+ */
+export async function getCreditCardPayments(
+  cardId: string,
+  userId: string
+): Promise<CreditCardPayment[]> {
+  try {
+    // Verificar si la hoja existe
+    const exists = await sheetExists(SHEETS.CREDIT_CARD_PAYMENTS);
+    if (!exists) {
+      return [];
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARD_PAYMENTS}!A2:H`,
+    });
+    
+    const rows = response.data.values || [];
+    const payments = rows
+      .filter(row => row[1] === cardId && row[2] === userId)
+      .map(row => ({
+        id: row[0],
+        creditCardId: row[1],
+        userId: row[2],
+        amount: parseFloat(row[3] || '0'),
+        date: row[4],
+        paymentMethod: (row[5] as 'transfer' | 'cash' | 'debit' | 'other') || 'transfer',
+        notes: row[6],
+        createdAt: row[7],
+      }));
+    
+    return payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  } catch (error) {
+    console.error('Error obteniendo pagos de tarjeta:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene todos los consumos de una tarjeta de crédito
+ */
+export async function getCreditCardConsumptions(
+  cardId: string,
+  userId: string
+): Promise<CreditCardConsumption[]> {
+  try {
+    // Verificar si la hoja existe
+    const exists = await sheetExists(SHEETS.CREDIT_CARD_CONSUMPTIONS);
+    if (!exists) {
+      return [];
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARD_CONSUMPTIONS}!A2:M`,
+    });
+    
+    const rows = response.data.values || [];
+    const consumptions = rows
+      .filter(row => row[1] === cardId && row[2] === userId)
+      .map(row => ({
+        id: row[0],
+        creditCardId: row[1],
+        userId: row[2],
+        merchant: row[3],
+        amount: parseFloat(row[4] || '0'),
+        installments: parseInt(row[5] || '1'),
+        currentInstallment: parseInt(row[6] || '1'),
+        monthlyPayment: parseFloat(row[7] || '0'),
+        date: row[8],
+        categoryId: row[9] || '',
+        subcategoryId: row[10] || '',
+        description: row[11] || '',
+        createdAt: row[12],
+      }));
+    
+    return consumptions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  } catch (error) {
+    console.error('Error obteniendo consumos de tarjeta:', error);
     throw error;
   }
 }

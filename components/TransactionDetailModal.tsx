@@ -24,11 +24,11 @@ export default function TransactionDetailModal({
 
   const getTransactionColor = () => {
     switch (transaction.type) {
-      case 'debt': return 'bg-red-400';
-      case 'income': return 'bg-green-400';
-      case 'expense': return 'bg-orange-400';
-      case 'goal': return 'bg-purple-400';
-      default: return 'bg-gray-400';
+      case 'debt': return 'bg-gradient-to-r from-rose-200 to-pink-300';
+      case 'income': return 'bg-gradient-to-r from-emerald-200 to-green-300';
+      case 'expense': return 'bg-gradient-to-r from-orange-200 to-amber-300';
+      case 'goal': return 'bg-gradient-to-r from-sky-200 to-blue-300';
+      default: return 'bg-gradient-to-r from-gray-200 to-gray-300';
     }
   };
 
@@ -94,18 +94,18 @@ export default function TransactionDetailModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className={`p-6 ${getTransactionColor()} text-white rounded-t-2xl`}>
+          <div className={`p-6 ${getTransactionColor()} text-gray-800 rounded-t-2xl`}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <span className="text-4xl">{getTransactionIcon()}</span>
                 <div>
                   <h2 className="text-xl font-semibold">{transaction.name}</h2>
-                  <p className="text-white/80 text-sm">{getTransactionLabel()}</p>
+                  <p className="text-gray-700 text-sm">{getTransactionLabel()}</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-600/20 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>

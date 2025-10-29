@@ -21,7 +21,6 @@
   --border: #e2e8f0;
   --input: #e2e8f0;
   --ring: #2563eb;
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .dark {
@@ -46,15 +45,37 @@
   --ring: #3b82f6;
 }
 
+html {
+  transition: color-scheme 0.3s ease;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+              color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-* {
-  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+/* Transiciones suaves para todos los elementos */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 0.3s;
+}
+
+/* Evitar transiciones en elementos que no las necesitan */
+button,
+input,
+select,
+textarea {
+  transition-property: background-color, border-color, color, box-shadow;
 }
 
 /* Mejoras de accesibilidad */

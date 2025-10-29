@@ -1,0 +1,980 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  X, 
+  CreditCard, 
+  TrendingDown, 
+  Target, 
+  Calculator, 
+  BarChart3, 
+  AlertCircle,
+  CheckCircle,
+  Calendar,
+  DollarSign,
+  TrendingUp,
+  Sparkles,
+  Clock,
+  Percent,
+  Zap,
+  Trophy,
+  Info,
+  Play,
+  ChevronRight,
+  Wallet
+} from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { useToastContext } from '@/components/Toast';
+import { useCreditCards } from '@/hooks/useCreditCards';
+import { useDebts } from '@/hooks/useDebts';
+import type { CreditCard } from '@/types';
+
+interface PaymentStrategy {
+  type: 'snowball' | 'avalanche';
+  name: string;
+  description: string;
+  priority: number[];
+  totalMonths: number;
+  totalInterest: number;
+  monthlyPayment: number;
+  savings: number;
+}
+
+interface PaymentPlan {
+  month: number;
+  date: string;
+  cardId: string;
+  cardName: string;
+  paymentAmount: number;
+  remainingBalance: number;
+  interestPaid: number;
+  principalPaid: number;
+}
+
+interface CreditCardCenterProps {
+  isOpen: boolean;
+  onClose: () => void;
+  categories?: any[];
+  subcategories?: any[];
+}
+
+type TabType = 'overview' | 'strategies' | 'plan' | 'calculator' | 'progress';
+
+export default function CreditCardCenter({
+  isOpen,
+  onClose,
+  categories = [],
+  subcategories = []
+}: CreditCardCenterProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [selectedStrategy, setSelectedStrategy] = useState<PaymentStrategy | null>(null);
+  const [paymentPlan, setPaymentPlan] = useState<PaymentPlan[]>([]);
+  const [progressHistory, setProgressHistory] = useState<Array<{ date: string; totalDebt: number; paid: number }>>([]);
+  
+  const { success, error } = useToastContext();
+  const { cards, loading, fetchCards, createCard, updateCard, deleteCard, makePayment, fetchPayments } = useCreditCards();
+  const { debts, fetchDebts } = useDebts();
+
+  // Calculadora state
+  const [calculatorData, setCalculatorData] = useState({
+    totalDebt: '',
+    availableForPayments: '',
+    strategy: 'snowball' as 'snowball' | 'avalanche',
+    includeInterests: true
+  });
+
+  // Función para sincronizar tarjetas con deudas
+  const syncCardsWithDebts = useCallback(async () => {
+    try {
+      // Buscar deudas que parezcan ser tarjetas de crédito (contienen "tarjeta", "card", etc.)
+      const cardDebts = debts.filter(debt => 
+        debt.name.toLowerCase().includes('tarjeta') ||
+        debt.name.toLowerCase().includes('card') ||
+        debt.name.toLowerCase().includes('crédito') ||
+        debt.name.toLowerCase().includes('credito')
+      );
+
+      for (const debt of cardDebts) {
+        // Verificar si ya existe una tarjeta relacionada
+        const existingCard = cards.find(c => 
+          c.name.toLowerCase() === debt.name.toLowerCase() ||
+          (debt.notes && c.name.toLowerCase().includes(debt.name.toLowerCase()))
+        );
+
+        if (!existingCard) {
+          // Sincronizar: actualizar el balance de la tarjeta desde la deuda más reciente
+          // No creamos automáticamente, solo sugerimos al usuario
+          console.log(`Deuda "${debt.name}" puede ser una tarjeta de crédito. Balance: ${debt.balance}`);
+        } else {
+          // Sincronizar balance si la deuda está más actualizada
+          if (Math.abs(existingCard.currentBalance - debt.balance) > 100) {
+            // Diferencia significativa, actualizar tarjeta
+            await updateCard(existingCard.id, {
+              currentBalance: debt.balance,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error sincronizando tarjetas con deudas:', err);
+    }
+  }, [cards, debts, updateCard]);
+
+  // Cargar tarjetas al abrir
+  useEffect(() => {
+    if (isOpen) {
+      fetchCards();
+      fetchDebts(); // Sincronizar con deudas
+    }
+  }, [isOpen]);
+
+  // Sincronizar tarjetas con deudas: convertir deudas de tarjetas a tarjetas si no existen
+  useEffect(() => {
+    if (cards.length > 0 && debts.length > 0 && isOpen) {
+      syncCardsWithDebts();
+    }
+  }, [cards, debts, isOpen, syncCardsWithDebts]);
+
+  // Cargar historial cuando cambian las tarjetas o hay pagos
+  useEffect(() => {
+    if (cards.length > 0 && isOpen) {
+      loadProgressHistory();
+    }
+  }, [cards, isOpen]);
+
+  // Calcular estrategias cuando cambian las tarjetas
+  useEffect(() => {
+    if (cards.length > 0) {
+      calculateStrategies();
+    }
+  }, [cards]);
+
+  // Cargar historial de progreso para gráficos
+  const loadProgressHistory = useCallback(async () => {
+    try {
+      // Obtener pagos de todas las tarjetas para construir historial
+      const allPayments: { date: string; amount: number; cardId: string }[] = [];
+      
+      for (const card of cards) {
+        try {
+          const cardPayments = await fetchPayments(card.id);
+          cardPayments.forEach(payment => {
+            allPayments.push({
+              date: payment.date,
+              amount: payment.amount,
+              cardId: card.id,
+            });
+          });
+        } catch (err) {
+          console.log(`Error cargando pagos de tarjeta ${card.id}:`, err);
+        }
+      }
+      
+      // Ordenar por fecha y construir historial acumulado
+      allPayments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      let totalPaid = 0;
+      const initialDebt = cards.reduce((sum, c) => sum + c.currentBalance, 0);
+      
+      const history = allPayments.map(payment => {
+        totalPaid += payment.amount;
+        return {
+          date: payment.date,
+          totalDebt: Math.max(0, initialDebt - totalPaid),
+          paid: totalPaid,
+        };
+      });
+      
+      // Agregar punto inicial si no hay historial
+      if (history.length === 0 && cards.length > 0) {
+        history.push({
+          date: new Date().toISOString(),
+          totalDebt: initialDebt,
+          paid: 0,
+        });
+      }
+      
+      setProgressHistory(history);
+    } catch (err) {
+      console.error('Error cargando historial de progreso:', err);
+    }
+  }, [cards, fetchPayments]);
+
+  const calculateStrategies = () => {
+    if (cards.length === 0) return;
+
+    const sortedByBalance = [...cards].sort((a, b) => a.currentBalance - b.currentBalance);
+    const sortedByRate = [...cards].sort((a, b) => b.interestRate - a.interestRate);
+
+    // Calcular método bola de nieve (deuda menor primero)
+    const snowballPriority = sortedByBalance.map((c, i) => ({
+      cardId: c.id,
+      priority: i + 1
+    }));
+
+    // Calcular método avalancha (tasa mayor primero)
+    const avalanchePriority = sortedByRate.map((c, i) => ({
+      cardId: c.id,
+      priority: i + 1
+    }));
+
+    // Calcular tiempos e intereses (simplificado)
+    const totalDebt = cards.reduce((sum, c) => sum + c.currentBalance, 0);
+    const avgInterest = cards.reduce((sum, c) => sum + c.interestRate, 0) / cards.length;
+    const monthlyPayment = totalDebt * 0.1; // 10% del total como ejemplo
+
+    const snowballMonths = Math.ceil(totalDebt / monthlyPayment);
+    const avalancheMonths = Math.ceil(totalDebt / (monthlyPayment * 1.05)); // Ligeramente más rápido
+
+    const strategies: PaymentStrategy[] = [
+      {
+        type: 'snowball',
+        name: 'Método Bola de Nieve',
+        description: 'Paga primero la deuda más pequeña para generar impulso psicológico',
+        priority: snowballPriority.map(p => p.priority),
+        totalMonths: snowballMonths,
+        totalInterest: (totalDebt * avgInterest * snowballMonths) / 100,
+        monthlyPayment: monthlyPayment,
+        savings: 0
+      },
+      {
+        type: 'avalanche',
+        name: 'Método Avalancha',
+        description: 'Paga primero la tarjeta con mayor tasa de interés para ahorrar más dinero',
+        priority: avalanchePriority.map(p => p.priority),
+        totalMonths: avalancheMonths,
+        totalInterest: (totalDebt * avgInterest * avalancheMonths) / 100 * 0.95,
+        monthlyPayment: monthlyPayment * 1.05,
+        savings: (totalDebt * avgInterest * snowballMonths) / 100 - (totalDebt * avgInterest * avalancheMonths) / 100 * 0.95
+      }
+    ];
+
+    // Auto-seleccionar la mejor estrategia (avalancha si ahorra dinero)
+    const bestStrategy = strategies[1].savings > 0 ? strategies[1] : strategies[0];
+    setSelectedStrategy(bestStrategy);
+  };
+
+  const generatePaymentPlan = (strategy: PaymentStrategy) => {
+    if (!strategy || cards.length === 0) return;
+
+    const plan: PaymentPlan[] = [];
+    const cardCopies = cards.map(c => ({ ...c, remainingBalance: c.currentBalance }));
+    const priorityOrder = strategy.type === 'snowball'
+      ? [...cardCopies].sort((a, b) => a.currentBalance - b.currentBalance)
+      : [...cardCopies].sort((a, b) => b.interestRate - a.interestRate);
+
+    let month = 1;
+    const monthlyTotal = strategy.monthlyPayment;
+
+    while (cardCopies.some(c => c.remainingBalance > 0) && month <= 36) {
+      let remainingPayment = monthlyTotal;
+
+      for (const card of priorityOrder) {
+        if (card.remainingBalance <= 0) continue;
+        if (remainingPayment <= 0) break;
+
+        const interestPayment = (card.remainingBalance * card.interestRate) / 100;
+        const principalPayment = Math.min(remainingPayment - interestPayment, card.remainingBalance);
+
+        card.remainingBalance -= principalPayment;
+        remainingPayment -= (principalPayment + interestPayment);
+
+        plan.push({
+          month,
+          date: new Date(new Date().getFullYear(), new Date().getMonth() + month - 1, card.paymentDate).toISOString(),
+          cardId: card.id,
+          cardName: card.name,
+          paymentAmount: principalPayment + interestPayment,
+          remainingBalance: card.remainingBalance,
+          interestPaid: interestPayment,
+          principalPaid: principalPayment
+        });
+      }
+
+      month++;
+    }
+
+    setPaymentPlan(plan);
+  };
+
+  const tabs = [
+    { id: 'overview' as TabType, label: 'Vista General', icon: BarChart3 },
+    { id: 'strategies' as TabType, label: 'Estrategias', icon: Target },
+    { id: 'plan' as TabType, label: 'Plan de Pago', icon: Calendar },
+    { id: 'calculator' as TabType, label: 'Calculadora', icon: Calculator },
+    { id: 'progress' as TabType, label: 'Progreso', icon: TrendingUp }
+  ];
+
+  const totalDebt = cards.reduce((sum, card) => sum + card.currentBalance, 0);
+  const totalLimit = cards.reduce((sum, card) => sum + card.limit, 0);
+  const utilizationRate = totalLimit > 0 ? (totalDebt / totalLimit) * 100 : 0;
+  const avgInterestRate = cards.length > 0
+    ? cards.reduce((sum, card) => sum + card.interestRate, 0) / cards.length
+    : 0;
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* Overlay */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        />
+
+        {/* Modal */}
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden"
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Wallet className="w-6 h-6" />
+                <div>
+                  <h2 className="text-2xl font-bold">Centro de Control de Tarjetas</h2>
+                  <p className="text-blue-100 text-sm">Gestiona tus tarjetas y sal de deudas inteligentemente</p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 overflow-x-auto">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap
+                      ${activeTab === tab.id
+                        ? 'bg-white text-blue-600 font-semibold'
+                        : 'bg-white/10 hover:bg-white/20 text-white'
+                      }
+                      cursor-pointer
+                    `}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+            <AnimatePresence mode="wait">
+              {activeTab === 'overview' && (
+                <motion.div
+                  key="overview"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  {/* Métricas principales */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-red-600 dark:text-red-400 font-medium">Deuda Total</span>
+                        <TrendingDown className="w-5 h-5 text-red-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-red-700 dark:text-red-300">
+                        ${totalDebt.toLocaleString('es-CO')}
+                      </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">Utilización</span>
+                        <Percent className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                        {utilizationRate.toFixed(1)}%
+                      </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 p-4 rounded-xl border border-orange-200 dark:border-orange-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-orange-600 dark:text-orange-400 font-medium">Tasa Promedio</span>
+                        <TrendingUp className="w-5 h-5 text-orange-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                        {avgInterestRate.toFixed(2)}%
+                      </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-green-600 dark:text-green-400 font-medium">Tarjetas</span>
+                        <CreditCard className="w-5 h-5 text-green-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                        {cards.length}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Lista de tarjetas */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Tus Tarjetas de Crédito
+                    </h3>
+                    {cards.map((card) => {
+                      const utilization = (card.currentBalance / card.limit) * 100;
+                      return (
+                        <div
+                          key={card.id}
+                          className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <CreditCard className="w-5 h-5 text-blue-500" />
+                                <h4 className="font-semibold text-gray-900 dark:text-white">{card.name}</h4>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{card.bank}</span>
+                              </div>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">{card.cardNumber}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">Deuda actual</p>
+                              <p className="text-xl font-bold text-red-600 dark:text-red-400">
+                                ${card.currentBalance.toLocaleString('es-CO')}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                de ${card.limit.toLocaleString('es-CO')}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600 dark:text-gray-300">Utilización</span>
+                              <span className={`
+                                font-semibold
+                                ${utilization > 80 ? 'text-red-500' : utilization > 50 ? 'text-orange-500' : 'text-green-500'}
+                              `}>
+                                {utilization.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                              <div
+                                className={`
+                                  h-2 rounded-full transition-all
+                                  ${utilization > 80 ? 'bg-red-500' : utilization > 50 ? 'bg-orange-500' : 'bg-green-500'}
+                                `}
+                                style={{ width: `${Math.min(utilization, 100)}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              <span>Corte: día {card.cutDate}</span>
+                              <span>Pago: día {card.paymentDate}</span>
+                              <span>Interés: {card.interestRate}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'strategies' && (
+                <motion.div
+                  key="strategies"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                      Estrategias de Pago
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300 mb-6">
+                      Elige la mejor estrategia para ti. Compara ambos métodos y ve cuál te conviene más.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {[
+                        {
+                          type: 'snowball',
+                          name: 'Método Bola de Nieve',
+                          description: 'Paga primero la deuda más pequeña. Genera impulso psicológico al ver progreso rápido.',
+                          icon: Target,
+                          color: 'from-blue-500 to-cyan-500',
+                          pros: ['Motivación rápida', 'Fácil de seguir', 'Ver resultados pronto'],
+                          cons: ['Puede costar más en intereses']
+                        },
+                        {
+                          type: 'avalanche',
+                          name: 'Método Avalancha',
+                          description: 'Paga primero la tarjeta con mayor tasa de interés. Ahorra más dinero en el largo plazo.',
+                          icon: TrendingDown,
+                          color: 'from-purple-500 to-pink-500',
+                          pros: ['Ahorra más intereses', 'Más eficiente financieramente', 'Acaba antes'],
+                          cons: ['Menos motivación inicial']
+                        }
+                      ].map((strategy) => {
+                        const Icon = strategy.icon;
+                        const strategyData = selectedStrategy && selectedStrategy.type === strategy.type 
+                          ? selectedStrategy 
+                          : null;
+                        
+                        return (
+                          <div
+                            key={strategy.type}
+                            className={`bg-gradient-to-br ${strategy.color} rounded-xl p-6 text-white relative overflow-hidden`}
+                          >
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
+                            <div className="relative">
+                              <div className="flex items-center gap-3 mb-3">
+                                <Icon className="w-6 h-6" />
+                                <h4 className="text-xl font-bold">{strategy.name}</h4>
+                              </div>
+                              <p className="text-white/90 mb-4">{strategy.description}</p>
+
+                              {strategyData && (
+                                <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 mb-4">
+                                  <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                      <p className="text-white/70">Tiempo estimado</p>
+                                      <p className="font-bold text-lg">{strategyData.totalMonths} meses</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-white/70">Intereses totales</p>
+                                      <p className="font-bold text-lg">${strategyData.totalInterest.toLocaleString('es-CO')}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="space-y-2 mb-4">
+                                <p className="font-semibold text-sm">Ventajas:</p>
+                                <ul className="space-y-1 text-sm">
+                                  {strategy.pros.map((pro, i) => (
+                                    <li key={i} className="flex items-center gap-2">
+                                      <CheckCircle className="w-4 h-4" />
+                                      {pro}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  if (selectedStrategy && selectedStrategy.type === strategy.type) {
+                                    generatePaymentPlan(selectedStrategy);
+                                    setActiveTab('plan');
+                                  }
+                                }}
+                                className="w-full bg-white text-gray-900 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                              >
+                                {selectedStrategy?.type === strategy.type ? 'Ver Plan' : 'Aplicar Estrategia'}
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {selectedStrategy && selectedStrategy.savings > 0 && (
+                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 mt-6">
+                        <div className="flex items-center gap-3">
+                          <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          <div>
+                            <p className="font-semibold text-green-900 dark:text-green-100">
+                              Recomendación: Método Avalancha
+                            </p>
+                            <p className="text-sm text-green-700 dark:text-green-300">
+                              Podrías ahorrar ${selectedStrategy.savings.toLocaleString('es-CO')} en intereses
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'plan' && (
+                <motion.div
+                  key="plan"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                        Plan de Pago Personalizado
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-300">
+                        Tu plan paso a paso para salir de deudas
+                      </p>
+                    </div>
+                    {!selectedStrategy && (
+                      <button
+                        onClick={() => setActiveTab('strategies')}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                      >
+                        Elegir Estrategia
+                      </button>
+                    )}
+                  </div>
+
+                  {paymentPlan.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Tiempo total</p>
+                            <p className="text-xl font-bold text-gray-900 dark:text-white">
+                              {Math.ceil(paymentPlan.length / cards.length)} meses
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Pago mensual</p>
+                            <p className="text-xl font-bold text-gray-900 dark:text-white">
+                              ${selectedStrategy?.monthlyPayment.toLocaleString('es-CO') || 0}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Intereses totales</p>
+                            <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                              ${paymentPlan.reduce((sum, p) => sum + p.interestPaid, 0).toLocaleString('es-CO')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Fecha fin</p>
+                            <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                              {new Date(paymentPlan[paymentPlan.length - 1]?.date || '').toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="max-h-96 overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="sticky top-0 bg-gray-100 dark:bg-gray-700">
+                            <tr>
+                              <th className="text-left p-3 font-semibold text-gray-700 dark:text-gray-300">Mes</th>
+                              <th className="text-left p-3 font-semibold text-gray-700 dark:text-gray-300">Tarjeta</th>
+                              <th className="text-right p-3 font-semibold text-gray-700 dark:text-gray-300">Pago</th>
+                              <th className="text-right p-3 font-semibold text-gray-700 dark:text-gray-300">Capital</th>
+                              <th className="text-right p-3 font-semibold text-gray-700 dark:text-gray-300">Interés</th>
+                              <th className="text-right p-3 font-semibold text-gray-700 dark:text-gray-300">Restante</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paymentPlan.map((payment, index) => (
+                              <tr key={index} className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="p-3 text-gray-600 dark:text-gray-300">{payment.month}</td>
+                                <td className="p-3 font-medium text-gray-900 dark:text-white">{payment.cardName}</td>
+                                <td className="p-3 text-right font-semibold text-gray-900 dark:text-white">
+                                  ${payment.paymentAmount.toLocaleString('es-CO')}
+                                </td>
+                                <td className="p-3 text-right text-green-600 dark:text-green-400">
+                                  ${payment.principalPaid.toLocaleString('es-CO')}
+                                </td>
+                                <td className="p-3 text-right text-orange-600 dark:text-orange-400">
+                                  ${payment.interestPaid.toLocaleString('es-CO')}
+                                </td>
+                                <td className="p-3 text-right text-gray-600 dark:text-gray-300">
+                                  ${payment.remainingBalance.toLocaleString('es-CO')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-8 text-center">
+                      <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600 dark:text-gray-300 mb-4">
+                        No hay un plan generado aún. Elige una estrategia de pago para ver tu plan personalizado.
+                      </p>
+                      <button
+                        onClick={() => setActiveTab('strategies')}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+                      >
+                        Ver Estrategias
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {activeTab === 'calculator' && (
+                <motion.div
+                  key="calculator"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                      Calculadora de Deuda
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300 mb-6">
+                      Simula diferentes escenarios y descubre cuánto tiempo necesitas para estar libre de deudas.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6 space-y-4">
+                      <h4 className="font-semibold text-gray-900 dark:text-white">Parámetros</h4>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Deuda Total
+                        </label>
+                        <input
+                          type="number"
+                          value={calculatorData.totalDebt}
+                          onChange={(e) => setCalculatorData({ ...calculatorData, totalDebt: e.target.value })}
+                          placeholder="0"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Disponible para Pagos Mensuales
+                        </label>
+                        <input
+                          type="number"
+                          value={calculatorData.availableForPayments}
+                          onChange={(e) => setCalculatorData({ ...calculatorData, availableForPayments: e.target.value })}
+                          placeholder="0"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Estrategia
+                        </label>
+                        <select
+                          value={calculatorData.strategy}
+                          onChange={(e) => setCalculatorData({ ...calculatorData, strategy: e.target.value as 'snowball' | 'avalanche' })}
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white cursor-pointer"
+                        >
+                          <option value="snowball">Bola de Nieve</option>
+                          <option value="avalanche">Avalancha</option>
+                        </select>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (calculatorData.totalDebt && calculatorData.availableForPayments) {
+                            // Calcular y mostrar resultados
+                            success('Cálculo realizado');
+                          } else {
+                            error('Completa todos los campos');
+                          }
+                        }}
+                        className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <Calculator className="w-5 h-5" />
+                        Calcular
+                      </button>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-[#FF3A5F]/10 to-[#FF007A]/10 dark:from-[#FF3A5F]/20 dark:to-[#FF007A]/20 border border-[#FF3A5F]/20 dark:border-[#FF3A5F]/30 rounded-xl p-6">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Resultados</h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                          <span className="text-gray-600 dark:text-gray-300">Tiempo estimado</span>
+                          <span className="font-bold text-lg text-gray-900 dark:text-white">-</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                          <span className="text-gray-600 dark:text-gray-300">Intereses totales</span>
+                          <span className="font-bold text-lg text-gray-900 dark:text-white">-</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg">
+                          <span className="text-gray-600 dark:text-gray-300">Pago total</span>
+                          <span className="font-bold text-lg text-gray-900 dark:text-white">-</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'progress' && (
+                <motion.div
+                  key="progress"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                      Seguimiento de Progreso
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300 mb-6">
+                      Visualiza tu progreso y celebra tus logros en el camino hacia la libertad financiera.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Trophy className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        <span className="font-semibold text-gray-900 dark:text-white">Deuda Pagada</span>
+                      </div>
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                        ${progressHistory.length > 0 ? progressHistory[progressHistory.length - 1].paid.toLocaleString('es-CO') : '0'}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {progressHistory.length > 0 
+                          ? `de ${(progressHistory[0].totalDebt + progressHistory[0].paid).toLocaleString('es-CO')} (${totalDebt.toLocaleString('es-CO')} actual)`
+                          : `de ${totalDebt.toLocaleString('es-CO')}`
+                        }
+                      </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <span className="font-semibold text-gray-900 dark:text-white">Tiempo Restante</span>
+                      </div>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                        {selectedStrategy ? `${selectedStrategy.totalMonths} meses` : 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">según tu plan actual</p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <DollarSign className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                        <span className="font-semibold text-gray-900 dark:text-white">Intereses Ahorrados</span>
+                      </div>
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                        $0
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">con tu estrategia</p>
+                    </div>
+                  </div>
+
+                  {/* Gráficos de progreso */}
+                  {progressHistory.length > 0 ? (
+                    <div className="space-y-6">
+                      {/* Gráfico de reducción de deuda */}
+                      <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6">
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                          Evolución de la Deuda
+                        </h4>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart data={progressHistory.map(h => ({
+                            date: new Date(h.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' }),
+                            deuda: h.totalDebt,
+                            pagado: h.paid,
+                          }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis 
+                              dataKey="date" 
+                              stroke="#6b7280"
+                              tick={{ fill: '#6b7280', fontSize: 12 }}
+                            />
+                            <YAxis 
+                              stroke="#6b7280"
+                              tick={{ fill: '#6b7280', fontSize: 12 }}
+                              tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                            />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                              formatter={(value: number) => `$${value.toLocaleString('es-CO')}`}
+                            />
+                            <Legend />
+                            <Line 
+                              type="monotone" 
+                              dataKey="deuda" 
+                              stroke="#ef4444" 
+                              strokeWidth={2}
+                              name="Deuda Total"
+                              dot={{ r: 4 }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="pagado" 
+                              stroke="#10b981" 
+                              strokeWidth={2}
+                              name="Pagado"
+                              dot={{ r: 4 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Gráfico de distribución por tarjeta */}
+                      <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6">
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                          Distribución de Deuda por Tarjeta
+                        </h4>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={cards.filter(c => c.currentBalance > 0).map(c => ({
+                                name: c.name,
+                                value: c.currentBalance,
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {cards.map((entry, index) => {
+                                const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'];
+                                return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                              })}
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: number) => `$${value.toLocaleString('es-CO')}`}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6">
+                      <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                        Los gráficos de progreso se generarán cuando comiences a registrar pagos.
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+}
+

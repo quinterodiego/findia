@@ -108,27 +108,27 @@ export default function PaymentModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-2xl">
+          <div className="p-6 bg-gradient-to-r from-emerald-200 to-green-300 text-gray-800 rounded-t-2xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-gray-600/20 rounded-full flex items-center justify-center">
                   <DollarSign className="w-6 h-6" />
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold">Registrar Pago</h2>
-                  <p className="text-white/80 text-sm">{debt?.name}</p>
+                  <p className="text-gray-700 text-sm">{debt?.name}</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-600/20 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             {/* Info de deuda */}
-            <div className="bg-white/10 rounded-xl p-4">
+            <div className="bg-gray-600/10 rounded-xl p-4">
               <div className="flex justify-between text-sm mb-2">
                 <span>Saldo pendiente:</span>
                 <span className="font-semibold">${debt?.balance?.toLocaleString('es-CO') || 0}</span>

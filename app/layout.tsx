@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
+import ChromeIOSBanner from "@/components/ChromeIOSBanner";
+import UpdateAvailableBanner from "@/components/UpdateAvailableBanner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -11,11 +14,45 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "FindIA - Tu Asistente Financiero con IA",
   description: "Gestiona tus finanzas de manera inteligente con la ayuda de IA. Rastrea gastos, recibe sugerencias personalizadas y alcanza tus metas financieras.",
+  manifest: "/manifest.json",
   icons: {
-    icon: "/logo.ico",
+    icon: [
+      { url: "/logo.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" }
+    ],
     shortcut: "/logo.ico",
-    apple: "/logo.ico",
+    apple: [
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" }
+    ],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "FindIA",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: "FindIA",
+    title: "FindIA - Tu Asistente Financiero con IA",
+    description: "Gestiona tus finanzas de manera inteligente con la ayuda de IA. Rastrea gastos, recibe sugerencias personalizadas y alcanza tus metas financieras.",
+  },
+  twitter: {
+    card: "summary",
+    title: "FindIA - Tu Asistente Financiero con IA",
+    description: "Gestiona tus finanzas de manera inteligente con la ayuda de IA. Rastrea gastos, recibe sugerencias personalizadas y alcanza tus metas financieras.",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#FF3A5F",
 };
 
 export default function RootLayout({
@@ -26,18 +63,50 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
+        <meta name="application-name" content="FindIA" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="FindIA" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="msapplication-config" content="/icons/browserconfig.xml" />
+        <meta name="msapplication-TileColor" content="#FF3A5F" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        <meta name="theme-color" content="#FF3A5F" />
+        
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/logo.ico" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/logo.ico" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="mask-icon" href="/logo.ico" color="#FF3A5F" />
+        <link rel="shortcut icon" href="/logo.ico" />
+        
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
+                let shouldUseDark = false;
                 const savedTheme = localStorage.getItem('findia-theme');
-                // Default to light mode if no saved theme
-                const shouldUseDark = savedTheme === 'dark';
+                
+                if (savedTheme) {
+                  shouldUseDark = savedTheme === 'dark';
+                } else {
+                  // Detectar preferencia del sistema si no hay tema guardado
+                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  shouldUseDark = prefersDark;
+                  // Guardar la preferencia detectada
+                  localStorage.setItem('findia-theme', prefersDark ? 'dark' : 'light');
+                }
                 
                 if (shouldUseDark) {
                   document.documentElement.classList.add('dark');
+                  // Actualizar theme-color para PWA
+                  const meta = document.querySelector('meta[name="theme-color"]');
+                  if (meta) meta.setAttribute('content', '#1a1a1a');
                 } else {
                   document.documentElement.classList.remove('dark');
+                  const meta = document.querySelector('meta[name="theme-color"]');
+                  if (meta) meta.setAttribute('content', '#FF3A5F');
                 }
               } catch (e) {
                 // Fallback en caso de error
@@ -50,6 +119,9 @@ export default function RootLayout({
       <body className={`${inter.variable} antialiased font-sans`} suppressHydrationWarning>
         <Providers>
           {children}
+          <ChromeIOSBanner />
+          <PWAInstallBanner />
+          <UpdateAvailableBanner />
         </Providers>
       </body>
     </html>

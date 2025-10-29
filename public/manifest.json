@@ -1,0 +1,68 @@
+{
+  "name": "FindIA - Tu Asistente Financiero con IA",
+  "short_name": "FindIA",
+  "description": "Gestiona tus finanzas de manera inteligente con la ayuda de IA. Rastrea gastos, recibe sugerencias personalizadas y alcanza tus metas financieras.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FF3A5F",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "es",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/logo.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Accede rápidamente al dashboard principal",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/images/logo.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/images/logo.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard principal de FindIA"
+    }
+  ],
+  "prefer_related_applications": false
+}

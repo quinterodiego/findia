@@ -89,7 +89,11 @@ export function useIncomes() {
   };
 
   useEffect(() => {
-    fetchIncomes();
+    // Solo cargar si hay un userId en session (evitar cargas sin autenticación)
+    fetchIncomes().catch(() => {
+      // Si hay error, establecer loading en false para que no quede bloqueado
+      setLoading(false);
+    });
   }, []);
 
   return {
