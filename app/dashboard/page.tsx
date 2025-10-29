@@ -975,7 +975,7 @@ export default function Dashboard() {
             >
               {/* Gráfica de Ingresos vs Gastos */}
               <motion.div 
-                className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
+              className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700 transition-all duration-200 hover:shadow-2xl"
               >
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -1059,7 +1059,7 @@ export default function Dashboard() {
 
                 return (
                   <motion.div 
-                    className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
+                    className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700 transition-all duration-200 hover:shadow-2xl"
                   >
                     <div className="flex items-center justify-between mb-6">
                       <div>
