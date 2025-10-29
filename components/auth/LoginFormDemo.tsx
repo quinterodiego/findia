@@ -247,7 +247,7 @@ export default function LoginFormDemo({ onForgotPassword, onClose }: LoginFormPr
             <label className="flex items-center">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-[#FF3A5F] focus:ring-[#FF3A5F] border-gray-300 rounded"
               />
               <span className="ml-2 text-sm text-gray-600">Recordarme</span>
             </label>
@@ -256,7 +256,7 @@ export default function LoginFormDemo({ onForgotPassword, onClose }: LoginFormPr
               <button
                 type="button"
                 onClick={onForgotPassword}
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
+                className="text-sm text-[#FF3A5F] hover:text-[#FF007A] transition-colors duration-200 cursor-pointer"
               >
                 ¿Olvidaste tu contraseña?
               </button>
@@ -266,7 +266,7 @@ export default function LoginFormDemo({ onForgotPassword, onClose }: LoginFormPr
           <button
             type="submit"
             disabled={isLoading || isGoogleLoading}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer"
+            className="w-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-[#FF3A5F] focus:ring-offset-2 cursor-pointer"
           >
             {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión (Demo)'}
           </button>

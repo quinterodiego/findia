@@ -378,7 +378,7 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                 className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
                   fieldErrors.name 
                     ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-gray-300 focus:ring-[#FF3A5F]'
                 }`}
                 placeholder="Tu nombre completo"
                 required
@@ -415,7 +415,7 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                 className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
                   fieldErrors.email 
                     ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-gray-300 focus:ring-[#FF3A5F]'
                 }`}
                 placeholder="tu@email.com"
                 required
@@ -452,7 +452,7 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                 className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
                   fieldErrors.password 
                     ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-gray-300 focus:ring-[#FF3A5F]'
                 }`}
                 placeholder="••••••••"
                 required
@@ -513,7 +513,7 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                 className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
                   fieldErrors.confirmPassword 
                     ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-gray-300 focus:ring-[#FF3A5F]'
                 }`}
                 placeholder="••••••••"
                 required
@@ -601,7 +601,7 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                   window.dispatchEvent(event)
                 }
               }}
-              className="text-blue-600 hover:text-blue-800 font-semibold transition-colors cursor-pointer"
+              className="text-[#FF3A5F] hover:text-[#FF007A] font-semibold transition-colors cursor-pointer"
             >
               Inicia sesión
             </button>

@@ -250,7 +250,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
     return (
       <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 w-full">
         <div className="flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF3A5F] mb-4"></div>
           <p className="text-gray-600 text-sm">Redirigiendo...</p>
         </div>
       </div>
@@ -262,7 +262,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
     return (
       <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 w-full">
         <div className="flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF3A5F] mb-4"></div>
           <p className="text-gray-600 text-sm">Iniciando sesión...</p>
         </div>
       </div>
@@ -294,10 +294,10 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
             <p className="text-sm font-medium">
               {googleError || message?.text || ''}
             </p>
-            {userNotFound && onSwitchToRegister && (
+              {userNotFound && onSwitchToRegister && (
               <button
                 onClick={onSwitchToRegister}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+                className="mt-2 text-sm text-[#FF3A5F] hover:text-[#FF007A] underline font-medium cursor-pointer"
               >
                 ¿Quieres crear una cuenta?
               </button>
@@ -320,10 +320,10 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
                 onBlur={() => handleBlur('email')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'email')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-blue-300 hover:shadow-sm ${
+                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-[#FF3A5F] hover:shadow-sm ${
                   fieldErrors.email 
                     ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-gray-300 focus:ring-[#FF3A5F]'
                 }`}
                 placeholder="tu@email.com"
                 required
@@ -357,10 +357,10 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
                 onBlur={() => handleBlur('password')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'password')}
-                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-blue-300 hover:shadow-sm ${
+                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-[#FF3A5F] hover:shadow-sm ${
                   fieldErrors.password 
                     ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-gray-300 focus:ring-[#FF3A5F]'
                 }`}
                 placeholder="••••••••"
                 required
@@ -392,7 +392,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
             <label className="flex items-center">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                className="h-4 w-4 text-[#FF3A5F] focus:ring-[#FF3A5F] border-gray-300 rounded cursor-pointer"
               />
               <span className="ml-2 text-sm text-gray-600">Recordarme</span>
             </label>
@@ -401,7 +401,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
               <button
                 type="button"
                 onClick={onForgotPassword}
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer"
+                className="text-sm text-[#FF3A5F] hover:text-[#FF007A] transition-colors duration-200 cursor-pointer"
                 tabIndex={4}
               >
                 ¿Olvidaste tu contraseña?
@@ -412,7 +412,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
           <button
             type="submit"
             disabled={isLoading || isGoogleLoading}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] hover:shadow-lg focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+            className="w-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 text-white py-3 px-4 rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] hover:shadow-lg focus:ring-2 focus:ring-[#FF3A5F] focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
             tabIndex={3}
           >
             {isLoading && <AlertCircle className="animate-spin h-5 w-5" />}
@@ -454,7 +454,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
                   window.dispatchEvent(event)
                 }
               }}
-              className="text-blue-600 hover:text-blue-800 font-semibold transition-colors cursor-pointer"
+              className="text-[#FF3A5F] hover:text-[#FF007A] font-semibold transition-colors cursor-pointer"
             >
               Regístrate gratis
             </button>

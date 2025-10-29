@@ -71,32 +71,32 @@ export default function ChromeIOSBanner() {
   if (!showBanner) return null;
 
   return (
-    <div className="fixed top-4 left-4 right-4 z-50 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-lg shadow-lg p-4 max-w-sm mx-auto">
+    <div className="fixed top-4 left-4 right-4 z-50 bg-gradient-to-r from-[#FF3A5F]/10 to-[#FF007A]/10 dark:from-[#FF3A5F]/20 dark:to-[#FF007A]/20 border border-[#FF3A5F]/20 dark:border-[#FF3A5F]/30 rounded-lg shadow-lg p-4 max-w-sm mx-auto">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+            <div className="w-6 h-6 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] rounded-full flex items-center justify-center">
               <span className="text-white text-xs font-bold">💡</span>
             </div>
-            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Mejor Experiencia Disponible
             </h3>
           </div>
-          <p className="text-xs text-blue-700 dark:text-blue-200 mb-3">
+          <p className="text-xs text-gray-700 dark:text-gray-300 mb-3">
             Para instalar FindIA como app y disfrutar de funcionalidad offline, 
             abre esta página en Safari y usa "Agregar a pantalla de inicio".
           </p>
           <div className="flex gap-2">
             <button
               onClick={handleOpenInSafari}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-2 rounded-md transition-colors"
+              className="flex items-center gap-2 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 text-white text-xs px-3 py-2 rounded-md transition-colors"
             >
               <ExternalLink size={12} />
               Abrir en Safari
             </button>
             <button
               onClick={handleDismiss}
-              className="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100 text-xs px-3 py-2 rounded-md transition-colors"
+              className="text-[#FF3A5F] hover:text-[#FF007A] dark:text-[#FF3A5F] dark:hover:text-[#FF007A] text-xs px-3 py-2 rounded-md transition-colors"
             >
               Ahora no
             </button>
@@ -104,7 +104,7 @@ export default function ChromeIOSBanner() {
         </div>
         <button
           onClick={handleDismissPermanently}
-          className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-200 ml-2 transition-colors"
+          className="text-gray-400 hover:text-[#FF3A5F] dark:hover:text-[#FF007A] ml-2 transition-colors"
           title="No mostrar más"
         >
           <X size={16} />

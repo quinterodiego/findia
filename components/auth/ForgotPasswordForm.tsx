@@ -67,7 +67,7 @@ export default function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) 
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent transition-all duration-200"
                 placeholder="tu@email.com"
                 required
                 autoComplete="email"
@@ -78,7 +78,7 @@ export default function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) 
           <button
             type="submit"
             disabled={isLoading || !email}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-[#FF3A5F] focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer"
           >
             {isLoading ? (
               'Enviando...'

@@ -191,7 +191,7 @@ export default function PWAInstallBanner() {
             ) : !isIOS && deferredPrompt ? (
               <button
                 onClick={handleInstallClick}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-2 rounded-md transition-colors"
+                className="flex items-center gap-2 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 text-white text-xs px-3 py-2 rounded-md transition-colors"
               >
                 <Download size={14} />
                 Instalar
