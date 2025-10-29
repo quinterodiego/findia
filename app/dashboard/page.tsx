@@ -760,16 +760,6 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6 py-6">
         <div className="space-y-6">
-          {/* Welcome Message */}
-          <div className="text-center mb-8">
-            <h1 className="text-xl font-bold text-gray-600 dark:text-white mb-1">
-              ¡Hola, {session?.user?.name?.split(' ')[0] || 'Usuario'}! 👋
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Bienvenido a tu dashboard de libertad financiera
-            </p>
-          </div>
-
           {/* Stats Cards - Diseño limpio y con impacto */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
             {(shouldShowSkeleton && (debtsLoading || incomesLoading || expensesLoading || goalsLoading)) ? (
@@ -2043,6 +2033,9 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   )
 }
