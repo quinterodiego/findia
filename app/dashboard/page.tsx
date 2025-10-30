@@ -1947,29 +1947,45 @@ export default function Dashboard() {
         loading={debtsLoading}
       />
 
-      {/* Bottom Navigation Bar - Solo Mobile */}
+      {/* Mobile Menu (Burger) - Solo Mobile */}
       <AnimatePresence>
         {showBottomNav && (
           <motion.div
-            initial={{ opacity: 0, y: 100 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed top-16 left-0 right-0 z-50 md:hidden"
           >
-            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-2xl bottom-nav-container">
+            <div className="mx-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl rounded-2xl overflow-hidden bottom-nav-container">
               <div className="px-4 py-3">
-                {/* Quick actions row */}
+                {/* User + Quick actions */}
                 <div className="flex items-center justify-between mb-3">
-                  <ThemeToggle />
-                  <button
-                    onClick={() => {
-                      setShowLogoutModal(true)
-                      setShowBottomNav(false)
-                    }}
-                    className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                  >
-                    Cerrar sesión
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full overflow-hidden">
+                      {session?.user?.image ? (
+                        <Image src={session.user.image} alt={session.user.name || 'Usuario'} width={32} height={32} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] flex items-center justify-center text-white font-semibold text-sm">
+                          {session?.user?.name?.charAt(0) || 'U'}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {session?.user?.name || session?.user?.email}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ThemeToggle />
+                    <button
+                      onClick={() => {
+                        setShowLogoutModal(true)
+                        setShowBottomNav(false)
+                      }}
+                      className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                    >
+                      Cerrar sesión
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {/* Sección Tarjetas de Crédito */}
