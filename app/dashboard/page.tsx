@@ -788,7 +788,7 @@ export default function Dashboard() {
                   className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   title="Menú"
                 >
-                  <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <Menu className="w-8 h-8 text-gray-600 dark:text-gray-400" />
                 </button>
               </div>
               {/* Botón de menú móvil (visible cuando los demás se ocultan) */}
@@ -798,7 +798,7 @@ export default function Dashboard() {
                   className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   title="Menú"
                 >
-                  <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <Menu className="w-8 h-8 text-gray-600 dark:text-gray-400" />
                 </button>
               </div>
             </div>

@@ -76,7 +76,7 @@ function ToastComponent({ toast, onRemove }: ToastProps) {
             setIsVisible(false)
             setTimeout(() => onRemove(toast.id), 300)
           }}
-          className="flex-shrink-0 p-1 hover:bg-black/10 rounded-full transition-colors"
+          className="flex-shrink-0 p-1 hover:bg-black/10 rounded-full transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
