@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, MoreHorizontal, Home, Plus } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, MoreHorizontal, Home, Plus, Menu } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -538,7 +538,9 @@ export default function Dashboard() {
 
             {/* User Menu */}
             <div className="flex items-center gap-2 sm:gap-4">
-              <ThemeToggle />
+              <div className="hidden md:block">
+                <ThemeToggle />
+              </div>
 
               {/* Dropdown de Tarjetas de Crédito - Solo Desktop */}
               <div className="relative dropdown-container hidden md:block">
@@ -786,7 +788,7 @@ export default function Dashboard() {
                   className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   title="Menú"
                 >
-                  <MoreHorizontal className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 </button>
               </div>
             </div>
@@ -1956,6 +1958,19 @@ export default function Dashboard() {
           >
             <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-2xl bottom-nav-container">
               <div className="px-4 py-3">
+                {/* Quick actions row */}
+                <div className="flex items-center justify-between mb-3">
+                  <ThemeToggle />
+                  <button
+                    onClick={() => {
+                      setShowLogoutModal(true)
+                      setShowBottomNav(false)
+                    }}
+                    className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   {/* Sección Tarjetas de Crédito */}
                   <div className="space-y-2">
