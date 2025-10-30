@@ -543,7 +543,12 @@ export default function Dashboard() {
               {/* Dropdown de Tarjetas de Crédito - Solo Desktop */}
               <div className="relative dropdown-container hidden md:block">
                 <button
-                  onClick={() => setShowCreditCardDropdown(!showCreditCardDropdown)}
+                  onClick={() => {
+                    setShowCreditCardDropdown(!showCreditCardDropdown)
+                    // Cerrar otros dropdowns
+                    setShowAnalysisDropdown(false)
+                    setShowToolsDropdown(false)
+                  }}
                   className="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                   title="Tarjetas de crédito"
                 >
@@ -623,7 +628,12 @@ export default function Dashboard() {
               {/* Dropdown de Análisis - Solo Desktop */}
               <div className="relative dropdown-container hidden md:block">
                 <button
-                  onClick={() => setShowAnalysisDropdown(!showAnalysisDropdown)}
+                  onClick={() => {
+                    setShowAnalysisDropdown(!showAnalysisDropdown)
+                    // Cerrar otros dropdowns
+                    setShowCreditCardDropdown(false)
+                    setShowToolsDropdown(false)
+                  }}
                   className="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                   title="Análisis y reportes"
                 >
@@ -689,7 +699,12 @@ export default function Dashboard() {
               {/* Dropdown de Herramientas - Solo Desktop */}
               <div className="relative dropdown-container hidden md:block">
                 <button
-                  onClick={() => setShowToolsDropdown(!showToolsDropdown)}
+                  onClick={() => {
+                    setShowToolsDropdown(!showToolsDropdown)
+                    // Cerrar otros dropdowns
+                    setShowCreditCardDropdown(false)
+                    setShowAnalysisDropdown(false)
+                  }}
                   className="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                   title="Herramientas"
                 >
