@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -166,13 +166,15 @@ export default function Dashboard() {
   // Hook para manejar subcategorías
   const { subcategories = [] } = useSubcategories()
 
-  // Cargar datos al montar el componente
+  // Evitar dobles cargas (StrictMode/dev y re-hidratación de sesión)
+  const hasLoadedRef = useRef(false)
   useEffect(() => {
-    if (session?.user?.id) {
-      fetchDebts()
-      fetchStats()
-    }
-  }, [session?.user?.id, fetchDebts, fetchStats])
+    if (status !== 'authenticated' || !session?.user?.id) return
+    if (hasLoadedRef.current) return
+    hasLoadedRef.current = true
+    fetchDebts()
+    fetchStats()
+  }, [status, session?.user?.id, fetchDebts, fetchStats])
 
   useEffect(() => {
     if (status === 'loading') return
