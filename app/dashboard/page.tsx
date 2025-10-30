@@ -755,7 +755,7 @@ export default function Dashboard() {
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="hidden md:flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full overflow-hidden">
                   {session?.user?.image ? (
                     <Image
@@ -786,6 +786,16 @@ export default function Dashboard() {
                 <button
                   onClick={() => setShowBottomNav(!showBottomNav)}
                   className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  title="Menú"
+                >
+                  <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+              {/* Botón de menú móvil (visible cuando los demás se ocultan) */}
+              <div className="md:hidden">
+                <button
+                  onClick={() => setShowBottomNav(!showBottomNav)}
+                  className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   title="Menú"
                 >
                   <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -1981,9 +1991,10 @@ export default function Dashboard() {
                         setShowLogoutModal(true)
                         setShowBottomNav(false)
                       }}
-                      className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                      className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                      title="Cerrar sesión"
                     >
-                      Cerrar sesión
+                      <LogOut className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
