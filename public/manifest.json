@@ -12,30 +12,30 @@
   "categories": ["finance", "productivity", "utilities"],
   "icons": [
     {
-      "src": "/logo.ico?v=2",
+      "src": "/logo.ico?v=3",
       "sizes": "16x16 32x32 48x48",
       "type": "image/x-icon"
     },
     {
-      "src": "/icons/icon-192x192.png?v=2",
+      "src": "/icons/icon-192x192.png?v=3",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512x512.png?v=2",
+      "src": "/icons/icon-512x512.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-192x192.png?v=2",
+      "src": "/icons/icon-192x192.png?v=3",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/icon-512x512.png?v=2",
+      "src": "/icons/icon-512x512.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

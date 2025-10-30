@@ -77,7 +77,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/logo.ico" />
         <link rel="icon" type="image/png" sizes="16x16" href="/logo.ico" />
-        <link rel="manifest" href="/manifest.json?v=2" />
+        <link rel="manifest" href="/manifest.json?v=3" />
         <link rel="mask-icon" href="/logo.ico" color="#FF3A5F" />
         <link rel="shortcut icon" href="/logo.ico" />
         
