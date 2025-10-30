@@ -102,9 +102,9 @@ export function SkeletonForm() {
 
 export function SkeletonStats() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
             <Skeleton width="60%" height={16} />
             <Skeleton variant="circular" width={24} height={24} />
