@@ -84,6 +84,45 @@ export default function CreditCardCenter({
     includeInterests: true
   });
 
+  // Quick add card modal state
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickForm, setQuickForm] = useState({
+    name: '',
+    bank: '',
+    cardNumber: '',
+    limit: '',
+    currentBalance: '',
+    cutDate: '15',
+    paymentDate: '25',
+    interestRate: '2.5',
+  });
+
+  const handleQuickCreate = async () => {
+    try {
+      if (!quickForm.name || !quickForm.bank || !quickForm.limit) {
+        error('Completa nombre, banco y límite');
+        return;
+      }
+      await createCard({
+        name: quickForm.name,
+        bank: quickForm.bank,
+        cardNumber: quickForm.cardNumber || '**** **** **** ****',
+        limit: Number(quickForm.limit),
+        currentBalance: Number(quickForm.currentBalance || 0),
+        cutDate: Number(quickForm.cutDate || 15),
+        paymentDate: Number(quickForm.paymentDate || 25),
+        interestRate: Number(quickForm.interestRate || 2.5),
+        status: 'active',
+      } as any);
+      success('Tarjeta creada');
+      setShowQuickAdd(false);
+      setQuickForm({ name: '', bank: '', cardNumber: '', limit: '', currentBalance: '', cutDate: '15', paymentDate: '25', interestRate: '2.5' });
+      fetchCards();
+    } catch (e) {
+      error('No se pudo crear la tarjeta');
+    }
+  };
+
   // Función para sincronizar tarjetas con deudas
   const syncCardsWithDebts = useCallback(async () => {
     try {
@@ -436,6 +475,15 @@ export default function CreditCardCenter({
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       Tus Tarjetas de Crédito
                     </h3>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Administra y agrega nuevas tarjetas.</p>
+                      <button
+                        onClick={() => setShowQuickAdd(true)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
+                      >
+                        + Nueva Tarjeta
+                      </button>
+                    </div>
                     {cards.map((card) => {
                       const utilization = (card.currentBalance / card.limit) * 100;
                       return (
@@ -973,8 +1021,51 @@ export default function CreditCardCenter({
             </AnimatePresence>
           </div>
         </motion.div>
+        {/* Quick Add Modal */}
+        <AnimatePresence>
+          {showQuickAdd && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 flex items-center justify-center p-4"
+              onClick={() => setShowQuickAdd(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Nueva Tarjeta</h4>
+                  <button onClick={() => setShowQuickAdd(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Nombre" value={quickForm.name} onChange={(e)=>setQuickForm({...quickForm,name:e.target.value})} />
+                  <input className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Banco" value={quickForm.bank} onChange={(e)=>setQuickForm({...quickForm,bank:e.target.value})} />
+                  <input className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="N° Tarjeta (opcional)" value={quickForm.cardNumber} onChange={(e)=>setQuickForm({...quickForm,cardNumber:e.target.value})} />
+                  <input type="number" className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Límite" value={quickForm.limit} onChange={(e)=>setQuickForm({...quickForm,limit:e.target.value})} />
+                  <input type="number" className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Saldo actual" value={quickForm.currentBalance} onChange={(e)=>setQuickForm({...quickForm,currentBalance:e.target.value})} />
+                  <input type="number" className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Día corte" value={quickForm.cutDate} onChange={(e)=>setQuickForm({...quickForm,cutDate:e.target.value})} />
+                  <input type="number" className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Día pago" value={quickForm.paymentDate} onChange={(e)=>setQuickForm({...quickForm,paymentDate:e.target.value})} />
+                  <input type="number" step="0.1" className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Interés % mensual" value={quickForm.interestRate} onChange={(e)=>setQuickForm({...quickForm,interestRate:e.target.value})} />
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <button onClick={()=>setShowQuickAdd(false)} className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 cursor-pointer">Cancelar</button>
+                  <button onClick={handleQuickCreate} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Crear</button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </AnimatePresence>
   );
 }
+
+
 
