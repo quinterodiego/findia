@@ -787,8 +787,22 @@ export default function Dashboard() {
                   onClick={() => setShowBottomNav(!showBottomNav)}
                   className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   title="Menú"
+                  aria-expanded={showBottomNav}
+                  aria-label={showBottomNav ? 'Cerrar menú' : 'Abrir menú'}
                 >
-                  <Menu className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                  <motion.span
+                    key={showBottomNav ? 'close' : 'menu'}
+                    initial={{ rotate: 0, scale: 0.9, opacity: 0 }}
+                    animate={{ rotate: showBottomNav ? 90 : 0, scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                    className="inline-flex"
+                  >
+                    {showBottomNav ? (
+                      <X className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                    ) : (
+                      <Menu className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                    )}
+                  </motion.span>
                 </button>
               </div>
               {/* Botón de menú móvil (visible cuando los demás se ocultan) */}
@@ -797,8 +811,22 @@ export default function Dashboard() {
                   onClick={() => setShowBottomNav(!showBottomNav)}
                   className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   title="Menú"
+                  aria-expanded={showBottomNav}
+                  aria-label={showBottomNav ? 'Cerrar menú' : 'Abrir menú'}
                 >
-                  <Menu className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                  <motion.span
+                    key={showBottomNav ? 'close' : 'menu'}
+                    initial={{ rotate: 0, scale: 0.9, opacity: 0 }}
+                    animate={{ rotate: showBottomNav ? 90 : 0, scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                    className="inline-flex"
+                  >
+                    {showBottomNav ? (
+                      <X className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                    ) : (
+                      <Menu className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                    )}
+                  </motion.span>
                 </button>
               </div>
             </div>
