@@ -2479,15 +2479,3 @@ export async function deletePDFImportTemplate(
     throw error;
   }
 }
-
-/**
- * Obtiene el ID de una hoja
- */
-async function getSheetId(sheetName: string): Promise<number> {
-  const response = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID,
-  });
-  
-  const sheet = response.data.sheets?.find(s => s.properties?.title === sheetName);
-  return sheet?.properties?.sheetId || 0;
-}
