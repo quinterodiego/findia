@@ -1653,6 +1653,26 @@ export async function createCreditCard(
   }
 ): Promise<CreditCard> {
   try {
+    // Verificar y crear la hoja si no existe
+    const exists = await sheetExists(SHEETS.CREDIT_CARDS);
+    if (!exists) {
+      await createSheetIfNotExists(SHEETS.CREDIT_CARDS, [
+        'id',
+        'userId',
+        'name',
+        'bank',
+        'cardNumber',
+        'limit',
+        'currentBalance',
+        'cutDate',
+        'paymentDate',
+        'interestRate',
+        'status',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
     const now = new Date().toISOString();
     const newCard: CreditCard = {
       id: generateId(),
@@ -1852,6 +1872,21 @@ export async function createCreditCardPayment(
   }
 ): Promise<CreditCardPayment> {
   try {
+    // Verificar y crear la hoja si no existe
+    const exists = await sheetExists(SHEETS.CREDIT_CARD_PAYMENTS);
+    if (!exists) {
+      await createSheetIfNotExists(SHEETS.CREDIT_CARD_PAYMENTS, [
+        'id',
+        'creditCardId',
+        'userId',
+        'amount',
+        'date',
+        'paymentMethod',
+        'notes',
+        'createdAt',
+      ]);
+    }
+
     const now = new Date().toISOString();
     const newPayment: CreditCardPayment = {
       id: generateId(),
@@ -1984,6 +2019,94 @@ export async function getCreditCardConsumptions(
     return consumptions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   } catch (error) {
     console.error('Error obteniendo consumos de tarjeta:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crea un nuevo consumo de tarjeta de crédito
+ */
+export async function createCreditCardConsumption(
+  consumptionData: {
+    creditCardId: string;
+    userId: string;
+    merchant: string;
+    amount: number;
+    installments: number;
+    currentInstallment: number;
+    monthlyPayment: number;
+    date: string; // dd/mm/aaaa
+    categoryId?: string;
+    subcategoryId?: string;
+    description?: string;
+    createdAt?: string;
+  }
+): Promise<CreditCardConsumption> {
+  try {
+    // Verificar y crear la hoja si no existe
+    const exists = await sheetExists(SHEETS.CREDIT_CARD_CONSUMPTIONS);
+    if (!exists) {
+      await createSheetIfNotExists(SHEETS.CREDIT_CARD_CONSUMPTIONS, [
+        'id',
+        'creditCardId',
+        'userId',
+        'merchant',
+        'amount',
+        'installments',
+        'currentInstallment',
+        'monthlyPayment',
+        'date',
+        'categoryId',
+        'subcategoryId',
+        'description',
+        'createdAt',
+      ]);
+    }
+
+    const now = consumptionData.createdAt || new Date().toISOString();
+    const newConsumption: CreditCardConsumption = {
+      id: generateId(),
+      creditCardId: consumptionData.creditCardId,
+      userId: consumptionData.userId,
+      merchant: consumptionData.merchant,
+      amount: consumptionData.amount,
+      installments: consumptionData.installments,
+      currentInstallment: consumptionData.currentInstallment,
+      monthlyPayment: consumptionData.monthlyPayment,
+      date: consumptionData.date,
+      categoryId: consumptionData.categoryId,
+      subcategoryId: consumptionData.subcategoryId,
+      description: consumptionData.description,
+      createdAt: now,
+    };
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARD_CONSUMPTIONS}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          newConsumption.id,
+          newConsumption.creditCardId,
+          newConsumption.userId,
+          newConsumption.merchant,
+          newConsumption.amount,
+          newConsumption.installments,
+          newConsumption.currentInstallment,
+          newConsumption.monthlyPayment,
+          newConsumption.date,
+          newConsumption.categoryId || '',
+          newConsumption.subcategoryId || '',
+          newConsumption.description || '',
+          newConsumption.createdAt,
+        ]],
+      },
+    });
+    
+    console.log('✅ Consumo de tarjeta registrado:', newConsumption.id);
+    return newConsumption;
+  } catch (error) {
+    console.error('Error registrando consumo de tarjeta:', error);
     throw error;
   }
 }

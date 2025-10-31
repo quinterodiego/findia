@@ -30,6 +30,8 @@ import { useCreditCards } from '@/hooks/useCreditCards';
 import { useDebts } from '@/hooks/useDebts';
 import type { CreditCard } from '@/types';
 import { argentineBanks } from '@/lib/argentineBanks';
+import CreditCardStatementImport from './CreditCardStatementImport';
+import CreditCardConsumptionModal from './CreditCardConsumptionModal';
 
 interface PaymentStrategy {
   type: 'snowball' | 'avalanche';
@@ -87,15 +89,16 @@ export default function CreditCardCenter({
 
   // Quick add card modal state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showImport, setShowImport] = useState<{ open: boolean; cardId?: string }>({ open: false });
+  const [showConsumptions, setShowConsumptions] = useState<CreditCard | null>(null);
   const [quickForm, setQuickForm] = useState({
     name: '',
     bank: '',
-    cardNumber: '',
+    last4: '',
     limit: '',
+    minPayment: '',
+    dueDay: '25',
     currentBalance: '',
-    cutDate: '15',
-    paymentDate: '25',
-    interestRate: '2.5',
   });
 
   const handleQuickCreate = async () => {
@@ -107,17 +110,16 @@ export default function CreditCardCenter({
       await createCard({
         name: quickForm.name,
         bank: quickForm.bank,
-        cardNumber: quickForm.cardNumber || '**** **** **** ****',
+        cardNumber: quickForm.last4 ? `**** **** **** ${quickForm.last4}` : '**** **** **** ****',
         limit: Number(quickForm.limit),
         currentBalance: Number(quickForm.currentBalance || 0),
-        cutDate: Number(quickForm.cutDate || 15),
-        paymentDate: Number(quickForm.paymentDate || 25),
-        interestRate: Number(quickForm.interestRate || 2.5),
+        paymentDate: Number(quickForm.dueDay || 25),
+        minPayment: Number(quickForm.minPayment || 0),
         status: 'active',
       } as any);
       success('Tarjeta creada');
       setShowQuickAdd(false);
-      setQuickForm({ name: '', bank: '', cardNumber: '', limit: '', currentBalance: '', cutDate: '15', paymentDate: '25', interestRate: '2.5' });
+      setQuickForm({ name: '', bank: '', last4: '', limit: '', minPayment: '', dueDay: '25', currentBalance: '' });
       fetchCards();
     } catch (e) {
       error('No se pudo crear la tarjeta');
@@ -536,6 +538,13 @@ export default function CreditCardCenter({
                               <span>Pago: día {card.paymentDate}</span>
                               <span>Interés: {card.interestRate}%</span>
                             </div>
+                          </div>
+                          <div className="mt-3 flex gap-2">
+                            <button onClick={() => setShowImport({ open: true, cardId: card.id })} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer text-sm">Importar PDF</button>
+                            <button onClick={() => setShowConsumptions(card)} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors cursor-pointer text-sm flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              Ver Consumos
+                            </button>
                           </div>
                         </div>
                       );
@@ -1066,8 +1075,8 @@ export default function CreditCardCenter({
                   </div>
 
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">N° Tarjeta (opcional)</label>
-                    <input className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="**** **** **** 1234" value={quickForm.cardNumber} onChange={(e)=>setQuickForm({...quickForm,cardNumber:e.target.value})} />
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Últimos 4 dígitos</label>
+                    <input maxLength={4} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="1234" value={quickForm.last4} onChange={(e)=>setQuickForm({...quickForm,last4:e.target.value.replace(/[^0-9]/g,'')})} />
                   </div>
 
                   <div>
@@ -1076,23 +1085,18 @@ export default function CreditCardCenter({
                   </div>
 
                   <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Pago mínimo</label>
+                    <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="0" value={quickForm.minPayment} onChange={(e)=>setQuickForm({...quickForm,minPayment:e.target.value})} />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Vencimiento (día)</label>
+                    <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="25" value={quickForm.dueDay} onChange={(e)=>setQuickForm({...quickForm,dueDay:e.target.value})} />
+                  </div>
+
+                  <div>
                     <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Saldo actual</label>
                     <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="0" value={quickForm.currentBalance} onChange={(e)=>setQuickForm({...quickForm,currentBalance:e.target.value})} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Día de corte</label>
-                    <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="15" value={quickForm.cutDate} onChange={(e)=>setQuickForm({...quickForm,cutDate:e.target.value})} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Día de pago</label>
-                    <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="25" value={quickForm.paymentDate} onChange={(e)=>setQuickForm({...quickForm,paymentDate:e.target.value})} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Interés % mensual</label>
-                    <input type="number" step="0.1" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="2.5" value={quickForm.interestRate} onChange={(e)=>setQuickForm({...quickForm,interestRate:e.target.value})} />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
@@ -1103,6 +1107,18 @@ export default function CreditCardCenter({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Importar Resumen */}
+        <CreditCardStatementImport isOpen={showImport.open} onClose={() => setShowImport({ open: false })} cardId={showImport.cardId || ''} />
+
+        {/* Modal de Consumos */}
+        <CreditCardConsumptionModal
+          isOpen={!!showConsumptions}
+          onClose={() => setShowConsumptions(null)}
+          selectedCard={showConsumptions}
+          categories={categories}
+          subcategories={subcategories}
+        />
       </div>
     </AnimatePresence>
   );

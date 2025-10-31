@@ -69,44 +69,39 @@ export default function CreditCardConsumptionModal({
   }, [isOpen, selectedCard])
 
   const loadConsumptions = async () => {
+    if (!selectedCard?.id) return
+    
     try {
       setLoading(true)
-      // Por ahora simulamos datos, después conectaremos con la API
-      const mockConsumptions: CreditCardConsumption[] = [
-        {
-          id: '1',
-          cardId: '1',
-          cardName: 'Visa Platinum',
-          merchant: 'Amazon',
-          amount: 150000,
-          date: '2024-01-15',
-          category: 'Compras',
-          subcategory: 'Online',
-          installments: 3,
-          currentInstallment: 1,
-          monthlyPayment: 50000,
-          description: 'Compra de productos electrónicos',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          cardId: '1',
-          cardName: 'Visa Platinum',
-          merchant: 'Supermercado',
-          amount: 85000,
-          date: '2024-01-20',
-          category: 'Alimentación',
-          subcategory: 'Supermercado',
-          installments: 1,
-          currentInstallment: 1,
-          monthlyPayment: 85000,
-          description: 'Compra semanal',
-          createdAt: new Date().toISOString()
-        }
-      ]
-      setConsumptions(mockConsumptions)
+      const response = await fetch(`/api/credit-cards/${selectedCard.id}/consumptions`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cargar consumos')
+      }
+      
+      // Convertir los datos de la API al formato esperado por el componente
+      const formattedConsumptions: CreditCardConsumption[] = (data.consumptions || []).map((c: any) => ({
+        id: c.id,
+        cardId: c.creditCardId,
+        cardName: selectedCard.name || 'Tarjeta',
+        merchant: c.merchant || 'Movimiento',
+        amount: c.amount || 0,
+        date: c.date || new Date().toISOString().split('T')[0],
+        category: c.categoryId || '',
+        subcategory: c.subcategoryId || '',
+        installments: c.installments || 1,
+        currentInstallment: c.currentInstallment || 1,
+        monthlyPayment: c.monthlyPayment || c.amount || 0,
+        description: c.description || '',
+        createdAt: c.createdAt || new Date().toISOString()
+      }))
+      
+      setConsumptions(formattedConsumptions)
     } catch (err) {
+      console.error('Error cargando consumos:', err)
       error('Error al cargar consumos')
+      setConsumptions([])
     } finally {
       setLoading(false)
     }
