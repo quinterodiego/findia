@@ -154,11 +154,11 @@ export default function PaymentModal({
             <div className="bg-gray-600/10 rounded-xl p-4">
               <div className="flex justify-between text-sm mb-2">
                 <span>Saldo pendiente:</span>
-                <span className="font-semibold">${formatCurrency(debt?.balance || 0)}</span>
+                <span className="font-semibold">{formatCurrency(debt?.balance || 0)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Pago mínimo:</span>
-                <span className="font-semibold">${formatCurrency(debt?.minPayment || 0)}</span>
+                <span className="font-semibold">{formatCurrency(debt?.minPayment || 0)}</span>
               </div>
             </div>
           </div>

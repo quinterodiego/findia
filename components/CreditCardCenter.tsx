@@ -439,7 +439,7 @@ export default function CreditCardCenter({
                         <TrendingDown className="w-5 h-5 text-red-500" />
                       </div>
                       <p className="text-2xl font-bold text-red-700 dark:text-red-300">
-                        ${formatCurrency(totalDebt)}
+                        {formatCurrency(totalDebt)}
                       </p>
                     </div>
 
@@ -507,10 +507,10 @@ export default function CreditCardCenter({
                             <div className="text-right">
                               <p className="text-sm text-gray-500 dark:text-gray-400">Deuda actual</p>
                               <p className="text-xl font-bold text-red-600 dark:text-red-400">
-                                ${formatCurrency(card.currentBalance)}
+                                {formatCurrency(card.currentBalance)}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
-                                de ${formatCurrency(card.limit)}
+                                de {formatCurrency(card.limit)}
                               </p>
                             </div>
                           </div>
@@ -713,13 +713,13 @@ export default function CreditCardCenter({
                           <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Pago mensual</p>
                             <p className="text-xl font-bold text-gray-900 dark:text-white">
-                              ${formatCurrency(selectedStrategy?.monthlyPayment || 0)}
+                              {formatCurrency(selectedStrategy?.monthlyPayment || 0)}
                             </p>
                           </div>
                           <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Intereses totales</p>
                             <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                              ${formatCurrency(paymentPlan.reduce((sum, p) => sum + p.interestPaid, 0))}
+                              {formatCurrency(paymentPlan.reduce((sum, p) => sum + p.interestPaid, 0))}
                             </p>
                           </div>
                           <div>
@@ -749,16 +749,16 @@ export default function CreditCardCenter({
                                 <td className="p-3 text-gray-600 dark:text-gray-300">{payment.month}</td>
                                 <td className="p-3 font-medium text-gray-900 dark:text-white">{payment.cardName}</td>
                                 <td className="p-3 text-right font-semibold text-gray-900 dark:text-white">
-                                  ${formatCurrency(payment.paymentAmount)}
+                                  {formatCurrency(payment.paymentAmount)}
                                 </td>
                                 <td className="p-3 text-right text-green-600 dark:text-green-400">
-                                  ${formatCurrency(payment.principalPaid)}
+                                  {formatCurrency(payment.principalPaid)}
                                 </td>
                                 <td className="p-3 text-right text-orange-600 dark:text-orange-400">
-                                  ${formatCurrency(payment.interestPaid)}
+                                  {formatCurrency(payment.interestPaid)}
                                 </td>
                                 <td className="p-3 text-right text-gray-600 dark:text-gray-300">
-                                  ${formatCurrency(payment.remainingBalance)}
+                                  {formatCurrency(payment.remainingBalance)}
                                 </td>
                               </tr>
                             ))}
