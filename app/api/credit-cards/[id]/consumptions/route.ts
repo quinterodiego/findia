@@ -50,10 +50,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     let skipped = 0
 
     for (const it of items) {
+      // Calcular el monto total (PESOS + USD convertido, o solo el que tenga valor)
+      // Por ahora usar PESOS como principal, o USD si no hay PESOS
+      const totalAmount = it.montoPesos > 0 ? it.montoPesos : (it.montoUSD || it.amount || 0)
+      
       // Verificar si ya existe un consumo similar (mismo monto, fecha y comercio)
       if (skipDuplicates) {
         const exists = existingConsumptions.some(ec => {
-          const sameAmount = Math.abs(ec.amount - Number(it.amount || 0)) < 0.01
+          const sameAmount = Math.abs(ec.amount - totalAmount) < 0.01
           const sameDate = ec.date === it.date
           const sameMerchant = ec.merchant?.toLowerCase().trim() === (it.description || 'Movimiento').toLowerCase().trim()
           return sameAmount && sameDate && sameMerchant
@@ -64,7 +68,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           continue
         }
       }
-      const totalAmount = Number(it.amount || 0)
       const totalInstallments = it.installments?.total || 1
       const monthlyPayment = totalInstallments > 1 
         ? totalAmount / totalInstallments 

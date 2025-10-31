@@ -10,9 +10,11 @@ import PDFTemplateManager from './PDFTemplateManager'
 import { formatCurrency } from '@/lib/formatNumber'
 
 type ParsedLine = {
-  date: string // dd/mm/aaaa
+  date: string // dd/mm/aaaa (formato original para mostrar)
+  originalDate: string // Formato original del PDF (ej: "25-Jul-25")
   description: string
-  amount: number
+  montoPesos: number
+  montoUSD: number
   installments?: { current: number; total: number } | null
   type: 'consumption' | 'interest' | 'fee'
 }
@@ -31,12 +33,39 @@ function toDDMMYYYY(date: Date) {
   return `${d}/${m}/${y}`
 }
 
-// Detecta fecha dd/mm/aaaa o dd-mm-aaaa
-const DATE_RE = /(\b|\D)(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(\b|\D)/g
-// Detecta importes (positivos y negativos, con coma o punto, con o sin símbolo $)
-const AMOUNT_RE = /([+-]?\$?\s*\d{1,3}(?:[\.,]\d{3})*(?:[\.,]\d{2})?)/g
-// Detecta cuotas "n de N" o "n/N"
-const INSTALLMENTS_RE = /(\d{1,2})\s*(?:de|\/|-|DE)\s*(\d{1,2})/i
+// Mapeo de meses abreviados en español
+const MONTHS_ABBREV: Record<string, number> = {
+  'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
+  'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12,
+  'jan': 1, 'fev': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+  'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+}
+
+// Función para convertir fecha con mes abreviado a dd/mm/yyyy
+function parseDateWithMonth(dateStr: string): string | null {
+  // Formato: DD-Mes-YY o DD-Mes-YYYY (ej: 25-Jul-25, 05-Ago-2025)
+  const match = dateStr.match(/(\d{1,2})[-\/](\w{3})[-\/](\d{2,4})/i)
+  if (!match) return null
+  
+  const day = parseInt(match[1])
+  const monthAbbrev = match[2].toLowerCase()
+  const year = parseInt(match[3])
+  
+  const month = MONTHS_ABBREV[monthAbbrev]
+  if (!month) return null
+  
+  const fullYear = year < 100 ? 2000 + year : year
+  return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${fullYear}`
+}
+
+// Detecta fecha dd/mm/aaaa, dd-mm-aaaa, o DD-Mes-YY
+const DATE_RE = /(\b|\D)(\d{1,2})[\/\-](\d{1,2}|[A-Za-z]{3})[\/\-](\d{2,4})(\b|\D)/gi
+// Detecta fechas con meses abreviados: DD-Mes-YY o DD-Mes-YYYY
+const DATE_WITH_MONTH_RE = /(\d{1,2})[-\/]([A-Za-z]{3})[-\/](\d{2,4})/gi
+// Detecta importes (mejorado para formato argentino: punto miles, coma decimal)
+const AMOUNT_RE = /([+-]?\d{1,3}(?:\.\d{3})*(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})*(?:\.\d{2})?|[+-]?\d+(?:[.,]\d{2,3})?)/g
+// Detecta cuotas "n/N", "n de N", "nn/nn"
+const INSTALLMENTS_RE = /(\d{1,2})[\/\-](\d{1,2})|(\d{1,2})\s+de\s+(\d{1,2})/i
 // Detecta intereses y cargos financieros
 const INTEREST_KEYWORDS = /inter[eé]s|inter[eé]s\s*financ|financ|car\.?go\s*financ|mora|retenci[oó]n|iva|impuesto/i
 // Detecta comisiones
@@ -73,138 +102,160 @@ async function extractPdfText(file: File): Promise<string> {
 
 function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): ParsedLine[] {
   const lines: ParsedLine[] = []
-  // Dividir en líneas y mantener contexto de líneas anteriores
+  // Dividir en líneas
   const rows = raw.split(/\n+/).map(r => r.trim()).filter(Boolean)
   
-  // Aplicar skipLines del template si existe
-  const filteredRows = template?.skipLines 
-    ? rows.filter(row => !template.skipLines!.some(skip => row.includes(skip)))
-    : rows
+  // Palabras clave a ignorar (no son transacciones)
+  // Solo filtrar si la línea EMPIEZA con estas palabras o las contiene como frases completas
+  const skipKeywords = ['TOTAL CONSUMOS DEL MES', 'SUBTOTAL', 'TOTAL A PAGAR', 'SALDO PENDIENTE', 'CONSOLIDADO']
   
-  // Usar patrones del template o valores por defecto
-  const datePattern = template?.datePattern ? new RegExp(template.datePattern.replace(/^\/|\/[gimuy]*$/g, ''), 'g') : DATE_RE
-  const amountPattern = template?.amountPattern ? new RegExp(template.amountPattern.replace(/^\/|\/[gimuy]*$/g, ''), 'g') : AMOUNT_RE
-  const installmentsPattern = template?.installmentsPattern 
-    ? new RegExp(template.installmentsPattern.replace(/^\/|\/[gimuy]*$/g, ''), 'i') 
-    : INSTALLMENTS_RE
-  const searchRange = template?.searchRange ?? 3
-  const interestKeywords = template?.interestKeywords 
-    ? new RegExp(template.interestKeywords.join('|'), 'i') 
-    : INTEREST_KEYWORDS
-  const feeKeywords = template?.feeKeywords 
-    ? new RegExp(template.feeKeywords.join('|'), 'i') 
-    : FEE_KEYWORDS
+  // Filtrar líneas que sean exactamente estas palabras clave o empiecen con ellas
+  const filteredRows = rows.filter(row => {
+    const upperRow = row.toUpperCase().trim()
+    // Solo filtrar si la línea empieza con una de estas palabras clave o es exactamente igual
+    const shouldSkip = skipKeywords.some(keyword => {
+      return upperRow === keyword || upperRow.startsWith(keyword + ' ') || upperRow === keyword
+    })
+    return !shouldSkip
+  })
   
-  // Buscar todas las fechas primero
-  const dateMatches: Array<{ index: number; date: string; row: string }> = []
+  // Regex para detectar fecha: DD-Mes-YY (siguiendo instrucciones exactas)
+  const dateRegex = /(\d{2}-[A-Za-z]{3}-\d{2})/
+  
+  // Debug: contar líneas procesadas
+  let linesProcessed = 0
+  let datesFound = 0
+  
+  // Para cada línea, buscar si empieza con fecha
   for (let i = 0; i < filteredRows.length; i++) {
     const row = filteredRows[i]
-    // Buscar todas las fechas en la línea
-    let match
-    while ((match = datePattern.exec(row)) !== null) {
-      let date = ''
-      if (template?.dateFormat === 'dd/mm/yyyy' || !template?.dateFormat) {
-        date = `${match[2]?.padStart(2, '0') || match[2]}/${match[3]?.padStart(2, '0') || match[3]}/${match[4]?.length === 2 ? '20' + match[4] : match[4]}`
-      } else if (template.dateFormat === 'dd-mm-yyyy') {
-        date = `${match[2]?.padStart(2, '0') || match[2]}-${match[3]?.padStart(2, '0') || match[3]}-${match[4]?.length === 2 ? '20' + match[4] : match[4]}`
-      } else if (template.dateFormat === 'mm/dd/yyyy') {
-        date = `${match[3]?.padStart(2, '0') || match[3]}/${match[2]?.padStart(2, '0') || match[2]}/${match[4]?.length === 2 ? '20' + match[4] : match[4]}`
-      } else {
-        date = `${match[2]?.padStart(2, '0') || match[2]}/${match[3]?.padStart(2, '0') || match[3]}/${match[4]?.length === 2 ? '20' + match[4] : match[4]}`
-      }
-      dateMatches.push({ index: i, date, row })
-    }
-  }
-
-  // Para cada fecha encontrada, buscar su monto y descripción
-  for (const { index, date, row } of dateMatches) {
-    // Buscar importes en un rango de líneas usando searchRange del template
-    let amountStr: string | null = null
-    let amountIndex = index
-    const searchRangeArray = Array.from({ length: searchRange + 1 }, (_, i) => index + i).filter(i => i < filteredRows.length)
+    linesProcessed++
     
-    for (const i of searchRangeArray) {
-      const line = filteredRows[i]
-      // Buscar todos los montos en la línea
-      const amounts = line.match(amountPattern) || []
-      if (amounts.length > 0) {
-        // Tomar el último monto (suele ser el importe total)
-        amountStr = amounts[amounts.length - 1]
-        amountIndex = i
-        break
-      }
-    }
+    // Buscar fecha en la línea usando el regex exacto de las instrucciones
+    const dateMatch = row.match(dateRegex)
+    if (!dateMatch || dateMatch.length === 0) continue
+    datesFound++
     
-    if (!amountStr) continue
+    // Verificar que la fecha esté al inicio (o muy cerca del inicio, permitiendo algunos espacios)
+    const dateIndex = row.indexOf(dateMatch[0])
+    if (dateIndex > 5) continue // Si la fecha está muy lejos del inicio, no es una fila de consumo
     
-    // Normalizar el monto según la configuración del template
-    let norm = amountStr.replace(/\$|\s/g, '')
-    if (template?.amountThousandsSeparator === '.') {
-      norm = norm.replace(/\./g, '')
-    } else if (template?.amountThousandsSeparator === ',') {
-      norm = norm.replace(/,/g, '')
+    const originalDate = dateMatch[0].trim() // Ej: "25-Jul-25"
+    
+    // Convertir fecha a formato dd/mm/yyyy
+    const parsedDate = parseDateWithMonth(originalDate)
+    if (!parsedDate) continue // Si no se puede parsear, saltar
+    
+    // Remover la fecha de la línea para obtener descripción y monto
+    // Remover desde el inicio hasta después de la fecha
+    let remainingRow = row.substring(dateIndex + originalDate.length).trim()
+    
+    // Buscar todos los números al final (montos)
+    // Regex mejorado: captura números con formato argentino o inglés
+    const amountMatches = remainingRow.match(/([+-]?\d{1,3}(?:\.\d{3})*(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})*(?:\.\d{2})?|[+-]?\d+(?:[.,]\d{2,3})?)/g)
+    
+    if (!amountMatches || amountMatches.length === 0) continue
+    
+    // Tomar el último número como monto
+    const lastAmount = amountMatches[amountMatches.length - 1]
+    
+    // Remover el último monto para obtener la descripción
+    const lastAmountIndex = remainingRow.lastIndexOf(lastAmount)
+    let description = remainingRow.substring(0, lastAmountIndex).trim()
+    
+    // Limpiar descripción: remover números sobrantes al final
+    description = description.replace(/\s+\d+$/, '').trim()
+    
+    if (!description || description.length < 2) {
+      description = 'Movimiento sin descripción'
     }
     
-    if (template?.amountDecimalSeparator === ',') {
-      norm = norm.replace(',', '.')
-    } else if (template?.amountDecimalSeparator === '.' && !template?.amountThousandsSeparator) {
-      // Si no hay separador de miles, asumir que el punto es decimal
-    } else {
-      // Por defecto: punto como separador de miles, coma como decimal
+    // Determinar si es PESOS o USD
+    let montoPesos = 0
+    let montoUSD = 0
+    
+    // Normalizar el monto
+    let norm = lastAmount.replace(/[$\s]/g, '').trim()
+    const hasDotThousands = /\.\d{3}/.test(norm) // Tiene punto cada 3 dígitos (formato argentino)
+    const hasCommaDecimal = /,\d{2}$/.test(norm) // Termina en coma + 2 dígitos
+    const hasOnlyComma = /^\d+,\d{2}$/.test(norm) // Solo coma (sin puntos de miles)
+    const digitCount = norm.replace(/[.,]/g, '').length
+    
+    if (hasDotThousands || (hasCommaDecimal && digitCount > 3)) {
+      // Formato argentino: punto miles, coma decimal = PESOS
       norm = norm.replace(/\./g, '').replace(',', '.')
-    }
-    
-    const amount = Number(norm)
-    
-    if (isNaN(amount) || amount === 0) continue
-
-    // Construir descripción desde múltiples líneas si es necesario
-    let description = ''
-    const descRange = Array.from({ length: searchRange + 2 }, (_, i) => index + i).filter(i => i < filteredRows.length)
-    
-    for (const i of descRange) {
-      const line = filteredRows[i]
-      // Remover fecha y monto de la línea para obtener descripción
-      let cleanLine = line
-        .replace(datePattern, '')
-        .replace(amountPattern, '')
-        .trim()
-      
-      if (cleanLine && cleanLine.length > 2) {
-        description += (description ? ' ' : '') + cleanLine
+      montoPesos = parseFloat(norm) || 0
+    } else if (hasOnlyComma && digitCount <= 4) {
+      // Formato simple con coma y pocos dígitos = probablemente USD
+      norm = norm.replace(',', '.')
+      montoUSD = parseFloat(norm) || 0
+    } else if (hasCommaDecimal && !hasDotThousands) {
+      // Tiene coma decimal pero no puntos de miles y pocos dígitos = USD
+      norm = norm.replace(',', '.')
+      montoUSD = parseFloat(norm) || 0
+    } else {
+      // Por defecto: intentar formato argentino
+      norm = norm.replace(/\./g, '').replace(',', '.')
+      const parsedAmount = parseFloat(norm) || 0
+      if (parsedAmount > 0) {
+        // Si el monto es muy grande, probablemente es PESOS
+        if (parsedAmount > 1000 || digitCount > 4) {
+          montoPesos = parsedAmount
+        } else {
+          montoUSD = parsedAmount
+        }
       }
     }
     
-    description = description.trim() || 'Movimiento'
-
-    // Buscar cuotas en las líneas cercanas
+    // Solo agregar si hay al menos un monto válido
+    if (montoPesos === 0 && montoUSD === 0) continue
+    
+    // Buscar cuotas en la descripción o línea siguiente
     let installments = null
-    for (const i of descRange) {
-      const instMatch = filteredRows[i].match(installmentsPattern)
-      if (instMatch) {
-        installments = { current: Number(instMatch[1]), total: Number(instMatch[2]) }
-        break
+    const cuotasMatch = description.match(/(\d{1,2})[\/\-](\d{1,2})|(\d{1,2})\s+de\s+(\d{1,2})/i)
+    if (cuotasMatch) {
+      const current = Number(cuotasMatch[1] || cuotasMatch[3])
+      const total = Number(cuotasMatch[2] || cuotasMatch[4])
+      if (current && total && current <= total) {
+        installments = { current, total }
       }
     }
-
-    // Detectar tipo: interés, fee o consumo
-    let type: 'consumption' | 'interest' | 'fee' = 'consumption'
-    const combinedText = descRange.map(i => filteredRows[i]).join(' ').toLowerCase()
     
-    if (interestKeywords.test(combinedText)) {
+    // Si no se encontró en la descripción, buscar en la línea siguiente
+    if (!installments && i + 1 < filteredRows.length) {
+      const nextRow = filteredRows[i + 1]
+      const nextCuotasMatch = nextRow.match(/(\d{1,2})[\/\-](\d{1,2})|(\d{1,2})\s+de\s+(\d{1,2})/i)
+      if (nextCuotasMatch) {
+        const current = Number(nextCuotasMatch[1] || nextCuotasMatch[3])
+        const total = Number(nextCuotasMatch[2] || nextCuotasMatch[4])
+        if (current && total && current <= total) {
+          installments = { current, total }
+        }
+      }
+    }
+    
+    // Detectar tipo
+    const lowerDesc = description.toLowerCase()
+    let type: 'consumption' | 'interest' | 'fee' = 'consumption'
+    if (INTEREST_KEYWORDS.test(lowerDesc)) {
       type = 'interest'
-    } else if (feeKeywords.test(combinedText)) {
+    } else if (FEE_KEYWORDS.test(lowerDesc)) {
       type = 'fee'
     }
-
+    
     lines.push({
-      date,
-      description,
-      amount: Math.abs(amount), // Siempre guardar valor absoluto
+      date: parsedDate,
+      originalDate: originalDate,
+      description: description,
+      montoPesos: Math.abs(montoPesos),
+      montoUSD: Math.abs(montoUSD),
       installments,
       type,
     })
   }
+  
+  // Debug: mostrar estadísticas
+  console.log(`[PDF Parsing] Líneas procesadas: ${linesProcessed}, Fechas encontradas: ${datesFound}, Transacciones creadas: ${lines.length}`)
 
   return lines
 }
@@ -297,10 +348,16 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
     if (rows.length === 0) return
     try {
       setSaving(true)
+      // Convertir rows a formato esperado por la API (agregar amount calculado)
+      const itemsToSave = rows.map(row => ({
+        ...row,
+        amount: row.montoPesos > 0 ? row.montoPesos : row.montoUSD, // Usar PESOS como principal, o USD si no hay PESOS
+      }))
+      
       const res = await fetch(`/api/credit-cards/${cardId}/consumptions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: rows })
+        body: JSON.stringify({ items: itemsToSave })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error al guardar')
@@ -411,7 +468,8 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
                     <tr>
                       <th className="p-2 text-left">Fecha</th>
                       <th className="p-2 text-left">Descripción</th>
-                      <th className="p-2 text-right">Monto</th>
+                      <th className="p-2 text-right">PESOS</th>
+                      <th className="p-2 text-right">USD</th>
                       <th className="p-2 text-left">Cuotas</th>
                       <th className="p-2 text-left">Tipo</th>
                       <th className="p-2 text-left">Acciones</th>
@@ -450,15 +508,41 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
                         <td className="p-2 text-right">
                           {editingRow === i ? (
                             <input
-                              type="number"
-                              step="0.01"
-                              value={r.amount}
-                              onChange={e => updateRow(i, 'amount', parseFloat(e.target.value) || 0)}
+                              type="text"
+                              inputMode="decimal"
+                              value={r.montoPesos === 0 ? '' : r.montoPesos.toString().replace('.', ',')}
+                              onChange={e => {
+                                const val = e.target.value.replace(',', '.')
+                                updateRow(i, 'montoPesos', parseFloat(val) || 0)
+                              }}
                               className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-right"
                               onBlur={() => setEditingRow(null)}
+                              placeholder="0,00"
                             />
                           ) : (
-                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>{formatCurrency(r.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>
+                              {r.montoPesos > 0 ? formatCurrency(r.montoPesos, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2 text-right">
+                          {editingRow === i ? (
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={r.montoUSD === 0 ? '' : r.montoUSD.toString().replace('.', ',')}
+                              onChange={e => {
+                                const val = e.target.value.replace(',', '.')
+                                updateRow(i, 'montoUSD', parseFloat(val) || 0)
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-right"
+                              onBlur={() => setEditingRow(null)}
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>
+                              {r.montoUSD > 0 ? `$${r.montoUSD.toFixed(2)}` : '-'}
+                            </span>
                           )}
                         </td>
                         <td className="p-2">
