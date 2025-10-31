@@ -196,11 +196,33 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
     }
   };
 
+  // Función para normalizar números con coma decimal
+  const parseDecimalInput = (value: string): number => {
+    if (!value || value.trim() === '') return 0;
+    // Reemplazar coma por punto para parsear
+    const normalized = value.replace(',', '.');
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  // Función para formatear número con coma decimal para mostrar
+  const formatDecimalDisplay = (value: number): string => {
+    if (value === 0) return '';
+    // Formatear con coma como separador decimal (formato argentino/español)
+    return value.toString().replace('.', ',');
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleNumberInputChange = (field: string, value: string) => {
+    // Permite entrada con coma o punto
+    const numericValue = parseDecimalInput(value);
+    handleInputChange(field, numericValue);
   };
 
   if (!isOpen) return null;
@@ -272,12 +294,18 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  type="number"
-                  step="0.01"
-                  value={formData.amount === 0 ? '' : formData.amount}
-                  onChange={(e) => handleInputChange('amount', parseFloat(e.target.value) || 0)}
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.amount === 0 ? '' : formatDecimalDisplay(formData.amount)}
+                  onChange={(e) => {
+                    const inputValue = e.target.value;
+                    // Permitir solo números, punto, coma y espacios opcionales
+                    if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                      handleNumberInputChange('amount', inputValue);
+                    }
+                  }}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="0.00"
+                  placeholder="0,00"
                 />
               </div>
               {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount}</p>}
@@ -351,12 +379,17 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                       Saldo actual
                     </label>
                       <input
-                        type="number"
-                        step="0.01"
-                        value={formData.balance === 0 ? '' : formData.balance}
-                        onChange={(e) => handleInputChange('balance', parseFloat(e.target.value) || 0)}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.balance === 0 ? '' : formatDecimalDisplay(formData.balance)}
+                        onChange={(e) => {
+                          const inputValue = e.target.value;
+                          if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                            handleNumberInputChange('balance', inputValue);
+                          }
+                        }}
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                        placeholder="0.00"
+                        placeholder="0,00"
                       />
                     {errors.balance && <p className="text-red-500 text-sm mt-1">{errors.balance}</p>}
                   </div>
@@ -365,12 +398,17 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                       Tasa de interés (%)
                     </label>
                       <input
-                        type="number"
-                        step="0.01"
-                        value={formData.interestRate === 0 ? '' : formData.interestRate}
-                        onChange={(e) => handleInputChange('interestRate', parseFloat(e.target.value) || 0)}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.interestRate === 0 ? '' : formatDecimalDisplay(formData.interestRate)}
+                        onChange={(e) => {
+                          const inputValue = e.target.value;
+                          if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                            handleNumberInputChange('interestRate', inputValue);
+                          }
+                        }}
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                        placeholder="0.00"
+                        placeholder="0,00"
                       />
                   </div>
                 </div>
@@ -380,12 +418,17 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     Pago mínimo mensual
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    value={formData.minPayment === 0 ? '' : formData.minPayment}
-                    onChange={(e) => handleInputChange('minPayment', parseFloat(e.target.value) || 0)}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.minPayment === 0 ? '' : formatDecimalDisplay(formData.minPayment)}
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                        handleNumberInputChange('minPayment', inputValue);
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    placeholder="0.00"
+                    placeholder="0,00"
                   />
                 </div>
 
@@ -414,12 +457,17 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     Monto actual ahorrado
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    value={formData.currentAmount === 0 ? '' : formData.currentAmount}
-                    onChange={(e) => handleInputChange('currentAmount', parseFloat(e.target.value) || 0)}
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.currentAmount === 0 ? '' : formatDecimalDisplay(formData.currentAmount)}
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                        handleNumberInputChange('currentAmount', inputValue);
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    placeholder="0.00"
+                    placeholder="0,00"
                   />
                   {errors.currentAmount && <p className="text-red-500 text-sm mt-1">{errors.currentAmount}</p>}
                 </div>

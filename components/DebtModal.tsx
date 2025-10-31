@@ -62,6 +62,22 @@ export default function DebtModal({ isOpen, onClose, onSave, debt, loading = fal
     }
   }, [formData.categoryId, formData.subcategoryId, availableSubcategories]);
 
+  // Función para normalizar números con coma decimal
+  const parseDecimalInput = (value: string): number => {
+    if (!value || value.trim() === '') return 0;
+    // Reemplazar coma por punto para parsear
+    const normalized = value.replace(',', '.');
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  // Función para formatear número con coma decimal para mostrar
+  const formatDecimalDisplay = (value: number): string => {
+    if (value === 0) return '';
+    // Formatear con coma como separador decimal (formato argentino/español)
+    return value.toString().replace('.', ',');
+  };
+
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({
       ...prev,
@@ -72,6 +88,12 @@ export default function DebtModal({ isOpen, onClose, onSave, debt, loading = fal
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleNumberInputChange = (field: string, value: string) => {
+    // Permite entrada con coma o punto
+    const numericValue = parseDecimalInput(value);
+    handleInputChange(field, numericValue);
   };
 
   const validateForm = () => {
@@ -254,16 +276,18 @@ export default function DebtModal({ isOpen, onClose, onSave, debt, loading = fal
                   Monto *
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.amount}
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.amount === 0 ? '' : formatDecimalDisplay(formData.amount)}
                   onChange={(e) => {
-                    const value = Number(e.target.value);
-                    handleInputChange('amount', value);
-                    // Auto-ajustar balance si es la primera vez
-                    if (!debt && formData.balance === 0) {
-                      handleInputChange('balance', value);
+                    const inputValue = e.target.value;
+                    if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                      handleNumberInputChange('amount', inputValue);
+                      // Auto-ajustar balance si es la primera vez
+                      if (!debt && formData.balance === 0) {
+                        const numericValue = parseDecimalInput(inputValue);
+                        handleInputChange('balance', numericValue);
+                      }
                     }
                   }}
                   className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
@@ -271,11 +295,93 @@ export default function DebtModal({ isOpen, onClose, onSave, debt, loading = fal
                       ? 'border-red-500 bg-red-50 dark:bg-red-950' 
                       : 'border-gray-300 dark:border-gray-600'
                   } dark:bg-gray-800 dark:text-white`}
-                  placeholder="5000.00"
+                  placeholder="5000,00"
                 />
                 {errors.amount && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.amount}</p>
                 )}
+              </div>
+
+              {/* Saldo actual */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <DollarSign className="w-4 h-4 inline mr-1" />
+                  Saldo actual *
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.balance === 0 ? '' : formatDecimalDisplay(formData.balance)}
+                  onChange={(e) => {
+                    const inputValue = e.target.value;
+                    if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                      handleNumberInputChange('balance', inputValue);
+                    }
+                  }}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    errors.balance 
+                      ? 'border-red-500 bg-red-50 dark:bg-red-950' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  } dark:bg-gray-800 dark:text-white`}
+                  placeholder="5000,00"
+                />
+                {errors.balance && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.balance}</p>
+                )}
+              </div>
+
+              {/* Tasa de interés y Pago mínimo */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Tasa de interés (%)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.interestRate === 0 ? '' : formatDecimalDisplay(formData.interestRate)}
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                        handleNumberInputChange('interestRate', inputValue);
+                      }
+                    }}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                      errors.interestRate 
+                        ? 'border-red-500 bg-red-50 dark:bg-red-950' 
+                        : 'border-gray-300 dark:border-gray-600'
+                    } dark:bg-gray-800 dark:text-white`}
+                    placeholder="0,00"
+                  />
+                  {errors.interestRate && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.interestRate}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Pago mínimo
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formData.minPayment === 0 ? '' : formatDecimalDisplay(formData.minPayment)}
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+                        handleNumberInputChange('minPayment', inputValue);
+                      }
+                    }}
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                      errors.minPayment 
+                        ? 'border-red-500 bg-red-50 dark:bg-red-950' 
+                        : 'border-gray-300 dark:border-gray-600'
+                    } dark:bg-gray-800 dark:text-white`}
+                    placeholder="0,00"
+                  />
+                  {errors.minPayment && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.minPayment}</p>
+                  )}
+                </div>
               </div>
 
               {/* Fecha de Vencimiento */}

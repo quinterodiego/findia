@@ -25,6 +25,15 @@ export default withPWA({
   register: true,
   skipWaiting: false, // Cambiar a false para que el usuario tenga control
   disable: process.env.NODE_ENV === "development",
+  buildExcludes: [
+    /routes-manifest\.json$/,
+    ({ asset, compilation }) => {
+      if (asset.name === 'routes-manifest.json') {
+        return true
+      }
+      return false
+    }
+  ],
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

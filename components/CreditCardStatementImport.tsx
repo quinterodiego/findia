@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react'
+import { X, Upload, FileText, AlertCircle, CheckCircle, Edit2, Settings } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
 import { argentineBanks } from '@/lib/argentineBanks'
+import type { PDFImportTemplate } from '@/types'
+import PDFTemplateManager from './PDFTemplateManager'
 
 type ParsedLine = {
   date: string // dd/mm/aaaa
@@ -68,35 +70,62 @@ async function extractPdfText(file: File): Promise<string> {
   return text
 }
 
-function parseByBank(bank: string, raw: string): ParsedLine[] {
+function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): ParsedLine[] {
   const lines: ParsedLine[] = []
   // Dividir en líneas y mantener contexto de líneas anteriores
   const rows = raw.split(/\n+/).map(r => r.trim()).filter(Boolean)
   
+  // Aplicar skipLines del template si existe
+  const filteredRows = template?.skipLines 
+    ? rows.filter(row => !template.skipLines!.some(skip => row.includes(skip)))
+    : rows
+  
+  // Usar patrones del template o valores por defecto
+  const datePattern = template?.datePattern ? new RegExp(template.datePattern.replace(/^\/|\/[gimuy]*$/g, ''), 'g') : DATE_RE
+  const amountPattern = template?.amountPattern ? new RegExp(template.amountPattern.replace(/^\/|\/[gimuy]*$/g, ''), 'g') : AMOUNT_RE
+  const installmentsPattern = template?.installmentsPattern 
+    ? new RegExp(template.installmentsPattern.replace(/^\/|\/[gimuy]*$/g, ''), 'i') 
+    : INSTALLMENTS_RE
+  const searchRange = template?.searchRange ?? 3
+  const interestKeywords = template?.interestKeywords 
+    ? new RegExp(template.interestKeywords.join('|'), 'i') 
+    : INTEREST_KEYWORDS
+  const feeKeywords = template?.feeKeywords 
+    ? new RegExp(template.feeKeywords.join('|'), 'i') 
+    : FEE_KEYWORDS
+  
   // Buscar todas las fechas primero
   const dateMatches: Array<{ index: number; date: string; row: string }> = []
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]
+  for (let i = 0; i < filteredRows.length; i++) {
+    const row = filteredRows[i]
     // Buscar todas las fechas en la línea
     let match
-    const dateRegex = /(\b|\D)(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(\b|\D)/g
-    while ((match = dateRegex.exec(row)) !== null) {
-      const date = `${match[2].padStart(2, '0')}/${match[3].padStart(2, '0')}/${match[4].length === 2 ? '20' + match[4] : match[4]}`
+    while ((match = datePattern.exec(row)) !== null) {
+      let date = ''
+      if (template?.dateFormat === 'dd/mm/yyyy' || !template?.dateFormat) {
+        date = `${match[2]?.padStart(2, '0') || match[2]}/${match[3]?.padStart(2, '0') || match[3]}/${match[4]?.length === 2 ? '20' + match[4] : match[4]}`
+      } else if (template.dateFormat === 'dd-mm-yyyy') {
+        date = `${match[2]?.padStart(2, '0') || match[2]}-${match[3]?.padStart(2, '0') || match[3]}-${match[4]?.length === 2 ? '20' + match[4] : match[4]}`
+      } else if (template.dateFormat === 'mm/dd/yyyy') {
+        date = `${match[3]?.padStart(2, '0') || match[3]}/${match[2]?.padStart(2, '0') || match[2]}/${match[4]?.length === 2 ? '20' + match[4] : match[4]}`
+      } else {
+        date = `${match[2]?.padStart(2, '0') || match[2]}/${match[3]?.padStart(2, '0') || match[3]}/${match[4]?.length === 2 ? '20' + match[4] : match[4]}`
+      }
       dateMatches.push({ index: i, date, row })
     }
   }
 
   // Para cada fecha encontrada, buscar su monto y descripción
   for (const { index, date, row } of dateMatches) {
-    // Buscar importes en un rango de líneas (línea actual + 2 siguientes)
+    // Buscar importes en un rango de líneas usando searchRange del template
     let amountStr: string | null = null
     let amountIndex = index
-    const searchRange = [index, index + 1, index + 2].filter(i => i < rows.length)
+    const searchRangeArray = Array.from({ length: searchRange + 1 }, (_, i) => index + i).filter(i => i < filteredRows.length)
     
-    for (const i of searchRange) {
-      const line = rows[i]
+    for (const i of searchRangeArray) {
+      const line = filteredRows[i]
       // Buscar todos los montos en la línea
-      const amounts = line.match(AMOUNT_RE) || []
+      const amounts = line.match(amountPattern) || []
       if (amounts.length > 0) {
         // Tomar el último monto (suele ser el importe total)
         amountStr = amounts[amounts.length - 1]
@@ -107,22 +136,37 @@ function parseByBank(bank: string, raw: string): ParsedLine[] {
     
     if (!amountStr) continue
     
-    // Normalizar el monto (quitar $, espacios, y normalizar decimal)
-    const norm = amountStr.replace(/\$|\s/g, '').replace(/\./g, '').replace(',', '.')
+    // Normalizar el monto según la configuración del template
+    let norm = amountStr.replace(/\$|\s/g, '')
+    if (template?.amountThousandsSeparator === '.') {
+      norm = norm.replace(/\./g, '')
+    } else if (template?.amountThousandsSeparator === ',') {
+      norm = norm.replace(/,/g, '')
+    }
+    
+    if (template?.amountDecimalSeparator === ',') {
+      norm = norm.replace(',', '.')
+    } else if (template?.amountDecimalSeparator === '.' && !template?.amountThousandsSeparator) {
+      // Si no hay separador de miles, asumir que el punto es decimal
+    } else {
+      // Por defecto: punto como separador de miles, coma como decimal
+      norm = norm.replace(/\./g, '').replace(',', '.')
+    }
+    
     const amount = Number(norm)
     
     if (isNaN(amount) || amount === 0) continue
 
     // Construir descripción desde múltiples líneas si es necesario
     let description = ''
-    const descRange = [index, index + 1, index + 2, index + 3].filter(i => i < rows.length)
+    const descRange = Array.from({ length: searchRange + 2 }, (_, i) => index + i).filter(i => i < filteredRows.length)
     
     for (const i of descRange) {
-      const line = rows[i]
+      const line = filteredRows[i]
       // Remover fecha y monto de la línea para obtener descripción
       let cleanLine = line
-        .replace(/(\b|\D)(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(\b|\D)/g, '')
-        .replace(AMOUNT_RE, '')
+        .replace(datePattern, '')
+        .replace(amountPattern, '')
         .trim()
       
       if (cleanLine && cleanLine.length > 2) {
@@ -135,7 +179,7 @@ function parseByBank(bank: string, raw: string): ParsedLine[] {
     // Buscar cuotas en las líneas cercanas
     let installments = null
     for (const i of descRange) {
-      const instMatch = rows[i].match(INSTALLMENTS_RE)
+      const instMatch = filteredRows[i].match(installmentsPattern)
       if (instMatch) {
         installments = { current: Number(instMatch[1]), total: Number(instMatch[2]) }
         break
@@ -144,11 +188,11 @@ function parseByBank(bank: string, raw: string): ParsedLine[] {
 
     // Detectar tipo: interés, fee o consumo
     let type: 'consumption' | 'interest' | 'fee' = 'consumption'
-    const combinedText = descRange.map(i => rows[i]).join(' ').toLowerCase()
+    const combinedText = descRange.map(i => filteredRows[i]).join(' ').toLowerCase()
     
-    if (INTEREST_KEYWORDS.test(combinedText)) {
+    if (interestKeywords.test(combinedText)) {
       type = 'interest'
-    } else if (FEE_KEYWORDS.test(combinedText)) {
+    } else if (feeKeywords.test(combinedText)) {
       type = 'fee'
     }
 
@@ -170,25 +214,60 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
   const [file, setFile] = useState<File | null>(null)
   const [parsing, setParsing] = useState(false)
   const [rows, setRows] = useState<ParsedLine[]>([])
+  const [editingRow, setEditingRow] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [rawText, setRawText] = useState<string>('')
   const [showRawText, setShowRawText] = useState(false)
+  const [templates, setTemplates] = useState<PDFImportTemplate[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('')
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [showTemplateManager, setShowTemplateManager] = useState(false)
+
+  // Cargar templates al abrir el modal
+  useEffect(() => {
+    if (isOpen && cardId) {
+      loadTemplates()
+    }
+  }, [isOpen, cardId])
+
+  const loadTemplates = async () => {
+    try {
+      setLoadingTemplates(true)
+      const res = await fetch(`/api/credit-cards/${cardId}/templates`)
+      const data = await res.json()
+      if (data.success) {
+        setTemplates(data.templates || [])
+        // Seleccionar el primer template si hay uno
+        if (data.templates && data.templates.length > 0) {
+          setSelectedTemplate(data.templates[0].id)
+        }
+      }
+    } catch (e) {
+      console.error('Error cargando templates:', e)
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
 
   const handleParse = async () => {
     try {
-      if (!file || !bank) {
-        error('Selecciona banco y archivo PDF')
+      if (!file) {
+        error('Selecciona un archivo PDF')
         return
       }
       setParsing(true)
       const text = await extractPdfText(file)
       setRawText(text) // Guardar texto crudo para debug
-      const parsed = parseByBank(bank, text)
+      
+      // Buscar template seleccionado
+      const template = templates.find(t => t.id === selectedTemplate)
+      
+      const parsed = parseByBank(bank, text, template)
       setRows(parsed)
       if (parsed.length === 0) {
-        error('No se detectaron movimientos. Revisa el formato del PDF o prueba con otro banco.')
+        error('No se detectaron movimientos. Revisa el formato del PDF o crea un template personalizado.')
       } else {
-        success(`Se detectaron ${parsed.length} movimientos`)
+        success(`Se detectaron ${parsed.length} movimientos${template ? ` usando template "${template.name}"` : ''}`)
       }
     } catch (e) {
       console.error(e)
@@ -196,6 +275,21 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
     } finally {
       setParsing(false)
     }
+  }
+
+  const updateRow = (index: number, field: keyof ParsedLine, value: any) => {
+    const newRows = [...rows]
+    if (field === 'installments') {
+      if (typeof value === 'string' && value.includes('/')) {
+        const [current, total] = value.split('/').map(n => parseInt(n.trim()))
+        newRows[index].installments = { current, total }
+      } else {
+        newRows[index].installments = value
+      }
+    } else {
+      (newRows[index] as any)[field] = value
+    }
+    setRows(newRows)
   }
 
   const handleSave = async () => {
@@ -242,15 +336,41 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer"><X className="w-5 h-5" /></button>
           </div>
           <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Banco</label>
-                <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" value={bank} onChange={e=>setBank(e.target.value)}>
-                  <option value="">Selecciona</option>
-                  {argentineBanks.map(b => <option key={b.code} value={b.name}>{b.name}</option>)}
-                </select>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Template (Opcional)</label>
+                  <select 
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" 
+                    value={selectedTemplate} 
+                    onChange={e=>setSelectedTemplate(e.target.value)}
+                    disabled={loadingTemplates}
+                  >
+                    <option value="">Sin template (usar por defecto)</option>
+                    {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  {templates.length === 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      No hay templates configurados. Los templates ayudan a mejorar la precisión de la extracción.
+                    </p>
+                  )}
+                  <button
+                    onClick={() => setShowTemplateManager(true)}
+                    className="mt-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                  >
+                    <Settings className="w-3 h-3" />
+                    Gestionar Templates
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Banco</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" value={bank} onChange={e=>setBank(e.target.value)}>
+                    <option value="">Selecciona</option>
+                    {argentineBanks.map(b => <option key={b.code} value={b.name}>{b.name}</option>)}
+                  </select>
+                </div>
               </div>
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Archivo PDF</label>
                 <input type="file" accept="application/pdf" onChange={e=>setFile(e.target.files?.[0]||null)} className="w-full" />
               </div>
@@ -282,6 +402,9 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
             )}
             {rows.length>0 ? (
               <div className="overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="p-2 bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-300">
+                  Revisa y edita los datos antes de importar. Haz clic en cualquier celda para editarla.
+                </div>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
@@ -290,16 +413,97 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
                       <th className="p-2 text-right">Monto</th>
                       <th className="p-2 text-left">Cuotas</th>
                       <th className="p-2 text-left">Tipo</th>
+                      <th className="p-2 text-left">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r,i)=> (
-                      <tr key={i} className="border-t border-gray-200 dark:border-gray-700">
-                        <td className="p-2">{r.date}</td>
-                        <td className="p-2">{r.description}</td>
-                        <td className="p-2 text-right">${r.amount.toLocaleString('es-CO')}</td>
-                        <td className="p-2">{r.installments ? `${r.installments.current}/${r.installments.total}` : '-'}</td>
-                        <td className="p-2">{r.type}</td>
+                      <tr key={i} className={`border-t border-gray-200 dark:border-gray-700 ${editingRow === i ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
+                        <td className="p-2">
+                          {editingRow === i ? (
+                            <input
+                              type="text"
+                              value={r.date}
+                              onChange={e => updateRow(i, 'date', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white"
+                              onBlur={() => setEditingRow(null)}
+                              autoFocus
+                            />
+                          ) : (
+                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>{r.date}</span>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {editingRow === i ? (
+                            <input
+                              type="text"
+                              value={r.description}
+                              onChange={e => updateRow(i, 'description', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white"
+                              onBlur={() => setEditingRow(null)}
+                            />
+                          ) : (
+                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>{r.description}</span>
+                          )}
+                        </td>
+                        <td className="p-2 text-right">
+                          {editingRow === i ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={r.amount}
+                              onChange={e => updateRow(i, 'amount', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-right"
+                              onBlur={() => setEditingRow(null)}
+                            />
+                          ) : (
+                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>${r.amount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {editingRow === i ? (
+                            <input
+                              type="text"
+                              placeholder="1/1"
+                              value={r.installments ? `${r.installments.current}/${r.installments.total}` : ''}
+                              onChange={e => updateRow(i, 'installments', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white"
+                              onBlur={() => setEditingRow(null)}
+                            />
+                          ) : (
+                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>
+                              {r.installments ? `${r.installments.current}/${r.installments.total}` : '-'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {editingRow === i ? (
+                            <select
+                              value={r.type}
+                              onChange={e => updateRow(i, 'type', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white"
+                              onBlur={() => setEditingRow(null)}
+                            >
+                              <option value="consumption">Consumo</option>
+                              <option value="interest">Interés</option>
+                              <option value="fee">Comisión</option>
+                            </select>
+                          ) : (
+                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>{r.type}</span>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <button
+                            onClick={() => {
+                              const newRows = rows.filter((_, idx) => idx !== i)
+                              setRows(newRows)
+                              setEditingRow(null)
+                            }}
+                            className="px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-xs"
+                          >
+                            Eliminar
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -311,6 +515,19 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
           </div>
         </motion.div>
       </div>
+
+      <PDFTemplateManager
+        isOpen={showTemplateManager}
+        onClose={() => {
+          setShowTemplateManager(false)
+          loadTemplates()
+        }}
+        cardId={cardId}
+        onTemplateSelected={(templateId) => {
+          setSelectedTemplate(templateId)
+          success('Template seleccionado')
+        }}
+      />
     </AnimatePresence>
   )
 }

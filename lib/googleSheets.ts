@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import bcrypt from 'bcrypt';
-import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption } from '@/types';
+import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption, PDFImportTemplate } from '@/types';
 
 // Configuración de autenticación con Service Account
 const auth = new google.auth.GoogleAuth({
@@ -25,6 +25,7 @@ const SHEETS = {
   CREDIT_CARDS: 'CreditCards',
   CREDIT_CARD_PAYMENTS: 'CreditCardPayments',
   CREDIT_CARD_CONSUMPTIONS: 'CreditCardConsumptions',
+  PDF_IMPORT_TEMPLATES: 'PDFImportTemplates',
 } as const;
 
 // ============================================================================
@@ -310,6 +311,27 @@ export async function initializeSheets() {
       'subcategoryId',
       'description',
       'createdAt',
+    ]);
+    
+    // Crear hoja de PDFImportTemplates
+    await createSheetIfNotExists(SHEETS.PDF_IMPORT_TEMPLATES, [
+      'id',
+      'creditCardId',
+      'userId',
+      'name',
+      'datePattern',
+      'amountPattern',
+      'descriptionPattern',
+      'installmentsPattern',
+      'interestKeywords',
+      'feeKeywords',
+      'dateFormat',
+      'amountDecimalSeparator',
+      'amountThousandsSeparator',
+      'searchRange',
+      'skipLines',
+      'createdAt',
+      'updatedAt',
     ]);
     
     console.log('✅ Todas las hojas inicializadas correctamente');
@@ -2109,4 +2131,363 @@ export async function createCreditCardConsumption(
     console.error('Error registrando consumo de tarjeta:', error);
     throw error;
   }
+}
+
+// ============================================================================
+// PDF IMPORT TEMPLATES
+// ============================================================================
+
+/**
+ * Obtiene todos los templates de importación PDF para una tarjeta
+ */
+export async function getPDFImportTemplates(
+  cardId: string,
+  userId: string
+): Promise<PDFImportTemplate[]> {
+  try {
+    const exists = await sheetExists(SHEETS.PDF_IMPORT_TEMPLATES);
+    if (!exists) {
+      return [];
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2:R`,
+    });
+    
+    const rows = response.data.values || [];
+    const templates = rows
+      .filter(row => row[1] === cardId && row[2] === userId)
+      .map(row => ({
+        id: row[0],
+        creditCardId: row[1],
+        userId: row[2],
+        name: row[3] || '',
+        datePattern: row[4] || undefined,
+        amountPattern: row[5] || undefined,
+        descriptionPattern: row[6] || undefined,
+        installmentsPattern: row[7] || undefined,
+        interestKeywords: row[8] ? JSON.parse(row[8]) : undefined,
+        feeKeywords: row[9] ? JSON.parse(row[9]) : undefined,
+        dateFormat: row[10] as any || undefined,
+        amountDecimalSeparator: row[11] as any || undefined,
+        amountThousandsSeparator: row[12] as any || undefined,
+        searchRange: row[13] ? parseInt(row[13]) : undefined,
+        skipLines: row[14] ? JSON.parse(row[14]) : undefined,
+        createdAt: row[15],
+        updatedAt: row[16],
+      }));
+    
+    return templates;
+  } catch (error) {
+    console.error('Error obteniendo templates:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene un template específico por ID
+ */
+export async function getPDFImportTemplate(
+  templateId: string,
+  userId: string
+): Promise<PDFImportTemplate | null> {
+  try {
+    const exists = await sheetExists(SHEETS.PDF_IMPORT_TEMPLATES);
+    if (!exists) {
+      return null;
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2:R`,
+    });
+    
+    const rows = response.data.values || [];
+    const row = rows.find(r => r[0] === templateId && r[2] === userId);
+    
+    if (!row) return null;
+    
+    return {
+      id: row[0],
+      creditCardId: row[1],
+      userId: row[2],
+      name: row[3] || '',
+      datePattern: row[4] || undefined,
+      amountPattern: row[5] || undefined,
+      descriptionPattern: row[6] || undefined,
+      installmentsPattern: row[7] || undefined,
+      interestKeywords: row[8] ? JSON.parse(row[8]) : undefined,
+      feeKeywords: row[9] ? JSON.parse(row[9]) : undefined,
+      dateFormat: row[10] as any || undefined,
+      amountDecimalSeparator: row[11] as any || undefined,
+      amountThousandsSeparator: row[12] as any || undefined,
+      searchRange: row[13] ? parseInt(row[13]) : undefined,
+      skipLines: row[14] ? JSON.parse(row[14]) : undefined,
+      createdAt: row[15],
+      updatedAt: row[16],
+    };
+  } catch (error) {
+    console.error('Error obteniendo template:', error);
+    throw error;
+  }
+}
+
+/**
+ * Crea un nuevo template de importación PDF
+ */
+export async function createPDFImportTemplate(
+  templateData: {
+    creditCardId: string;
+    userId: string;
+    name: string;
+    datePattern?: string;
+    amountPattern?: string;
+    descriptionPattern?: string;
+    installmentsPattern?: string;
+    interestKeywords?: string[];
+    feeKeywords?: string[];
+    dateFormat?: 'dd/mm/yyyy' | 'dd-mm-yyyy' | 'mm/dd/yyyy' | 'yyyy-mm-dd';
+    amountDecimalSeparator?: ',' | '.';
+    amountThousandsSeparator?: ',' | '.';
+    searchRange?: number;
+    skipLines?: string[];
+  }
+): Promise<PDFImportTemplate> {
+  try {
+    const exists = await sheetExists(SHEETS.PDF_IMPORT_TEMPLATES);
+    if (!exists) {
+      await createSheetIfNotExists(SHEETS.PDF_IMPORT_TEMPLATES, [
+        'id',
+        'creditCardId',
+        'userId',
+        'name',
+        'datePattern',
+        'amountPattern',
+        'descriptionPattern',
+        'installmentsPattern',
+        'interestKeywords',
+        'feeKeywords',
+        'dateFormat',
+        'amountDecimalSeparator',
+        'amountThousandsSeparator',
+        'searchRange',
+        'skipLines',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    const now = new Date().toISOString();
+    const newTemplate: PDFImportTemplate = {
+      id: generateId(),
+      creditCardId: templateData.creditCardId,
+      userId: templateData.userId,
+      name: templateData.name,
+      datePattern: templateData.datePattern,
+      amountPattern: templateData.amountPattern,
+      descriptionPattern: templateData.descriptionPattern,
+      installmentsPattern: templateData.installmentsPattern,
+      interestKeywords: templateData.interestKeywords,
+      feeKeywords: templateData.feeKeywords,
+      dateFormat: templateData.dateFormat,
+      amountDecimalSeparator: templateData.amountDecimalSeparator,
+      amountThousandsSeparator: templateData.amountThousandsSeparator,
+      searchRange: templateData.searchRange,
+      skipLines: templateData.skipLines,
+      createdAt: now,
+      updatedAt: now,
+    };
+    
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          newTemplate.id,
+          newTemplate.creditCardId,
+          newTemplate.userId,
+          newTemplate.name,
+          newTemplate.datePattern || '',
+          newTemplate.amountPattern || '',
+          newTemplate.descriptionPattern || '',
+          newTemplate.installmentsPattern || '',
+          newTemplate.interestKeywords ? JSON.stringify(newTemplate.interestKeywords) : '',
+          newTemplate.feeKeywords ? JSON.stringify(newTemplate.feeKeywords) : '',
+          newTemplate.dateFormat || '',
+          newTemplate.amountDecimalSeparator || '',
+          newTemplate.amountThousandsSeparator || '',
+          newTemplate.searchRange?.toString() || '',
+          newTemplate.skipLines ? JSON.stringify(newTemplate.skipLines) : '',
+          newTemplate.createdAt,
+          newTemplate.updatedAt,
+        ]],
+      },
+    });
+    
+    console.log('✅ Template creado:', newTemplate.id);
+    return newTemplate;
+  } catch (error) {
+    console.error('Error creando template:', error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza un template existente
+ */
+export async function updatePDFImportTemplate(
+  templateId: string,
+  userId: string,
+  updates: Partial<Omit<PDFImportTemplate, 'id' | 'creditCardId' | 'userId' | 'createdAt'>>
+): Promise<PDFImportTemplate> {
+  try {
+    const exists = await sheetExists(SHEETS.PDF_IMPORT_TEMPLATES);
+    if (!exists) {
+      throw new Error('Template no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2:R`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(r => r[0] === templateId && r[2] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Template no encontrado');
+    }
+    
+    const row = rows[rowIndex];
+    const current: PDFImportTemplate = {
+      id: row[0],
+      creditCardId: row[1],
+      userId: row[2],
+      name: row[3] || '',
+      datePattern: row[4] || undefined,
+      amountPattern: row[5] || undefined,
+      descriptionPattern: row[6] || undefined,
+      installmentsPattern: row[7] || undefined,
+      interestKeywords: row[8] ? JSON.parse(row[8]) : undefined,
+      feeKeywords: row[9] ? JSON.parse(row[9]) : undefined,
+      dateFormat: row[10] as any || undefined,
+      amountDecimalSeparator: row[11] as any || undefined,
+      amountThousandsSeparator: row[12] as any || undefined,
+      searchRange: row[13] ? parseInt(row[13]) : undefined,
+      skipLines: row[14] ? JSON.parse(row[14]) : undefined,
+      createdAt: row[15],
+      updatedAt: row[16],
+    };
+    
+    const updated: PDFImportTemplate = {
+      ...current,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    const rangeRow = rowIndex + 2; // +2 porque empieza en fila 2 (después del header)
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A${rangeRow}:R${rangeRow}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          updated.id,
+          updated.creditCardId,
+          updated.userId,
+          updated.name,
+          updated.datePattern || '',
+          updated.amountPattern || '',
+          updated.descriptionPattern || '',
+          updated.installmentsPattern || '',
+          updated.interestKeywords ? JSON.stringify(updated.interestKeywords) : '',
+          updated.feeKeywords ? JSON.stringify(updated.feeKeywords) : '',
+          updated.dateFormat || '',
+          updated.amountDecimalSeparator || '',
+          updated.amountThousandsSeparator || '',
+          updated.searchRange?.toString() || '',
+          updated.skipLines ? JSON.stringify(updated.skipLines) : '',
+          updated.createdAt,
+          updated.updatedAt,
+        ]],
+      },
+    });
+    
+    console.log('✅ Template actualizado:', templateId);
+    return updated;
+  } catch (error) {
+    console.error('Error actualizando template:', error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un template
+ */
+export async function deletePDFImportTemplate(
+  templateId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.PDF_IMPORT_TEMPLATES);
+    if (!exists) {
+      throw new Error('Template no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2:R`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(r => r[0] === templateId && r[2] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Template no encontrado');
+    }
+    
+    const rangeRow = rowIndex + 2;
+    
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A${rangeRow}:R${rangeRow}`,
+    });
+    
+    // Eliminar la fila vacía moviendo las demás hacia arriba
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId: await getSheetId(SHEETS.PDF_IMPORT_TEMPLATES),
+              dimension: 'ROWS',
+              startIndex: rangeRow - 1,
+              endIndex: rangeRow,
+            },
+          },
+        }],
+      },
+    });
+    
+    console.log('✅ Template eliminado:', templateId);
+  } catch (error) {
+    console.error('Error eliminando template:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene el ID de una hoja
+ */
+async function getSheetId(sheetName: string): Promise<number> {
+  const response = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+  });
+  
+  const sheet = response.data.sheets?.find(s => s.properties?.title === sheetName);
+  return sheet?.properties?.sheetId || 0;
 }

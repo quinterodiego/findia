@@ -91,3 +91,29 @@ export interface CreditCardConsumption {
   description?: string
   createdAt: string
 }
+
+// Template para importación de PDFs de resúmenes de tarjetas
+export interface PDFImportTemplate {
+  id: string
+  creditCardId: string
+  userId: string
+  name: string // Nombre del template (ej: "Santander Visa", "Galicia Mastercard")
+  // Patrones regex personalizados
+  datePattern?: string // Patrón regex para fechas (ej: /(\d{2})\/(\d{2})\/(\d{4})/g)
+  amountPattern?: string // Patrón regex para montos
+  descriptionPattern?: string // Patrón regex para descripciones
+  installmentsPattern?: string // Patrón regex para cuotas
+  // Reglas de detección de tipo
+  interestKeywords?: string[] // Palabras clave para intereses
+  feeKeywords?: string[] // Palabras clave para comisiones
+  // Configuración de extracción
+  dateFormat?: 'dd/mm/yyyy' | 'dd-mm-yyyy' | 'mm/dd/yyyy' | 'yyyy-mm-dd' // Formato esperado
+  amountDecimalSeparator?: ',' | '.' // Separador decimal esperado
+  amountThousandsSeparator?: ',' | '.' // Separador de miles esperado
+  // Límites de búsqueda
+  searchRange?: number // Número de líneas a buscar después de encontrar una fecha (default: 3)
+  // Reglas adicionales
+  skipLines?: string[] // Líneas que contengan estos patrones se ignoran
+  createdAt: string
+  updatedAt: string
+}
