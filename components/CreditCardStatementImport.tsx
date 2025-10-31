@@ -72,32 +72,52 @@ const INTEREST_KEYWORDS = /inter[eé]s|inter[eé]s\s*financ|financ|car\.?go\s*fi
 const FEE_KEYWORDS = /comisi[oó]n|mantenimiento|cuota\s*de\s*manejo|anualidad/i
 
 async function extractPdfText(file: File): Promise<string> {
-  // Importación dinámica de pdfjs-dist para Next.js
-  const pdfjsLib = await import('pdfjs-dist')
+  console.log('[extractPdfText] Iniciando extracción...')
   
-  // Configurar el worker - usar unpkg (más confiable que cdnjs)
-  if (typeof window !== 'undefined') {
-    const workerVersion = pdfjsLib.version || '5.4.296'
-    // Usar unpkg como fuente del worker (más confiable)
-    ;(pdfjsLib as any).GlobalWorkerOptions.workerSrc = 
-      `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`
+  try {
+    // Importación dinámica de pdfjs-dist para Next.js
+    console.log('[extractPdfText] Importando pdfjs-dist...')
+    const pdfjsLib = await import('pdfjs-dist')
+    console.log('[extractPdfText] pdfjs-dist importado, versión:', pdfjsLib.version)
+    
+    // Configurar el worker - usar unpkg (más confiable que cdnjs)
+    if (typeof window !== 'undefined') {
+      const workerVersion = pdfjsLib.version || '5.4.296'
+      // Usar unpkg como fuente del worker (más confiable)
+      ;(pdfjsLib as any).GlobalWorkerOptions.workerSrc = 
+        `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`
+      console.log('[extractPdfText] Worker configurado')
+    }
+    
+    console.log('[extractPdfText] Convirtiendo archivo a ArrayBuffer...')
+    const array = await file.arrayBuffer()
+    console.log('[extractPdfText] ArrayBuffer obtenido, tamaño:', array.byteLength)
+    
+    // Cargar el PDF con configuración optimizada
+    console.log('[extractPdfText] Cargando PDF...')
+    const pdf = await (pdfjsLib as any).getDocument({ 
+      data: array,
+      verbosity: 0 // Reducir logs
+    }).promise
+    console.log('[extractPdfText] PDF cargado, páginas:', pdf.numPages)
+    
+    let text = ''
+    for (let i = 1; i <= pdf.numPages; i++) {
+      console.log(`[extractPdfText] Procesando página ${i}/${pdf.numPages}...`)
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      const pageText = content.items.map((it: any) => it.str).join('\n') + '\n'
+      text += pageText
+      console.log(`[extractPdfText] Página ${i} procesada, texto extraído: ${pageText.length} caracteres`)
+    }
+    
+    console.log('[extractPdfText] Extracción completada, texto total:', text.length, 'caracteres')
+    return text
+  } catch (error: any) {
+    console.error('[extractPdfText] ERROR:', error)
+    console.error('[extractPdfText] Stack:', error?.stack)
+    throw error
   }
-  
-  const array = await file.arrayBuffer()
-  
-  // Cargar el PDF con configuración optimizada
-  const pdf = await (pdfjsLib as any).getDocument({ 
-    data: array,
-    verbosity: 0 // Reducir logs
-  }).promise
-  
-  let text = ''
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    text += content.items.map((it: any) => it.str).join('\n') + '\n'
-  }
-  return text
 }
 
 function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): ParsedLine[] {
@@ -105,56 +125,128 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
   // Dividir en líneas
   const rows = raw.split(/\n+/).map(r => r.trim()).filter(Boolean)
   
-  // Palabras clave a ignorar (no son transacciones)
-  // Solo filtrar si la línea EMPIEZA con estas palabras o las contiene como frases completas
-  const skipKeywords = ['TOTAL CONSUMOS DEL MES', 'SUBTOTAL', 'TOTAL A PAGAR', 'SALDO PENDIENTE', 'CONSOLIDADO']
+  console.log('[PDF Parsing] Total de líneas extraídas del PDF:', rows.length)
+  console.log('[PDF Parsing] Primeras 20 líneas:', rows.slice(0, 20))
   
-  // Filtrar líneas que sean exactamente estas palabras clave o empiecen con ellas
+  // Palabras clave a ignorar (no son transacciones)
+  // Solo filtrar si la línea EMPIECE con estas palabras (más específico)
+  const skipKeywords = [
+    'TOTAL CONSUMOS DEL MES',
+    'SUBTOTAL',
+    'TOTAL A PAGAR',
+    'SALDO PENDIENTE',
+    'SALDO ANTERIOR',
+    'SU PAGO',
+    'CONSOLIDADO'
+  ]
+  
+  // Filtrar líneas que empiecen con palabras clave a ignorar
+  // PERO mantener líneas que tienen fechas (son transacciones válidas)
+  const dateRegexForFilter = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
   const filteredRows = rows.filter(row => {
+    // Si la línea tiene una fecha, es una transacción válida
+    if (dateRegexForFilter.test(row)) {
+      return true
+    }
     const upperRow = row.toUpperCase().trim()
-    // Solo filtrar si la línea empieza con una de estas palabras clave o es exactamente igual
+    // Solo filtrar si la línea empieza con una de estas palabras clave
     const shouldSkip = skipKeywords.some(keyword => {
-      return upperRow === keyword || upperRow.startsWith(keyword + ' ') || upperRow === keyword
+      return upperRow.startsWith(keyword) || upperRow === keyword
     })
     return !shouldSkip
   })
   
-  // Regex para detectar fecha: DD-Mes-YY (siguiendo instrucciones exactas)
-  const dateRegex = /(\d{2}-[A-Za-z]{3}-\d{2})/
+  console.log('[PDF Parsing] Líneas después del filtrado:', filteredRows.length)
+  
+  // Regex mejorado para detectar fechas: múltiples formatos
+  // Formato 1: DD-MMM-YY o DD-MMM-YYYY (ej: 25-Jul-25, 25-Jul-2025)
+  // Formato 2: DD/MM/YYYY o DD-MM-YYYY
+  // Formato 3: DD MMM YY (con espacios)
+  const dateRegexes = [
+    /(\d{1,2}[-/]\w{3}[-/]\d{2,4})/i,  // DD-MMM-YY o DD-MMM-YYYY
+    /(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/,  // DD/MM/YYYY o DD-MM-YYYY
+    /(\d{1,2}\s+\w{3}\s+\d{2,4})/i      // DD MMM YY (con espacios)
+  ]
   
   // Debug: contar líneas procesadas
   let linesProcessed = 0
   let datesFound = 0
+  let validTransactions = 0
   
   // Para cada línea, buscar si empieza con fecha
   for (let i = 0; i < filteredRows.length; i++) {
     const row = filteredRows[i]
     linesProcessed++
     
-    // Buscar fecha en la línea usando el regex exacto de las instrucciones
-    const dateMatch = row.match(dateRegex)
-    if (!dateMatch || dateMatch.length === 0) continue
+    // Buscar fecha en la línea usando múltiples regex
+    let dateMatch: RegExpMatchArray | null = null
+    let dateRegexUsed = null
+    
+    for (const regex of dateRegexes) {
+      const match = row.match(regex)
+      if (match && match[0]) {
+        dateMatch = match
+        dateRegexUsed = regex
+        break
+      }
+    }
+    
+    if (!dateMatch || !dateMatch[0]) continue
     datesFound++
     
-    // Verificar que la fecha esté al inicio (o muy cerca del inicio, permitiendo algunos espacios)
+    // Verificar que la fecha esté al inicio o cerca del inicio (más flexible: hasta 20 caracteres)
     const dateIndex = row.indexOf(dateMatch[0])
-    if (dateIndex > 5) continue // Si la fecha está muy lejos del inicio, no es una fila de consumo
+    if (dateIndex > 20) {
+      // Si la fecha está muy lejos, verificar si hay texto antes que indique que no es una transacción
+      const beforeDate = row.substring(0, dateIndex).trim()
+      if (beforeDate.length > 10 || /^[A-Z]{2,}/.test(beforeDate)) {
+        continue // Probablemente no es una fila de consumo
+      }
+    }
     
-    const originalDate = dateMatch[0].trim() // Ej: "25-Jul-25"
+    const originalDate = dateMatch[0].trim() // Ej: "25-Jul-25", "25/07/2025", etc.
     
     // Convertir fecha a formato dd/mm/yyyy
-    const parsedDate = parseDateWithMonth(originalDate)
-    if (!parsedDate) continue // Si no se puede parsear, saltar
+    let parsedDate = parseDateWithMonth(originalDate)
+    
+    // Si parseDateWithMonth no funcionó, intentar otros formatos
+    if (!parsedDate) {
+      // Intentar formato DD/MM/YYYY o DD-MM-YYYY
+      const numericDateMatch = originalDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/)
+      if (numericDateMatch) {
+        const day = parseInt(numericDateMatch[1])
+        const month = parseInt(numericDateMatch[2])
+        const year = parseInt(numericDateMatch[3])
+        const fullYear = year < 100 ? 2000 + year : year
+        try {
+          const date = new Date(fullYear, month - 1, day)
+          if (!isNaN(date.getTime())) {
+            parsedDate = `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${fullYear}`
+          }
+        } catch (e) {
+          // Ignorar errores de fecha
+        }
+      }
+    }
+    
+    if (!parsedDate) {
+      console.log('[PDF Parsing] No se pudo parsear fecha:', originalDate, 'en línea:', row.substring(0, 100))
+      continue // Si no se puede parsear, saltar
+    }
     
     // Remover la fecha de la línea para obtener descripción y monto
-    // Remover desde el inicio hasta después de la fecha
     let remainingRow = row.substring(dateIndex + originalDate.length).trim()
     
-    // Buscar todos los números al final (montos)
-    // Regex mejorado: captura números con formato argentino o inglés
-    const amountMatches = remainingRow.match(/([+-]?\d{1,3}(?:\.\d{3})*(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})*(?:\.\d{2})?|[+-]?\d+(?:[.,]\d{2,3})?)/g)
+    // Buscar todos los números en la línea (montos)
+    // Regex mejorado: captura números con formato argentino (punto miles, coma decimal) o inglés
+    // También captura números simples con decimales
+    const amountRegex = /([+-]?\d{1,3}(?:\.\d{3})+(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+(?:\.\d{2})?|[+-]?\d+[.,]\d{1,3}|[+-]?\d{4,})/g
+    const amountMatches = remainingRow.match(amountRegex)
     
-    if (!amountMatches || amountMatches.length === 0) continue
+    if (!amountMatches || amountMatches.length === 0) {
+      console.log('[PDF Parsing] No se encontró monto en línea con fecha:', originalDate, '| Línea:', row.substring(0, 100))
+      continue
+    }
     
     // Tomar el último número como monto
     const lastAmount = amountMatches[amountMatches.length - 1]
@@ -174,35 +266,58 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     let montoPesos = 0
     let montoUSD = 0
     
-    // Normalizar el monto
+    // Normalizar el monto y determinar si es PESOS o USD
     let norm = lastAmount.replace(/[$\s]/g, '').trim()
-    const hasDotThousands = /\.\d{3}/.test(norm) // Tiene punto cada 3 dígitos (formato argentino)
-    const hasCommaDecimal = /,\d{2}$/.test(norm) // Termina en coma + 2 dígitos
-    const hasOnlyComma = /^\d+,\d{2}$/.test(norm) // Solo coma (sin puntos de miles)
+    
+    // Contar puntos y comas para determinar formato
+    const dotCount = (norm.match(/\./g) || []).length
+    const commaCount = (norm.match(/,/g) || []).length
     const digitCount = norm.replace(/[.,]/g, '').length
     
-    if (hasDotThousands || (hasCommaDecimal && digitCount > 3)) {
+    // Determinar formato:
+    // - Múltiples puntos = separador de miles (formato argentino: 1.234.567,89)
+    // - Punto + coma = punto miles, coma decimal (formato argentino: 1.234,56)
+    // - Solo coma con pocos dígitos = probablemente USD (ej: 1,99)
+    // - Sin separadores y muchos dígitos = probablemente PESOS
+    
+    const hasMultipleDots = dotCount > 1
+    const hasDotAndComma = dotCount > 0 && commaCount > 0
+    const hasOnlyComma = commaCount > 0 && dotCount === 0
+    const hasOnlyDot = dotCount === 1 && commaCount === 0
+    
+    if (hasMultipleDots || hasDotAndComma) {
       // Formato argentino: punto miles, coma decimal = PESOS
+      // Ejemplo: 1.234.567,89 o 1.234,56
       norm = norm.replace(/\./g, '').replace(',', '.')
       montoPesos = parseFloat(norm) || 0
     } else if (hasOnlyComma && digitCount <= 4) {
-      // Formato simple con coma y pocos dígitos = probablemente USD
+      // Solo coma decimal y pocos dígitos = USD
+      // Ejemplo: 1,99
       norm = norm.replace(',', '.')
       montoUSD = parseFloat(norm) || 0
-    } else if (hasCommaDecimal && !hasDotThousands) {
-      // Tiene coma decimal pero no puntos de miles y pocos dígitos = USD
-      norm = norm.replace(',', '.')
-      montoUSD = parseFloat(norm) || 0
+    } else if (hasOnlyDot) {
+      // Un solo punto: verificar si es decimal o miles
+      const parts = norm.split('.')
+      if (parts[1] && parts[1].length <= 3 && parts[0].length <= 3) {
+        // Probablemente decimal (formato inglés): ej. 99.99
+        montoUSD = parseFloat(norm) || 0
+      } else if (parts[0].length > 3) {
+        // Muchos dígitos antes del punto = miles, asumir PESOS
+        norm = norm.replace('.', '')
+        montoPesos = parseFloat(norm) || 0
+      } else {
+        // Por defecto tratar como decimal
+        montoUSD = parseFloat(norm) || 0
+      }
     } else {
-      // Por defecto: intentar formato argentino
-      norm = norm.replace(/\./g, '').replace(',', '.')
-      const parsedAmount = parseFloat(norm) || 0
-      if (parsedAmount > 0) {
-        // Si el monto es muy grande, probablemente es PESOS
-        if (parsedAmount > 1000 || digitCount > 4) {
-          montoPesos = parsedAmount
+      // Sin separadores o formato desconocido
+      const numericValue = parseFloat(norm.replace(/[.,]/g, '.')) || 0
+      if (numericValue > 0) {
+        // Si tiene muchos dígitos o es grande, probablemente PESOS
+        if (digitCount > 4 || numericValue > 1000) {
+          montoPesos = numericValue
         } else {
-          montoUSD = parsedAmount
+          montoUSD = numericValue
         }
       }
     }
@@ -243,6 +358,14 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
       type = 'fee'
     }
     
+    // Solo agregar si hay al menos un monto válido
+    if (montoPesos === 0 && montoUSD === 0) {
+      console.log('[PDF Parsing] Se saltó transacción porque no se pudo determinar monto:', originalDate, description.substring(0, 50))
+      continue
+    }
+    
+    validTransactions++
+    
     lines.push({
       date: parsedDate,
       originalDate: originalDate,
@@ -254,8 +377,21 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     })
   }
   
-  // Debug: mostrar estadísticas
-  console.log(`[PDF Parsing] Líneas procesadas: ${linesProcessed}, Fechas encontradas: ${datesFound}, Transacciones creadas: ${lines.length}`)
+  // Debug: mostrar estadísticas detalladas
+  console.log(`[PDF Parsing] Estadísticas:`)
+  console.log(`  - Líneas totales procesadas: ${linesProcessed}`)
+  console.log(`  - Fechas encontradas: ${datesFound}`)
+  console.log(`  - Transacciones válidas creadas: ${validTransactions}`)
+  console.log(`  - Transacciones finales: ${lines.length}`)
+  
+  if (lines.length === 0 && datesFound > 0) {
+    console.warn('[PDF Parsing] Se encontraron fechas pero no se crearon transacciones. Revisa el formato de montos.')
+  }
+  
+  if (lines.length === 0 && datesFound === 0) {
+    console.warn('[PDF Parsing] No se encontraron fechas. Revisa el formato del PDF.')
+    console.log('[PDF Parsing] Muestra de líneas sin filtrar:', rows.slice(0, 30))
+  }
 
   return lines
 }
@@ -302,28 +438,59 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
   }
 
   const handleParse = async () => {
+    alert('handleParse ejecutado!')
+    console.log('=== HANDLE PARSE EJECUTADO ===')
+    console.log('File:', file?.name)
+    console.log('Bank:', bank)
+    
     try {
       if (!file) {
+        console.error('[PDF Import] No hay archivo seleccionado')
         error('Selecciona un archivo PDF')
         return
       }
+      if (!bank) {
+        console.error('[PDF Import] No hay banco seleccionado')
+        error('Selecciona un banco')
+        return
+      }
+      
       setParsing(true)
+      console.log('[PDF Import] ===== INICIANDO EXTRACCIÓN DE PDF =====')
+      console.log('[PDF Import] Archivo:', file.name, '| Tamaño:', file.size, 'bytes')
+      
       const text = await extractPdfText(file)
+      console.log('[PDF Import] Texto extraído. Longitud:', text.length, 'caracteres')
       setRawText(text) // Guardar texto crudo para debug
+      
+      // Mostrar muestra del texto extraído
+      if (text.length > 0) {
+        console.log('[PDF Import] Muestra del texto (primeros 500 caracteres):', text.substring(0, 500))
+      } else {
+        console.error('[PDF Import] El PDF no contiene texto extraíble. El PDF podría estar escaneado.')
+        error('El PDF no contiene texto. Puede ser un PDF escaneado. Intenta con un PDF con texto seleccionable.')
+        setParsing(false)
+        return
+      }
       
       // Buscar template seleccionado
       const template = templates.find(t => t.id === selectedTemplate)
       
+      console.log('[PDF Import] Iniciando parsing con banco:', bank)
       const parsed = parseByBank(bank, text, template)
+      console.log('[PDF Import] Parsing completado. Resultado:', parsed.length, 'transacciones')
+      
       setRows(parsed)
       if (parsed.length === 0) {
-        error('No se detectaron movimientos. Revisa el formato del PDF o crea un template personalizado.')
+        console.warn('[PDF Import] No se detectaron movimientos. Revisa la consola para más detalles.')
+        error('No se detectaron movimientos. Abre la consola del navegador (F12) para ver detalles del parsing.')
       } else {
         success(`Se detectaron ${parsed.length} movimientos${template ? ` usando template "${template.name}"` : ''}`)
       }
-    } catch (e) {
-      console.error(e)
-      error('No se pudo leer el PDF')
+    } catch (e: any) {
+      console.error('[PDF Import] Error:', e)
+      console.error('[PDF Import] Stack:', e?.stack)
+      error(`No se pudo leer el PDF: ${e?.message || 'Error desconocido'}`)
     } finally {
       setParsing(false)
     }
@@ -434,7 +601,18 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <button onClick={handleParse} disabled={!file || !bank || parsing} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 cursor-pointer flex items-center gap-2">
+              {console.log('[RENDER] Estado del botón Analizar:', { hasFile: !!file, hasBank: !!bank, parsing, file: file?.name, bank })}
+              <button onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                alert(`Botón clickeado! File: ${file?.name || 'no file'}, Bank: ${bank || 'no bank'}`)
+                console.log('===== BOTÓN ANALIZAR CLICKEADO =====')
+                console.log('Event:', e)
+                console.log('File:', file)
+                console.log('Bank:', bank)
+                console.log('Parsing:', parsing)
+                handleParse()
+              }} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 cursor-pointer flex items-center gap-2" style={{ opacity: (!file || !bank || parsing) ? 0.5 : 1 }}>
                 <Upload className="w-4 h-4"/> 
                 {parsing ? 'Analizando...' : 'Analizar'}
               </button>
