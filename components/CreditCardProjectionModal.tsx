@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, TrendingUp, TrendingDown, Calculator, BarChart3, PieChart, Target, AlertCircle, CheckCircle, Clock } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { formatCurrency } from '@/lib/formatNumber'
 
 interface ProjectionData {
   month: string
@@ -314,13 +315,13 @@ export default function CreditCardProjectionModal({
                         <div>
                           <span className="text-blue-700 dark:text-blue-300">Deuda inicial:</span>
                           <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            ${parseFloat(simulatorData.currentDebt || '0').toLocaleString()}
+                            {formatCurrency(parseFloat(simulatorData.currentDebt || '0'))}
                           </span>
                         </div>
                         <div>
                           <span className="text-blue-700 dark:text-blue-300">Pago mensual:</span>
                           <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            ${parseFloat(simulatorData.monthlyPayment || '0').toLocaleString()}
+                            {formatCurrency(parseFloat(simulatorData.monthlyPayment || '0'))}
                           </span>
                         </div>
                         <div>
@@ -377,7 +378,7 @@ export default function CreditCardProjectionModal({
                       <span className="text-sm font-medium text-green-700 dark:text-green-300">Total Principal</span>
                     </div>
                     <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-                      ${getTotalPrincipal().toLocaleString()}
+                      {formatCurrency(getTotalPrincipal())}
                     </div>
                   </div>
 
@@ -387,7 +388,7 @@ export default function CreditCardProjectionModal({
                       <span className="text-sm font-medium text-red-700 dark:text-red-300">Total Intereses</span>
                     </div>
                     <div className="text-2xl font-bold text-red-900 dark:text-red-100">
-                      ${getTotalInterest().toLocaleString()}
+                      {formatCurrency(getTotalInterest())}
                     </div>
                   </div>
 
@@ -397,7 +398,7 @@ export default function CreditCardProjectionModal({
                       <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Deuda Final</span>
                     </div>
                     <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                      ${getFinalDebt().toLocaleString()}
+                      {formatCurrency(getFinalDebt())}
                     </div>
                   </div>
                 </div>
@@ -416,7 +417,7 @@ export default function CreditCardProjectionModal({
                           <XAxis dataKey="month" />
                           <YAxis />
                           <Tooltip 
-                            formatter={(value: any) => [`$${value.toLocaleString()}`, 'Deuda Restante']}
+                            formatter={(value: any) => [formatCurrency(value), 'Deuda Restante']}
                             labelStyle={{ color: '#374151' }}
                           />
                           <Legend />
@@ -442,7 +443,7 @@ export default function CreditCardProjectionModal({
                           <XAxis dataKey="month" />
                           <YAxis />
                           <Tooltip 
-                            formatter={(value: any) => [`$${value.toLocaleString()}`, '']}
+                            formatter={(value: any) => [formatCurrency(value), '']}
                             labelStyle={{ color: '#374151' }}
                           />
                           <Legend />
@@ -487,13 +488,13 @@ export default function CreditCardProjectionModal({
                                 {projection.month}
                               </td>
                               <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 font-semibold">
-                                ${projection.principalPaid.toLocaleString()}
+                                {formatCurrency(projection.principalPaid)}
                               </td>
                               <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 font-semibold">
-                                ${projection.interestPaid.toLocaleString()}
+                                {formatCurrency(projection.interestPaid)}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-semibold">
-                                ${projection.remainingDebt.toLocaleString()}
+                                {formatCurrency(projection.remainingDebt)}
                               </td>
                             </tr>
                           ))}

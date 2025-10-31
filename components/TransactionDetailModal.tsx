@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit, Trash2, Calendar, Target, Plus } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatNumber';
 
 interface TransactionDetailModalProps {
   isOpen: boolean;
@@ -119,7 +120,7 @@ export default function TransactionDetailModal({
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Monto</p>
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                  ${transaction.amount.toLocaleString()}
+                  {formatCurrency(transaction.amount)}
                 </p>
               </div>
             </div>
@@ -158,7 +159,7 @@ export default function TransactionDetailModal({
                   <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Saldo</p>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      ${transaction.balance?.toLocaleString() || 0}
+                      {formatCurrency(transaction.balance || 0)}
                     </p>
                   </div>
                   <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">

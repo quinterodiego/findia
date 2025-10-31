@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Lightbulb, TrendingUp, TrendingDown, Target, DollarSign, CreditCard, Calculator, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
+import { formatCurrency } from '@/lib/formatNumber'
 
 interface CreditCardRecommendation {
   id: string
@@ -282,7 +283,7 @@ export default function CreditCardRecommendationsModal({
                   <span className="text-sm font-medium text-green-700 dark:text-green-300">Ahorro Potencial</span>
                 </div>
                 <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-                  ${getTotalSavings().toLocaleString()}
+                  {formatCurrency(getTotalSavings())}
                 </div>
               </div>
 
@@ -410,7 +411,7 @@ export default function CreditCardRecommendationsModal({
                       <div className="text-right ml-4">
                         {recommendation.savings && (
                           <div className="text-lg font-bold text-green-600 dark:text-green-400 mb-1">
-                            ${recommendation.savings.toLocaleString()}
+                            {formatCurrency(recommendation.savings)}
                           </div>
                         )}
                         <div className="text-sm text-gray-600 dark:text-gray-400">

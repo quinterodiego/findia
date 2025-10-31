@@ -7,6 +7,7 @@ import { useToastContext } from '@/components/Toast'
 import { argentineBanks } from '@/lib/argentineBanks'
 import type { PDFImportTemplate } from '@/types'
 import PDFTemplateManager from './PDFTemplateManager'
+import { formatCurrency } from '@/lib/formatNumber'
 
 type ParsedLine = {
   date: string // dd/mm/aaaa
@@ -457,7 +458,7 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
                               onBlur={() => setEditingRow(null)}
                             />
                           ) : (
-                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>${r.amount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>{formatCurrency(r.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           )}
                         </td>
                         <td className="p-2">

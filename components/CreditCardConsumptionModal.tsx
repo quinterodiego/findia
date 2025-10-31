@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CreditCard, DollarSign, Calendar, Tag, FileText, Calculator, AlertCircle } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
+import { formatCurrency, formatNumber } from '@/lib/formatNumber'
 
 interface CreditCardConsumption {
   id: string
@@ -358,7 +359,7 @@ export default function CreditCardConsumptionModal({
                         <div>
                           <span className="text-blue-700 dark:text-blue-300">Monto total:</span>
                           <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            ${parseFloat(formData.amount || '0').toLocaleString()}
+                            {formatCurrency(parseFloat(formData.amount || '0'))}
                           </span>
                         </div>
                         <div>
@@ -370,13 +371,13 @@ export default function CreditCardConsumptionModal({
                         <div>
                           <span className="text-blue-700 dark:text-blue-300">Pago mensual:</span>
                           <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            ${(parseFloat(formData.amount || '0') / parseInt(formData.installments)).toLocaleString()}
+                            {formatCurrency(parseFloat(formData.amount || '0') / parseInt(formData.installments))}
                           </span>
                         </div>
                         <div>
                           <span className="text-blue-700 dark:text-blue-300">Total a pagar:</span>
                           <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            ${parseFloat(formData.amount || '0').toLocaleString()}
+                            {formatCurrency(parseFloat(formData.amount || '0'))}
                           </span>
                         </div>
                       </div>
@@ -469,10 +470,10 @@ export default function CreditCardConsumptionModal({
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                              ${consumption.amount.toLocaleString()}
+                              {formatCurrency(consumption.amount)}
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
-                              ${consumption.monthlyPayment.toLocaleString()}/mes
+                              {formatCurrency(consumption.monthlyPayment)}/mes
                             </div>
                           </div>
                         </div>
@@ -501,7 +502,7 @@ export default function CreditCardConsumptionModal({
                               <span>Pendiente: {getRemainingPayments(consumption)} cuotas</span>
                             </div>
                             <div className="font-semibold text-orange-600 dark:text-orange-400">
-                              ${getTotalRemaining(consumption).toLocaleString()}
+                              {formatCurrency(getTotalRemaining(consumption))}
                             </div>
                           </div>
                         )}

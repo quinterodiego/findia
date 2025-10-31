@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, CreditCard, DollarSign, Calendar, CheckCircle, AlertCircle, Clock, TrendingUp, TrendingDown, Calculator, Receipt } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
+import { formatCurrency } from '@/lib/formatNumber'
 
 interface CreditCardPayment {
   id: string
@@ -366,7 +367,7 @@ export default function CreditCardPaymentModal({
                         <option value="">Seleccionar consumo</option>
                         {consumptions.map(consumption => (
                           <option key={consumption.id} value={consumption.id}>
-                            {consumption.merchant} - ${consumption.monthlyPayment.toLocaleString()}/mes
+                            {consumption.merchant} - {formatCurrency(consumption.monthlyPayment)}/mes
                           </option>
                         ))}
                       </select>
@@ -488,7 +489,7 @@ export default function CreditCardPaymentModal({
                       <span className="text-sm font-medium text-green-700 dark:text-green-300">Total Pagado</span>
                     </div>
                     <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-                      ${getTotalPaid().toLocaleString()}
+                      {formatCurrency(getTotalPaid())}
                     </div>
                   </div>
 
@@ -498,7 +499,7 @@ export default function CreditCardPaymentModal({
                       <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">Pendiente</span>
                     </div>
                     <div className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">
-                      ${getPendingPayments().toLocaleString()}
+                      {formatCurrency(getPendingPayments())}
                     </div>
                   </div>
 
@@ -577,7 +578,7 @@ export default function CreditCardPaymentModal({
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                              ${payment.amount.toLocaleString()}
+                              {formatCurrency(payment.amount)}
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
                               {getStatusText(payment.status)}

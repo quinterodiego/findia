@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Edit2, Trash2, CreditCard, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, Search, ChevronDown } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
 import { argentineBanks, searchBanks } from '@/lib/argentineBanks'
+import { formatCurrency } from '@/lib/formatNumber'
 
 interface CreditCard {
   id: string
@@ -582,19 +583,19 @@ export default function CreditCardModal({
                           <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-3">
                             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Límite</div>
                             <div className="font-semibold text-gray-900 dark:text-white">
-                              ${card.limit.toLocaleString()}
+                              {formatCurrency(card.limit)}
                             </div>
                           </div>
                           <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-3">
                             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Saldo</div>
                             <div className="font-semibold text-gray-900 dark:text-white">
-                              ${card.currentBalance.toLocaleString()}
+                              {formatCurrency(card.currentBalance)}
                             </div>
                           </div>
                           <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-3">
                             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Disponible</div>
                             <div className="font-semibold text-green-600 dark:text-green-400">
-                              ${getAvailableCredit(card).toLocaleString()}
+                              {formatCurrency(getAvailableCredit(card))}
                             </div>
                           </div>
                           <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-3">

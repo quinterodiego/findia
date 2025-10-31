@@ -14,6 +14,7 @@ import { useGoals } from '@/hooks/useGoals'
 import { useCategories } from '@/hooks/useCategories'
 import { useSubcategories } from '@/hooks/useSubcategories'
 import type { Income, Expense, Goal } from '@/types'
+import { formatNumber, formatCurrency } from '@/lib/formatNumber'
 import FloatingActionButton from '@/components/FloatingActionButton'
 import TransactionModal from '@/components/TransactionModal'
 import TransactionDetailModal from '@/components/TransactionDetailModal'
@@ -859,7 +860,7 @@ export default function Dashboard() {
                         transition={{ duration: 0.3, delay: 0.2 }}
                         className="text-3xl font-bold text-green-400 mb-1"
                       >
-                        +${displayStats.totalIncomes.toLocaleString()}
++${formatCurrency(displayStats.totalIncomes)}
                       </motion.p>
                       <p className="text-xs text-gray-500 dark:text-gray-500">
                         {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'} este mes
@@ -889,7 +890,7 @@ export default function Dashboard() {
                     transition={{ duration: 0.3, delay: 0.3 }}
                     className="text-3xl font-bold text-red-400 mb-1"
                   >
-                    -${displayStats.totalExpenses.toLocaleString()}
+-${formatCurrency(displayStats.totalExpenses)}
                   </motion.p>
                   <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
                     {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'} en total
@@ -931,7 +932,7 @@ export default function Dashboard() {
                     transition={{ duration: 0.3, delay: 0.4 }}
                     className={`text-3xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}
                   >
-                    {displayStats.netBalance >= 0 ? '+' : ''}${displayStats.netBalance.toLocaleString()}
+                    {displayStats.netBalance >= 0 ? '+' : ''}${formatCurrency(displayStats.netBalance)}
                   </motion.p>
                   <p className="text-xs text-gray-500 dark:text-gray-500">
                     {displayStats.netBalance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
@@ -966,7 +967,7 @@ export default function Dashboard() {
                       {displayStats.completedGoals} de {displayStats.totalGoals} completadas
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-500">
-                      ${displayStats.totalCurrentValue.toLocaleString()} / ${displayStats.totalGoalValue.toLocaleString()}
+                      ${formatCurrency(displayStats.totalCurrentValue)} / ${formatCurrency(displayStats.totalGoalValue)}
                     </p>
                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
                       <motion.div 
@@ -1074,7 +1075,7 @@ export default function Dashboard() {
                         padding: '12px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
-                      formatter={(value: number) => `$${value.toLocaleString()}`}
+                      formatter={(value: number) => formatCurrency(value)}
                     />
                     <Legend 
                       wrapperStyle={{ paddingTop: '20px' }}
@@ -1161,7 +1162,7 @@ export default function Dashboard() {
                             padding: '12px',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                           }}
-                          formatter={(value: number) => `$${value.toLocaleString()}`}
+                          formatter={(value: number) => formatCurrency(value)}
                         />
                       </RechartPieChart>
                     </ResponsiveContainer>
@@ -1444,7 +1445,7 @@ export default function Dashboard() {
                           </div>
                           <div className="text-right">
                             <div className={`text-lg font-semibold ${getTransactionColor()}`}>
-                              {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}${transaction.amount.toLocaleString()}
+                              {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}${formatCurrency(transaction.amount)}
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
                               {new Date(transaction.date).toLocaleDateString()}
@@ -1664,7 +1665,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Fijos</p>
                   <p className="text-2xl font-bold text-red-400 dark:text-red-300">
-                    -${displayStats.totalFixedExpenses.toLocaleString()}
+-${formatCurrency(displayStats.totalFixedExpenses)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {expenses.filter((e: any) => e.expenseType === 'fixed').length} gastos fijos
@@ -1679,7 +1680,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Variables</p>
                   <p className="text-2xl font-bold text-purple-400 dark:text-purple-300">
-                    -${displayStats.totalVariableExpenses.toLocaleString()}
+-${formatCurrency(displayStats.totalVariableExpenses)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {expenses.filter((e: any) => e.expenseType === 'variable').length} gastos variables
@@ -1694,7 +1695,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${displayStats.totalExpenses.toLocaleString()}
+${formatCurrency(displayStats.totalExpenses)}
                   </p>
                 </div>
               </div>
@@ -1764,7 +1765,7 @@ export default function Dashboard() {
                       {displayStats.goalsProgress.toFixed(1)}%
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      ${displayStats.totalCurrentValue.toLocaleString()} / ${displayStats.totalGoalValue.toLocaleString()}
+                      ${formatCurrency(displayStats.totalCurrentValue)} / ${formatCurrency(displayStats.totalGoalValue)}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
@@ -1824,13 +1825,13 @@ export default function Dashboard() {
                             <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-2">
                               <div className="text-gray-500 dark:text-gray-400 text-xs">Meta</div>
                               <div className="font-semibold text-gray-900 dark:text-white">
-                                ${goal.amount.toLocaleString()}
+                                ${formatCurrency(goal.amount)}
                               </div>
                             </div>
                             <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-2">
                               <div className="text-gray-500 dark:text-gray-400 text-xs">Ahorrado</div>
                               <div className="font-semibold text-gray-900 dark:text-white">
-                                ${(goal.currentAmount || 0).toLocaleString()}
+                                ${formatCurrency(goal.currentAmount || 0)}
                               </div>
                             </div>
                             <div className="bg-white/50 dark:bg-gray-600/50 rounded-lg p-2">
@@ -1842,7 +1843,7 @@ export default function Dashboard() {
                                   ? 'text-green-400 dark:text-green-300' 
                                   : 'text-orange-500 dark:text-orange-400'
                               }`}>
-                                {isCompleted ? '¡Listo!' : `$${remaining.toLocaleString()}`}
+                                {isCompleted ? '¡Listo!' : formatCurrency(remaining)}
                               </div>
                             </div>
                           </div>

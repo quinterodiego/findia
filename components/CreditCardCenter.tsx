@@ -30,6 +30,7 @@ import { useCreditCards } from '@/hooks/useCreditCards';
 import { useDebts } from '@/hooks/useDebts';
 import type { CreditCard } from '@/types';
 import { argentineBanks } from '@/lib/argentineBanks';
+import { formatCurrency, formatNumber } from '@/lib/formatNumber';
 import CreditCardStatementImport from './CreditCardStatementImport';
 import CreditCardConsumptionModal from './CreditCardConsumptionModal';
 
@@ -438,7 +439,7 @@ export default function CreditCardCenter({
                         <TrendingDown className="w-5 h-5 text-red-500" />
                       </div>
                       <p className="text-2xl font-bold text-red-700 dark:text-red-300">
-                        ${totalDebt.toLocaleString('es-CO')}
+                        ${formatCurrency(totalDebt)}
                       </p>
                     </div>
 
@@ -506,10 +507,10 @@ export default function CreditCardCenter({
                             <div className="text-right">
                               <p className="text-sm text-gray-500 dark:text-gray-400">Deuda actual</p>
                               <p className="text-xl font-bold text-red-600 dark:text-red-400">
-                                ${card.currentBalance.toLocaleString('es-CO')}
+                                ${formatCurrency(card.currentBalance)}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
-                                de ${card.limit.toLocaleString('es-CO')}
+                                de ${formatCurrency(card.limit)}
                               </p>
                             </div>
                           </div>
@@ -617,7 +618,7 @@ export default function CreditCardCenter({
                                     </div>
                                     <div>
                                       <p className="text-white/70">Intereses totales</p>
-                                      <p className="font-bold text-lg">${strategyData.totalInterest.toLocaleString('es-CO')}</p>
+                                      <p className="font-bold text-lg">{formatCurrency(strategyData.totalInterest)}</p>
                                     </div>
                                   </div>
                                 </div>
@@ -662,7 +663,7 @@ export default function CreditCardCenter({
                               Recomendación: Método Avalancha
                             </p>
                             <p className="text-sm text-green-700 dark:text-green-300">
-                              Podrías ahorrar ${selectedStrategy.savings.toLocaleString('es-CO')} en intereses
+                              Podrías ahorrar {formatCurrency(selectedStrategy.savings)} en intereses
                             </p>
                           </div>
                         </div>
@@ -712,13 +713,13 @@ export default function CreditCardCenter({
                           <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Pago mensual</p>
                             <p className="text-xl font-bold text-gray-900 dark:text-white">
-                              ${selectedStrategy?.monthlyPayment.toLocaleString('es-CO') || 0}
+                              ${formatCurrency(selectedStrategy?.monthlyPayment || 0)}
                             </p>
                           </div>
                           <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Intereses totales</p>
                             <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                              ${paymentPlan.reduce((sum, p) => sum + p.interestPaid, 0).toLocaleString('es-CO')}
+                              ${formatCurrency(paymentPlan.reduce((sum, p) => sum + p.interestPaid, 0))}
                             </p>
                           </div>
                           <div>
@@ -748,16 +749,16 @@ export default function CreditCardCenter({
                                 <td className="p-3 text-gray-600 dark:text-gray-300">{payment.month}</td>
                                 <td className="p-3 font-medium text-gray-900 dark:text-white">{payment.cardName}</td>
                                 <td className="p-3 text-right font-semibold text-gray-900 dark:text-white">
-                                  ${payment.paymentAmount.toLocaleString('es-CO')}
+                                  ${formatCurrency(payment.paymentAmount)}
                                 </td>
                                 <td className="p-3 text-right text-green-600 dark:text-green-400">
-                                  ${payment.principalPaid.toLocaleString('es-CO')}
+                                  ${formatCurrency(payment.principalPaid)}
                                 </td>
                                 <td className="p-3 text-right text-orange-600 dark:text-orange-400">
-                                  ${payment.interestPaid.toLocaleString('es-CO')}
+                                  ${formatCurrency(payment.interestPaid)}
                                 </td>
                                 <td className="p-3 text-right text-gray-600 dark:text-gray-300">
-                                  ${payment.remainingBalance.toLocaleString('es-CO')}
+                                  ${formatCurrency(payment.remainingBalance)}
                                 </td>
                               </tr>
                             ))}
@@ -904,12 +905,12 @@ export default function CreditCardCenter({
                         <span className="font-semibold text-gray-900 dark:text-white">Deuda Pagada</span>
                       </div>
                       <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                        ${progressHistory.length > 0 ? progressHistory[progressHistory.length - 1].paid.toLocaleString('es-CO') : '0'}
+                        ${progressHistory.length > 0 ? formatCurrency(progressHistory[progressHistory.length - 1].paid) : formatCurrency(0)}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         {progressHistory.length > 0 
-                          ? `de ${(progressHistory[0].totalDebt + progressHistory[0].paid).toLocaleString('es-CO')} (${totalDebt.toLocaleString('es-CO')} actual)`
-                          : `de ${totalDebt.toLocaleString('es-CO')}`
+                          ? `de ${formatCurrency(progressHistory[0].totalDebt + progressHistory[0].paid)} (${formatCurrency(totalDebt)} actual)`
+                          : `de ${formatCurrency(totalDebt)}`
                         }
                       </p>
                     </div>
@@ -964,7 +965,7 @@ export default function CreditCardCenter({
                             />
                             <Tooltip 
                               contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                              formatter={(value: number) => `$${value.toLocaleString('es-CO')}`}
+                              formatter={(value: number) => formatCurrency(value)}
                             />
                             <Legend />
                             <Line 
@@ -1013,7 +1014,7 @@ export default function CreditCardCenter({
                               })}
                             </Pie>
                             <Tooltip 
-                              formatter={(value: number) => `$${value.toLocaleString('es-CO')}`}
+                              formatter={(value: number) => formatCurrency(value)}
                             />
                           </PieChart>
                         </ResponsiveContainer>

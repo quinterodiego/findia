@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, DollarSign, AlertTriangle } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatNumber';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -153,11 +154,11 @@ export default function PaymentModal({
             <div className="bg-gray-600/10 rounded-xl p-4">
               <div className="flex justify-between text-sm mb-2">
                 <span>Saldo pendiente:</span>
-                <span className="font-semibold">${debt?.balance?.toLocaleString('es-CO') || 0}</span>
+                <span className="font-semibold">${formatCurrency(debt?.balance || 0)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Pago mínimo:</span>
-                <span className="font-semibold">${debt?.minPayment?.toLocaleString('es-CO') || 0}</span>
+                <span className="font-semibold">${formatCurrency(debt?.minPayment || 0)}</span>
               </div>
             </div>
           </div>

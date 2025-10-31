@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Calculator, AlertCircle, TrendingUp, DollarSign, Calendar, Clock, Percent } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
+import { formatCurrency } from '@/lib/formatNumber'
 
 interface InterestCalculation {
   id: string
@@ -273,7 +274,7 @@ export default function InterestCalculatorModal({
                         <option value="">Seleccionar consumo</option>
                         {consumptions.map(consumption => (
                           <option key={consumption.id} value={consumption.id}>
-                            {consumption.merchant} - ${consumption.amount.toLocaleString()}
+                            {consumption.merchant} - {formatCurrency(consumption.amount)}
                           </option>
                         ))}
                       </select>
@@ -330,7 +331,7 @@ export default function InterestCalculatorModal({
                         <div>
                           <span className="text-blue-700 dark:text-blue-300">Monto original:</span>
                           <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            ${parseFloat(calculatorData.originalAmount || '0').toLocaleString()}
+                            {formatCurrency(parseFloat(calculatorData.originalAmount || '0'))}
                           </span>
                         </div>
                         <div>
@@ -348,7 +349,7 @@ export default function InterestCalculatorModal({
                         <div>
                           <span className="text-blue-700 dark:text-blue-300">Interés calculado:</span>
                           <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            ${((parseFloat(calculatorData.originalAmount || '0') * parseFloat(calculatorData.interestRate || '0') * parseInt(calculatorData.daysOverdue || '0')) / 365).toLocaleString()}
+                            {formatCurrency((parseFloat(calculatorData.originalAmount || '0') * parseFloat(calculatorData.interestRate || '0') * parseInt(calculatorData.daysOverdue || '0')) / 365)}
                           </span>
                         </div>
                       </div>
@@ -386,7 +387,7 @@ export default function InterestCalculatorModal({
                       <span className="text-sm font-medium text-red-700 dark:text-red-300">Total Intereses</span>
                     </div>
                     <div className="text-2xl font-bold text-red-900 dark:text-red-100">
-                      ${getTotalInterest().toLocaleString()}
+                      {formatCurrency(getTotalInterest())}
                     </div>
                   </div>
 
@@ -396,7 +397,7 @@ export default function InterestCalculatorModal({
                       <span className="text-sm font-medium text-orange-700 dark:text-orange-300">Total Vencido</span>
                     </div>
                     <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-                      ${getTotalOverdue().toLocaleString()}
+                      {formatCurrency(getTotalOverdue())}
                     </div>
                   </div>
 
@@ -427,7 +428,7 @@ export default function InterestCalculatorModal({
                       {getOverdueConsumptions().map(consumption => (
                         <div key={consumption.id} className="flex items-center justify-between text-sm">
                           <span className="text-red-700 dark:text-red-300">
-                            {consumption.merchant} - ${consumption.amount.toLocaleString()}
+                            {consumption.merchant} - {formatCurrency(consumption.amount)}
                           </span>
                           <span className="text-red-600 dark:text-red-400 font-semibold">
                             {Math.floor((new Date().getTime() - new Date(consumption.date).getTime()) / (1000 * 60 * 60 * 24))} días
@@ -495,10 +496,10 @@ export default function InterestCalculatorModal({
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                              ${calculation.totalAmount.toLocaleString()}
+                              {formatCurrency(calculation.totalAmount)}
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
-                              +${calculation.interestAmount.toLocaleString()} interés
+                              +{formatCurrency(calculation.interestAmount)} interés
                             </div>
                           </div>
                         </div>

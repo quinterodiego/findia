@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Edit2, Trash2, Copy, Calendar, DollarSign, Tag, FileText } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
+import { formatCurrency } from '@/lib/formatNumber'
 
 interface ExpenseTemplate {
   id: string
@@ -468,7 +469,7 @@ export default function ExpenseTemplateModal({
                               {template.name}
                             </h5>
                             <p className="text-2xl font-bold text-blue-500 dark:text-blue-400 mb-2">
-                              ${template.amount.toLocaleString()}
+                              {formatCurrency(template.amount)}
                             </p>
                             <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                               <span className="flex items-center gap-1">

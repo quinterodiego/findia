@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Bell, AlertTriangle, Clock, Calendar, CreditCard, DollarSign, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
+import { formatCurrency } from '@/lib/formatNumber'
 
 interface CreditCardAlert {
   id: string
@@ -363,7 +364,7 @@ export default function CreditCardAlertsModal({
                           {alert.amount && (
                             <span className="flex items-center gap-1">
                               <DollarSign className="w-3 h-3" />
-                              ${alert.amount.toLocaleString()}
+                              {formatCurrency(alert.amount)}
                             </span>
                           )}
                         </div>

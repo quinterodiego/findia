@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, FileText, Download, Calendar, BarChart3, PieChart, TrendingUp, TrendingDown, DollarSign, CreditCard, Target, AlertCircle } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
+import { formatCurrency } from '@/lib/formatNumber'
 
 interface CreditCardReport {
   id: string
@@ -372,19 +373,19 @@ export default function CreditCardReportsModal({
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3">
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Gastado</div>
                       <div className="text-lg font-bold text-gray-900 dark:text-white">
-                        ${selectedReport.totalSpent.toLocaleString()}
+                        {formatCurrency(selectedReport.totalSpent)}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3">
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Pagado</div>
                       <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                        ${selectedReport.totalPaid.toLocaleString()}
+                        {formatCurrency(selectedReport.totalPaid)}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3">
                       <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Intereses</div>
                       <div className="text-lg font-bold text-red-600 dark:text-red-400">
-                        ${selectedReport.totalInterest.toLocaleString()}
+                        {formatCurrency(selectedReport.totalInterest)}
                       </div>
                     </div>
                     <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3">
@@ -422,7 +423,7 @@ export default function CreditCardReportsModal({
                             <Cell key={`cell-${index}`} fill={`hsl(${index * 60}, 70%, 50%)`} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value: any) => [`$${value.toLocaleString()}`, 'Monto']} />
+                        <Tooltip formatter={(value: any) => [formatCurrency(value), 'Monto']} />
                       </RechartPieChart>
                     </ResponsiveContainer>
                   </div>
@@ -438,7 +439,7 @@ export default function CreditCardReportsModal({
                         <XAxis dataKey="month" />
                         <YAxis />
                         <Tooltip 
-                          formatter={(value: any) => [`$${value.toLocaleString()}`, '']}
+                          formatter={(value: any) => [formatCurrency(value), '']}
                           labelStyle={{ color: '#374151' }}
                         />
                         <Legend />
@@ -482,10 +483,10 @@ export default function CreditCardReportsModal({
                               {payment.month}
                             </td>
                             <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 font-semibold">
-                              ${payment.paid.toLocaleString()}
+                              {formatCurrency(payment.paid)}
                             </td>
                             <td className="px-4 py-3 text-sm text-gray-900 dark:text-white font-semibold">
-                              ${payment.due.toLocaleString()}
+                              {formatCurrency(payment.due)}
                             </td>
                             <td className="px-4 py-3 text-sm">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -563,7 +564,7 @@ export default function CreditCardReportsModal({
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                              ${report.totalSpent.toLocaleString()}
+                              {formatCurrency(report.totalSpent)}
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
                               Total gastado
@@ -575,13 +576,13 @@ export default function CreditCardReportsModal({
                           <div>
                             <div className="text-gray-500 dark:text-gray-400 mb-1">Pagado</div>
                             <div className="font-semibold text-green-600 dark:text-green-400">
-                              ${report.totalPaid.toLocaleString()}
+                              {formatCurrency(report.totalPaid)}
                             </div>
                           </div>
                           <div>
                             <div className="text-gray-500 dark:text-gray-400 mb-1">Intereses</div>
                             <div className="font-semibold text-red-600 dark:text-red-400">
-                              ${report.totalInterest.toLocaleString()}
+                              {formatCurrency(report.totalInterest)}
                             </div>
                           </div>
                           <div>
