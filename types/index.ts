@@ -117,3 +117,32 @@ export interface PDFImportTemplate {
   createdAt: string
   updatedAt: string
 }
+
+// Mapeo de comercio para autocategorización
+export interface MerchantMapping {
+  merchantName: string // Nombre del comercio (puede ser patrón regex)
+  categoryId?: string // Categoría asignada automáticamente
+  subcategoryId?: string // Subcategoría asignada automáticamente
+  currency?: 'pesos' | 'usd' // Moneda típica de este comercio
+  isSubscription?: boolean // Si es una suscripción recurrente
+  typicalAmount?: number // Monto típico (útil para validación)
+  frequency?: number // Cuántas veces se ha visto este comercio (para aprendizaje)
+  lastSeen?: string // Última vez que se vio este comercio
+}
+
+// Plantilla Inteligente que aprende patrones
+export interface SmartTemplate extends PDFImportTemplate {
+  // Patrones aprendidos del PDF
+  regexFecha?: string // Patrón regex aprendido para fechas (ej: "(\d{2}-[A-Za-z]{3}-\d{2})")
+  regexMonto?: string // Patrón regex aprendido para montos
+  seccionConsumosStart?: string // Marcador de inicio de sección de consumos (ej: "DETALLE DEL CONSUMO")
+  seccionConsumosEnd?: string // Marcador de fin de sección de consumos (ej: "SUBTOTAL")
+  
+  // Mapeo de comercios aprendidos
+  mapeoComercios?: Record<string, MerchantMapping> // key = nombre del comercio, value = mapeo
+  
+  // Estadísticas de aprendizaje
+  totalImports?: number // Cuántas veces se ha usado este template
+  accuracy?: number // Precisión del template (0-1)
+  lastUsed?: string // Última vez que se usó
+}

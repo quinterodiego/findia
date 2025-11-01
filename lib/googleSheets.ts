@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import bcrypt from 'bcrypt';
-import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption, PDFImportTemplate } from '@/types';
+import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption, PDFImportTemplate, SmartTemplate } from '@/types';
 
 // Configuración de autenticación con Service Account
 const auth = new google.auth.GoogleAuth({
@@ -2476,6 +2476,250 @@ export async function deletePDFImportTemplate(
     console.log('✅ Template eliminado:', templateId);
   } catch (error) {
     console.error('Error eliminando template:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// SMART TEMPLATES (Plantillas Inteligentes)
+// ============================================================================
+
+/**
+ * Obtiene el smart template para una tarjeta (o crea uno si no existe)
+ */
+export async function getSmartTemplate(
+  cardId: string,
+  userId: string
+): Promise<SmartTemplate | null> {
+  try {
+    const exists = await sheetExists(SHEETS.PDF_IMPORT_TEMPLATES);
+    if (!exists) {
+      return null;
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2:Z`,
+    });
+    
+    const rows = response.data.values || [];
+    // Buscar el template para esta tarjeta (normalmente solo hay uno por tarjeta)
+    const row = rows.find(r => r[1] === cardId && r[2] === userId);
+    
+    if (!row) return null;
+    
+    // Construir el template base primero
+    const baseTemplate: PDFImportTemplate = {
+      id: row[0],
+      creditCardId: row[1],
+      userId: row[2],
+      name: row[3] || '',
+      datePattern: row[4] || undefined,
+      amountPattern: row[5] || undefined,
+      descriptionPattern: row[6] || undefined,
+      installmentsPattern: row[7] || undefined,
+      interestKeywords: row[8] ? JSON.parse(row[8]) : undefined,
+      feeKeywords: row[9] ? JSON.parse(row[9]) : undefined,
+      dateFormat: row[10] as any || undefined,
+      amountDecimalSeparator: row[11] as any || undefined,
+      amountThousandsSeparator: row[12] as any || undefined,
+      searchRange: row[13] ? parseInt(row[13]) : undefined,
+      skipLines: row[14] ? JSON.parse(row[14]) : undefined,
+      createdAt: row[15],
+      updatedAt: row[16],
+    };
+
+    // Agregar campos de SmartTemplate
+    const smartTemplate: SmartTemplate = {
+      ...baseTemplate,
+      regexFecha: row[17] || undefined,
+      regexMonto: row[18] || undefined,
+      seccionConsumosStart: row[19] || undefined,
+      seccionConsumosEnd: row[20] || undefined,
+      mapeoComercios: row[21] ? JSON.parse(row[21]) : undefined,
+      totalImports: row[22] ? parseInt(row[22]) : undefined,
+      accuracy: row[23] ? parseFloat(row[23]) : undefined,
+      lastUsed: row[24] || undefined,
+    };
+    
+    return smartTemplate;
+  } catch (error) {
+    console.error('Error obteniendo smart template:', error);
+    throw error;
+  }
+}
+
+/**
+ * Guarda o actualiza un smart template
+ */
+export async function saveSmartTemplate(
+  smartTemplate: Partial<SmartTemplate> & { creditCardId: string; userId: string }
+): Promise<SmartTemplate> {
+  try {
+    const exists = await sheetExists(SHEETS.PDF_IMPORT_TEMPLATES);
+    if (!exists) {
+      // Crear la hoja con columnas extendidas para smart templates
+      await createSheetIfNotExists(SHEETS.PDF_IMPORT_TEMPLATES, [
+        'id',
+        'creditCardId',
+        'userId',
+        'name',
+        'datePattern',
+        'amountPattern',
+        'descriptionPattern',
+        'installmentsPattern',
+        'interestKeywords',
+        'feeKeywords',
+        'dateFormat',
+        'amountDecimalSeparator',
+        'amountThousandsSeparator',
+        'searchRange',
+        'skipLines',
+        'createdAt',
+        'updatedAt',
+        'regexFecha',
+        'regexMonto',
+        'seccionConsumosStart',
+        'seccionConsumosEnd',
+        'mapeoComercios',
+        'totalImports',
+        'accuracy',
+        'lastUsed',
+      ]);
+    }
+
+    // Buscar si ya existe un template para esta tarjeta
+    const existing = await getSmartTemplate(smartTemplate.creditCardId, smartTemplate.userId);
+    
+    const now = new Date().toISOString();
+    let finalTemplate: SmartTemplate;
+    
+    if (existing) {
+      // Actualizar template existente
+      finalTemplate = {
+        ...existing,
+        ...smartTemplate,
+        updatedAt: now,
+        totalImports: (existing.totalImports || 0) + 1,
+        lastUsed: now,
+      } as SmartTemplate;
+      
+      // Actualizar en Google Sheets
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2:Z`,
+      });
+      
+      const rows = response.data.values || [];
+      const rowIndex = rows.findIndex(r => r[0] === existing.id && r[2] === smartTemplate.userId);
+      
+      if (rowIndex !== -1) {
+        const rangeRow = rowIndex + 2;
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A${rangeRow}:Z${rangeRow}`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [[
+              finalTemplate.id,
+              finalTemplate.creditCardId,
+              finalTemplate.userId,
+              finalTemplate.name || '',
+              finalTemplate.datePattern || '',
+              finalTemplate.amountPattern || '',
+              finalTemplate.descriptionPattern || '',
+              finalTemplate.installmentsPattern || '',
+              finalTemplate.interestKeywords ? JSON.stringify(finalTemplate.interestKeywords) : '',
+              finalTemplate.feeKeywords ? JSON.stringify(finalTemplate.feeKeywords) : '',
+              finalTemplate.dateFormat || '',
+              finalTemplate.amountDecimalSeparator || '',
+              finalTemplate.amountThousandsSeparator || '',
+              finalTemplate.searchRange?.toString() || '',
+              finalTemplate.skipLines ? JSON.stringify(finalTemplate.skipLines) : '',
+              finalTemplate.createdAt,
+              finalTemplate.updatedAt,
+              finalTemplate.regexFecha || '',
+              finalTemplate.regexMonto || '',
+              finalTemplate.seccionConsumosStart || '',
+              finalTemplate.seccionConsumosEnd || '',
+              finalTemplate.mapeoComercios ? JSON.stringify(finalTemplate.mapeoComercios) : '',
+              finalTemplate.totalImports?.toString() || '',
+              finalTemplate.accuracy?.toString() || '',
+              finalTemplate.lastUsed || '',
+            ]],
+          },
+        });
+      }
+    } else {
+      // Crear nuevo template
+      finalTemplate = {
+        id: generateId(),
+        creditCardId: smartTemplate.creditCardId,
+        userId: smartTemplate.userId,
+        name: smartTemplate.name || 'Plantilla Inteligente',
+        datePattern: smartTemplate.datePattern,
+        amountPattern: smartTemplate.amountPattern,
+        descriptionPattern: smartTemplate.descriptionPattern,
+        installmentsPattern: smartTemplate.installmentsPattern,
+        interestKeywords: smartTemplate.interestKeywords,
+        feeKeywords: smartTemplate.feeKeywords,
+        dateFormat: smartTemplate.dateFormat,
+        amountDecimalSeparator: smartTemplate.amountDecimalSeparator,
+        amountThousandsSeparator: smartTemplate.amountThousandsSeparator,
+        searchRange: smartTemplate.searchRange,
+        skipLines: smartTemplate.skipLines,
+        regexFecha: smartTemplate.regexFecha,
+        regexMonto: smartTemplate.regexMonto,
+        seccionConsumosStart: smartTemplate.seccionConsumosStart,
+        seccionConsumosEnd: smartTemplate.seccionConsumosEnd,
+        mapeoComercios: smartTemplate.mapeoComercios,
+        totalImports: 1,
+        accuracy: smartTemplate.accuracy || 0,
+        lastUsed: now,
+        createdAt: now,
+        updatedAt: now,
+      } as SmartTemplate;
+      
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [[
+            finalTemplate.id,
+            finalTemplate.creditCardId,
+            finalTemplate.userId,
+            finalTemplate.name || '',
+            finalTemplate.datePattern || '',
+            finalTemplate.amountPattern || '',
+            finalTemplate.descriptionPattern || '',
+            finalTemplate.installmentsPattern || '',
+            finalTemplate.interestKeywords ? JSON.stringify(finalTemplate.interestKeywords) : '',
+            finalTemplate.feeKeywords ? JSON.stringify(finalTemplate.feeKeywords) : '',
+            finalTemplate.dateFormat || '',
+            finalTemplate.amountDecimalSeparator || '',
+            finalTemplate.amountThousandsSeparator || '',
+            finalTemplate.searchRange?.toString() || '',
+            finalTemplate.skipLines ? JSON.stringify(finalTemplate.skipLines) : '',
+            finalTemplate.createdAt,
+            finalTemplate.updatedAt,
+            finalTemplate.regexFecha || '',
+            finalTemplate.regexMonto || '',
+            finalTemplate.seccionConsumosStart || '',
+            finalTemplate.seccionConsumosEnd || '',
+            finalTemplate.mapeoComercios ? JSON.stringify(finalTemplate.mapeoComercios) : '',
+            finalTemplate.totalImports?.toString() || '',
+            finalTemplate.accuracy?.toString() || '',
+            finalTemplate.lastUsed || '',
+          ]],
+        },
+      });
+    }
+    
+    console.log('✅ Smart template guardado:', finalTemplate.id);
+    return finalTemplate;
+  } catch (error) {
+    console.error('Error guardando smart template:', error);
     throw error;
   }
 }

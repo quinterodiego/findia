@@ -5,9 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Upload, FileText, AlertCircle, CheckCircle, Edit2, Settings } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
 import { argentineBanks } from '@/lib/argentineBanks'
-import type { PDFImportTemplate } from '@/types'
+import type { PDFImportTemplate, SmartTemplate } from '@/types'
 import PDFTemplateManager from './PDFTemplateManager'
+import StatementCorrectionAssistant, { type EditableParsedLine } from './StatementCorrectionAssistant'
 import { formatCurrency } from '@/lib/formatNumber'
+import { useCategories } from '@/hooks/useCategories'
+import { 
+  learnPatternsFromText, 
+  learnMerchantMappings, 
+  applyMerchantMappings 
+} from '@/lib/smartTemplateLearning'
 
 type ParsedLine = {
   date: string // dd/mm/aaaa (formato original para mostrar)
@@ -122,11 +129,564 @@ async function extractPdfText(file: File): Promise<string> {
 
 function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): ParsedLine[] {
   const lines: ParsedLine[] = []
-  // Dividir en líneas
-  const rows = raw.split(/\n+/).map(r => r.trim()).filter(Boolean)
+  // VERSIÓN DEL PARSER - Para verificar que se está usando el código actualizado
+  console.log('[PDF Parsing] ✅✅✅ PARSER v3.0 - PARSEO ESPECÍFICO PARA DETALLE DEL CONSUMO ✅✅✅')
+  // Dividir en líneas - ser más flexible con espacios y saltos de línea
+  const rows = raw.split(/\r?\n+/).map(r => r.trim()).filter(Boolean)
   
   console.log('[PDF Parsing] Total de líneas extraídas del PDF:', rows.length)
-  console.log('[PDF Parsing] Primeras 20 líneas:', rows.slice(0, 20))
+  console.log('[PDF Parsing] Primeras 30 líneas:', rows.slice(0, 30))
+  
+  // NUEVA ESTRATEGIA: Buscar específicamente la sección "DETALLE DEL CONSUMO"
+  // Esta es la única sección que contiene transacciones reales en formato tabular
+  let detailStartIndex = -1
+  let detailEndIndex = rows.length
+  
+  for (let i = 0; i < rows.length; i++) {
+    const upperRow = rows[i].toUpperCase()
+    if (upperRow.includes('DETALLE DEL CONSUMO')) {
+      detailStartIndex = i
+      console.log('[PDF Parsing] ✅ Sección DETALLE DEL CONSUMO encontrada en línea', i)
+      break
+    }
+  }
+  
+  // Si no encontramos la sección, usar el método anterior como fallback
+  if (detailStartIndex === -1) {
+    console.log('[PDF Parsing] ⚠️ No se encontró sección DETALLE DEL CONSUMO, usando método anterior')
+    return parseByBankLegacy(bank, raw, template)
+  }
+  
+  // Buscar el final de la sección (SUBTOTAL o TOTAL A PAGAR después de encontrar transacciones)
+  // También buscar "Cuotas a vencer" u otras secciones que marcan el fin del detalle
+  for (let i = detailStartIndex + 1; i < rows.length; i++) {
+    const upperRow = rows[i].toUpperCase()
+    
+    // Fin de sección si encuentra SUBTOTAL o TOTAL A PAGAR con números
+    if ((upperRow.includes('SUBTOTAL') || upperRow.includes('TOTAL A PAGAR')) && /\d+[.,]\d+/.test(rows[i])) {
+      detailEndIndex = i
+      console.log('[PDF Parsing] ✅ Fin de sección DETALLE DEL CONSUMO encontrado en línea', i, '(SUBTOTAL/TOTAL)')
+      break
+    }
+    
+    // También terminar si encontramos secciones claramente posteriores al detalle
+    const endSectionKeywords = [
+      'CUOTAS A VENCER',
+      'OPCIONES DE FINANCIACION',
+      'INFORMACION INSTITUCIONAL',
+      'DESCRIPCIONES DE TASAS',
+      'EL MONTO DE IVA'
+    ]
+    
+    if (endSectionKeywords.some(keyword => upperRow.includes(keyword))) {
+      // Retroceder un poco para asegurarnos de incluir el SUBTOTAL si existe
+      detailEndIndex = Math.max(detailStartIndex + 10, i - 5)
+      console.log('[PDF Parsing] ✅ Fin de sección DETALLE DEL CONSUMO encontrado en línea', i, '(sección siguiente)')
+      break
+    }
+  }
+  
+  // Extraer solo las líneas de la sección DETALLE DEL CONSUMO
+  let detailRows = rows.slice(detailStartIndex, detailEndIndex)
+  console.log('[PDF Parsing] Líneas en DETALLE DEL CONSUMO:', detailRows.length)
+  console.log('[PDF Parsing] Primeras 10 líneas de DETALLE:', detailRows.slice(0, 10))
+  
+  // IMPORTANTE: Guardar el detalleRows ORIGINAL antes de combinarlo (para buscar montos en líneas siguientes)
+  const originalDetailRows = [...detailRows]
+  
+  // IMPORTANTE: En PDFs tabulares, las transacciones pueden estar en múltiples líneas
+  // Necesitamos combinar líneas consecutivas que pertenecen a la misma transacción
+  // Estrategia: Si una línea tiene fecha pero no tiene monto/comprobante, combinar con líneas siguientes
+  const combinedDetailRows: string[] = []
+  const combinedRowsMapping: Map<string, number> = new Map() // Mapea línea combinada -> índice original
+  const dateRegexForCombining = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
+  const hasAmountOrComprobante = (line: string) => {
+    return /\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d{4,}(?:,\d{2})/.test(line) || // Monto pesos
+           /\d+,\d{2}/.test(line) || // Monto USD
+           /\s\d{4,5}(?:\s|$)/.test(line) // Comprobante
+  }
+  
+  let i = 0
+  while (i < detailRows.length) {
+    const currentLine = detailRows[i]
+    const hasDate = dateRegexForCombining.test(currentLine)
+    const originalIndex = i // Índice original en detailRows
+    
+    if (hasDate) {
+      // Línea con fecha: intentar combinar con líneas siguientes hasta encontrar monto O otra fecha
+      let combinedLine = currentLine
+      let combined = false
+      let linesCombined = 0
+      let nextIndex = i + 1
+      
+      // Buscar hasta 10 líneas siguientes (muy agresivo para PDFs tabulares)
+      for (let j = i + 1; j < Math.min(i + 11, detailRows.length) && !combined; j++) {
+        const nextLine = detailRows[j]
+        const nextHasDate = dateRegexForCombining.test(nextLine)
+        
+        if (nextHasDate && linesCombined > 0) {
+          // La siguiente línea tiene fecha Y ya combinamos algo: guardar y detener
+          combinedDetailRows.push(combinedLine)
+          combinedRowsMapping.set(combinedLine, originalIndex)
+          nextIndex = j - 1 // Ajustar índice para no procesar la línea siguiente dos veces
+          combined = true
+          break
+        } else if (nextHasDate && linesCombined === 0) {
+          // La siguiente línea tiene fecha y no hemos combinado nada
+          // Esto significa que la línea actual solo tiene fecha, combinar de todos modos
+          combinedLine += ' ' + nextLine
+          linesCombined++
+          combinedDetailRows.push(combinedLine)
+          combinedRowsMapping.set(combinedLine, originalIndex)
+          nextIndex = j
+          combined = true
+          break
+        } else {
+          // La siguiente línea no tiene fecha, combinarla
+          combinedLine += ' ' + nextLine
+          linesCombined++
+          nextIndex = j + 1 // Actualizar para el siguiente intento
+          
+          // Si ahora tiene monto O comprobante, es una transacción completa
+          if (hasAmountOrComprobante(combinedLine)) {
+            combinedDetailRows.push(combinedLine)
+            combinedRowsMapping.set(combinedLine, originalIndex)
+            nextIndex = j + 1 // Saltar las líneas que combinamos
+            combined = true
+            break
+          }
+        }
+      }
+      
+      if (!combined) {
+        // Si no encontramos monto después de combinar, aún así incluir la línea combinada
+        // (el filtro posterior validará si tiene la información necesaria)
+        combinedDetailRows.push(combinedLine)
+        combinedRowsMapping.set(combinedLine, originalIndex)
+      }
+      
+      // Actualizar i al siguiente índice
+      i = nextIndex
+    } else {
+      // Línea sin fecha: solo incluir si tiene monto (puede ser parte de una transacción anterior)
+      // Pero solo si no es claramente un header
+      const upperLine = currentLine.toUpperCase()
+      if (!upperLine.includes('FECHA') && !upperLine.includes('REFERENCIA') && !upperLine.includes('COMPROBANTE')) {
+        // Si tiene monto, puede ser continuación de una transacción
+        if (hasAmountOrComprobante(currentLine)) {
+          combinedDetailRows.push(currentLine)
+          combinedRowsMapping.set(currentLine, originalIndex)
+        }
+      }
+      i++
+    }
+  }
+  
+  detailRows = combinedDetailRows
+  console.log('[PDF Parsing] Líneas después de combinar:', detailRows.length)
+  console.log('[PDF Parsing] Primeras 5 líneas combinadas:', detailRows.slice(0, 5))
+  
+  // PARSEO ESPECÍFICO PARA FORMATO TABULAR
+  // Formato: FECHA DESCRIPCIÓN COMPROBANTE MONTO_PESOS MONTO_DOLARES
+  // Ejemplo: "25-Jul-25 GOOGLE *Google O(USA,USD, 1,99) 00690 1,99"
+  // Ejemplo: "25-Jul-25 DLO*Digital House AR 01512 63.104,00"
+  
+  // Declarar todas las regex ANTES de usarlas
+  const dateRegex = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
+  const dateRegexForFiltering = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
+  // Regex para montos: formato argentino (punto miles, coma decimal) o USD (solo coma decimal)
+  // Ejemplo: "63.104,00" (pesos) o "1,99" (USD)
+  const pesosAmountRegex = /(\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d{4,}(?:,\d{2})?)/
+  const usdAmountRegex = /(\d+,\d{2})/
+  // Regex para comprobante (número de 4-5 dígitos)
+  const comprobanteRegex = /\s(\d{4,5})\s/
+  
+  // Filtrar líneas que son headers o secciones (COMPRAS DEL MES, DEBITOS AUTOMATICOS, etc.)
+  // Y validar que sean transacciones reales (tienen fecha + monto o comprobante)
+  // También necesitamos un array paralelo con los índices originales para buscar montos después
+  const transactionRowsWithIndices: Array<{ row: string; originalIndex: number }> = []
+  
+  for (let i = 0; i < detailRows.length; i++) {
+    const row = detailRows[i]
+    const upperRow = row.toUpperCase()
+    
+    // Ignorar headers
+    if (upperRow.includes('FECHA') && upperRow.includes('REFERENCIA')) continue
+    if (upperRow.includes('COMPRAS DEL MES')) continue
+    if (upperRow.includes('DEBITOS AUTOMATICOS')) continue
+    if (upperRow.includes('CUOTA DEL MES')) continue
+    
+    // Ignorar líneas que no tienen fecha
+    const dateMatch = row.match(dateRegexForFiltering)
+    if (!dateMatch) continue
+    
+    // Ignorar líneas que son claramente no-transacciones
+    const dateIndex = row.indexOf(dateMatch[0])
+    const textAfterDate = upperRow.substring(dateIndex + dateMatch[0].length).trim()
+    
+    const noTransactionKeywords = [
+      'LLAMANDO AL 0800',
+      'LLAMAR AL 0800',
+      'CONTACTAR',
+      'DIRIGIRSE',
+      'UBICAR',
+      'PAGUE SU RESUMEN',
+      'ABONANDO EL PAGO',
+      'DISPUTAR',
+      'CUESTIONAR',
+      'USTED DISPONE DE',
+      'SEPTIEMBRE-25',
+      'OCTUBRE-25',
+      'NOVIEMBRE-25',
+      'DICIEMBRE-25',
+      'ENERO-26',
+      'FEBRERO-26'
+    ]
+    
+    if (noTransactionKeywords.some(keyword => textAfterDate.includes(keyword))) {
+      console.log('[PDF Parsing] ❌ Filtrando no-transacción:', row.substring(0, 80))
+      continue
+    }
+    
+    // Validar que sea una transacción real:
+    // Debe tener al menos un monto (pesos o USD) O un comprobante (número de 4-5 dígitos)
+    // O tener texto descriptivo sustancial después de la fecha (más de 5 caracteres)
+    const hasPesos = pesosAmountRegex.test(row)
+    const hasUSD = usdAmountRegex.test(row)
+    const hasComprobante = /\s\d{4,5}(?:\s|$)/.test(row)
+    const hasSubstantialDescription = textAfterDate.length > 5
+    
+    // Si tiene monto, comprobante, o descripción sustancial, es probablemente una transacción
+    if (hasPesos || hasUSD || hasComprobante || hasSubstantialDescription) {
+      const originalIndex = combinedRowsMapping.get(row) ?? i
+      transactionRowsWithIndices.push({ row, originalIndex })
+    } else {
+      console.log('[PDF Parsing] ❌ Filtrando línea sin monto/comprobante/descripción:', row.substring(0, 80))
+    }
+  }
+  
+  const transactionRows = transactionRowsWithIndices.map(item => item.row)
+  console.log('[PDF Parsing] Líneas de transacción encontradas:', transactionRows.length)
+  console.log('[PDF Parsing] Primeras 5 transacciones:', transactionRows.slice(0, 5))
+  console.log('[PDF Parsing] TODAS las líneas de transacción:', transactionRows)
+  
+  // Procesar cada línea de transacción con su índice original
+  for (let idx = 0; idx < transactionRowsWithIndices.length; idx++) {
+    const { row, originalIndex } = transactionRowsWithIndices[idx]
+    console.log('[PDF Parsing] Procesando línea:', row.substring(0, 150))
+    console.log('[PDF Parsing]   Índice en transactionRowsWithIndices:', idx)
+    console.log('[PDF Parsing]   originalIndex:', originalIndex)
+    
+    const dateMatch = row.match(dateRegex)
+    if (!dateMatch) {
+      console.log('[PDF Parsing] ⚠️ No se encontró fecha en línea:', row.substring(0, 100))
+      continue
+    }
+    
+    const originalDate = dateMatch[0].trim()
+    console.log('[PDF Parsing] Fecha encontrada:', originalDate)
+    let parsedDate = parseDateWithMonth(originalDate)
+    
+    // Si parseDateWithMonth no funcionó, intentar otros formatos
+    if (!parsedDate) {
+      const numericDateMatch = originalDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/)
+      if (numericDateMatch) {
+        const day = parseInt(numericDateMatch[1])
+        const month = parseInt(numericDateMatch[2])
+        const year = parseInt(numericDateMatch[3])
+        const fullYear = year < 100 ? 2000 + year : year
+        try {
+          const date = new Date(fullYear, month - 1, day)
+          if (!isNaN(date.getTime())) {
+            parsedDate = `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${fullYear}`
+          }
+        } catch (e) {
+          // Ignorar errores de fecha
+        }
+      }
+    }
+    
+    if (!parsedDate) {
+      console.log('[PDF Parsing] No se pudo parsear fecha:', originalDate)
+      continue
+    }
+    
+    // ESTRUCTURA TABULAR: FECHA | DESCRIPCIÓN | COMPROBANTE | PESOS | DÓLARES
+    // Necesitamos extraer en el orden correcto, ignorando el COMPROBANTE
+    
+    // Obtener la posición de la fecha en la línea
+    const dateIndex = dateMatch.index ?? row.indexOf(originalDate)
+    
+    // Paso 1: Extraer el comprobante (número de 4-5 dígitos separado por espacios, está después de la descripción)
+    let remainingRow = row.substring(dateIndex + originalDate.length).trim()
+    const comprobanteMatch = remainingRow.match(/\s(\d{4,5})(?:\s|$)/)
+    let comprobanteEndIndex = 0
+    
+    if (comprobanteMatch) {
+      comprobanteEndIndex = remainingRow.indexOf(comprobanteMatch[0]) + comprobanteMatch[0].length
+      console.log('[PDF Parsing] Comprobante encontrado:', comprobanteMatch[1])
+    }
+    
+    // Paso 2: Extraer descripción (todo entre fecha y comprobante)
+    let description = remainingRow.substring(0, comprobanteMatch ? remainingRow.indexOf(comprobanteMatch[0]) : remainingRow.length).trim()
+    
+    // Paso 3: Extraer montos DESPUÉS del comprobante (si existe)
+    // El texto después del comprobante contiene PESOS y DÓLARES
+    let textAfterComprobante = comprobanteMatch ? remainingRow.substring(comprobanteEndIndex).trim() : remainingRow
+    
+    // Buscar montos en la línea actual primero
+    let usdMatches = textAfterComprobante.match(usdAmountRegex)
+    let pesosMatches = textAfterComprobante.match(pesosAmountRegex)
+    
+    // Función para filtrar comprobantes de los matches
+    const filterComprobantes = (matches: RegExpMatchArray | null): RegExpMatchArray | null => {
+      if (!matches || matches.length === 0) return null
+      const filtered = matches.filter(m => {
+        const numericOnly = m.replace(/[.,]/g, '')
+        // Si es un número de 4-5 dígitos sin punto miles ni coma decimal, es comprobante
+        // O si es exactamente el mismo número que el comprobante detectado
+        if (numericOnly.length >= 4 && numericOnly.length <= 5 && !m.includes('.') && !m.includes(',')) {
+          return false
+        }
+        if (comprobanteMatch && m.includes(comprobanteMatch[1])) {
+          return false
+        }
+        return true
+      })
+      return filtered.length > 0 ? filtered as any : null
+    }
+    
+    // Filtrar comprobantes de los matches iniciales
+    pesosMatches = filterComprobantes(pesosMatches)
+    
+    // Si no encontramos montos válidos en la línea actual, buscar en toda la línea (puede que estén antes del comprobante)
+    if ((!usdMatches || usdMatches.length === 0) && (!pesosMatches || pesosMatches.length === 0)) {
+      // Buscar en toda la línea combinada (row puede tener múltiples líneas ya combinadas)
+      usdMatches = row.match(usdAmountRegex)
+      const allPesosMatches = row.match(pesosAmountRegex)
+      
+      // Filtrar comprobantes de los matches
+      pesosMatches = filterComprobantes(allPesosMatches)
+      
+      textAfterComprobante = row // Usar toda la línea para búsqueda
+    }
+    
+    // Verificar si tenemos montos válidos (no comprobantes)
+    const hasValidAmounts = (usdMatches && usdMatches.length > 0) || (pesosMatches && pesosMatches.length > 0)
+    
+    // Si aún no encontramos montos válidos, buscar en las líneas siguientes del detalleRows ORIGINAL
+    // (En PDFs tabulares, los montos pueden estar en líneas separadas)
+    if (!hasValidAmounts) {
+      // Usar directamente el originalIndex que ya tenemos del transactionRowsWithIndices[idx]
+      if (originalIndex !== undefined && originalIndex >= 0 && originalIndex < originalDetailRows.length - 1) {
+        console.log('[PDF Parsing] 🔍 Buscando montos en líneas siguientes de detalleRows ORIGINAL...')
+        console.log('[PDF Parsing]   Línea actual:', row.substring(0, 120))
+        console.log('[PDF Parsing]   Índice original en originalDetailRows:', originalIndex)
+        console.log('[PDF Parsing]   Total líneas en originalDetailRows:', originalDetailRows.length)
+        
+        for (let k = originalIndex + 1; k < Math.min(originalIndex + 6, originalDetailRows.length); k++) {
+          const nextDetailLine = originalDetailRows[k]
+          console.log('[PDF Parsing]   Línea siguiente', k - originalIndex, '(índice', k, '):', nextDetailLine.substring(0, 120))
+          const nextHasDate = dateRegex.test(nextDetailLine)
+          
+          // Si la siguiente línea tiene fecha, probablemente es otra transacción
+          if (nextHasDate) {
+            console.log('[PDF Parsing]   Siguiente línea tiene fecha, deteniendo búsqueda')
+            break
+          }
+          
+          // Buscar montos en la línea siguiente (puede que solo contenga montos)
+          // Usar un regex más estricto para PESOS que no detecte comprobantes
+          const strictPesosRegex = /(\d{1,3}(?:\.\d{3})+,\d{2}|\d{6,},\d{2})/ // Debe tener punto miles O 6+ dígitos y coma decimal
+          const nextUsdMatches = nextDetailLine.match(usdAmountRegex)
+          const nextPesosMatches = nextDetailLine.match(strictPesosRegex)
+          
+          console.log('[PDF Parsing]   USD matches en línea siguiente:', nextUsdMatches)
+          console.log('[PDF Parsing]   PESOS matches (estricto) en línea siguiente:', nextPesosMatches)
+          
+          if ((nextUsdMatches && nextUsdMatches.length > 0) || (nextPesosMatches && nextPesosMatches.length > 0)) {
+            usdMatches = nextUsdMatches
+            pesosMatches = nextPesosMatches
+            textAfterComprobante = nextDetailLine
+            console.log('[PDF Parsing] ✅ Montos encontrados en línea siguiente del detalle:', nextDetailLine.substring(0, 100))
+            break
+          }
+        }
+      } else {
+        console.log('[PDF Parsing] ⚠️ No se puede buscar en líneas siguientes: originalIndex=', originalIndex, 'originalDetailRows.length=', originalDetailRows.length)
+      }
+    }
+    
+    // Fallback final: buscar en toda la línea combinada
+    const allUsdMatches = usdMatches || row.match(usdAmountRegex) || []
+    const allPesosMatches = pesosMatches || row.match(pesosAmountRegex) || []
+    
+    let montoPesos = 0
+    let montoUSD = 0
+    
+    // Procesar monto PESOS (formato: X.XXX,XX o XXXX,XX)
+    // Usar un regex más estricto que excluya comprobantes (números de 4-5 dígitos)
+    const strictPesosRegex = /(\d{1,3}(?:\.\d{3})+,\d{2}|\d{6,},\d{2})/ // Debe tener punto miles O 6+ dígitos con coma decimal
+    const strictPesosMatches = textAfterComprobante.match(strictPesosRegex) || row.match(strictPesosRegex) || []
+    
+    if (strictPesosMatches.length > 0 || allPesosMatches.length > 0) {
+      // Usar los matches estrictos primero, luego los normales como fallback
+      const matchesToUse = strictPesosMatches.length > 0 ? strictPesosMatches : allPesosMatches
+      
+      // Filtrar montos que no sean parte de la descripción ni sean comprobantes
+      const validPesosMatches = matchesToUse.filter(m => {
+        const searchText = textAfterComprobante || row
+        const index = searchText.indexOf(m)
+        // Si está dentro de paréntesis con USD, no es pesos
+        const before = searchText.substring(Math.max(0, index - 20), index)
+        if (before.includes('USD') || before.includes('USA')) return false
+        
+        // Si es un número pequeño (1-5 dígitos) sin punto miles, probablemente es comprobante
+        const numericOnly = m.replace(/[.,]/g, '')
+        if (numericOnly.length <= 5 && !m.includes('.')) return false
+        
+        // Debe tener formato de monto argentino (punto miles O muchos dígitos)
+        return (m.includes('.') && m.includes(',')) || (numericOnly.length >= 6 && m.includes(','))
+      })
+      
+      if (validPesosMatches.length > 0) {
+        // Tomar el último monto válido que esté DESPUÉS del comprobante o al final de la línea
+        const pesosAmount = validPesosMatches[validPesosMatches.length - 1]
+        const cleanPesos = pesosAmount.replace(/\./g, '').replace(',', '.')
+        montoPesos = parseFloat(cleanPesos) || 0
+        console.log('[PDF Parsing] Monto PESOS encontrado:', pesosAmount, '->', montoPesos)
+      }
+    }
+    
+    // Procesar monto USD (formato: X,XX)
+    // Debe ser un número pequeño con coma decimal (ej: 1,99, 2,99)
+    if (allUsdMatches.length > 0) {
+      const validUSDMatches = allUsdMatches.filter(m => {
+        const index = row.indexOf(m)
+        // Debe estar al final de la línea (columna DÓLARES) o dentro de paréntesis USD
+        const isAtEnd = index > row.length * 0.7
+        const isInParentheses = row.substring(Math.max(0, index - 20), index + 20).includes('USD')
+        
+        // Verificar que no sea un comprobante (números de 4-5 dígitos)
+        const numericValue = m.replace(/[.,]/g, '')
+        const isComprobante = numericValue.length >= 4 && numericValue.length <= 5 && !m.includes(',')
+        
+        return (isAtEnd || isInParentheses) && !isComprobante
+      })
+      
+      if (validUSDMatches.length > 0) {
+        // Tomar el último monto USD válido
+        const usdAmount = validUSDMatches[validUSDMatches.length - 1]
+        const cleanUSD = usdAmount.replace(',', '.')
+        montoUSD = parseFloat(cleanUSD) || 0
+        console.log('[PDF Parsing] Monto USD encontrado:', usdAmount, '->', montoUSD)
+      }
+    }
+    
+    // Si no encontramos montos explícitos, puede que el monto esté en la descripción
+    // Ejemplo: "GOOGLE *Google O(USA,USD, 1,99)"
+    if (montoPesos === 0 && montoUSD === 0) {
+      // Buscar en la descripción por formato USD dentro de paréntesis
+      const usdInDesc = row.match(/\(USA,USD,\s*(\d+,\d{2})\)/i)
+      if (usdInDesc) {
+        const cleanUSD = usdInDesc[1].replace(',', '.')
+        montoUSD = parseFloat(cleanUSD) || 0
+      }
+    }
+    
+    // Limpiar descripción
+    description = description.replace(/\s+/g, ' ').trim()
+    
+    // Si la descripción está vacía después de extraer el comprobante, puede que el comprobante esté mal detectado
+    if (!description || description.length < 2) {
+      // Fallback: usar todo después de la fecha hasta el primer monto encontrado
+      const fallbackDesc = remainingRow.substring(0, Math.min(remainingRow.length, 100)).trim()
+      if (fallbackDesc.length > 5) {
+        description = fallbackDesc
+      } else {
+        description = 'Movimiento sin descripción'
+      }
+    }
+    
+    console.log('[PDF Parsing] Descripción final:', description.substring(0, 60))
+    
+    // Extraer cuotas del formato X/Y (puede estar en la descripción)
+    let installments = null
+    const cuotasMatch = description.match(/(\d{1,2})[\/\-](\d{1,2})/)
+    if (cuotasMatch) {
+      const current = Number(cuotasMatch[1])
+      const total = Number(cuotasMatch[2])
+      if (current && total && current <= total) {
+        installments = { current, total }
+        // Remover cuotas de la descripción para limpiarla
+        description = description.replace(cuotasMatch[0], '').trim()
+      }
+    }
+    
+    // Detectar tipo
+    const lowerDesc = description.toLowerCase()
+    let type: 'consumption' | 'interest' | 'fee' = 'consumption'
+    if (INTEREST_KEYWORDS.test(lowerDesc)) {
+      type = 'interest'
+    } else if (FEE_KEYWORDS.test(lowerDesc)) {
+      type = 'fee'
+    }
+    
+    // Solo agregar si hay al menos un monto válido
+    if (montoPesos === 0 && montoUSD === 0) {
+      console.log('[PDF Parsing] ⚠️ Saltando transacción sin monto:', originalDate, description.substring(0, 50))
+      console.log('[PDF Parsing]   Línea completa:', row.substring(0, 200))
+      console.log('[PDF Parsing]   Texto después del comprobante:', textAfterComprobante.substring(0, 100))
+      console.log('[PDF Parsing]   USD matches encontrados:', allUsdMatches)
+      console.log('[PDF Parsing]   PESOS matches encontrados:', allPesosMatches)
+      continue
+    }
+    
+    // Verificar duplicados
+    const isDuplicate = lines.some(existing => {
+      const sameDate = existing.date === parsedDate
+      const descSimilar = existing.description.toLowerCase().trim() === description.toLowerCase().trim() ||
+                          existing.description.toLowerCase().includes(description.substring(0, 15).toLowerCase()) ||
+                          description.toLowerCase().includes(existing.description.substring(0, 15).toLowerCase())
+      const amountSimilar = Math.abs(existing.montoPesos - montoPesos) < 0.01 || 
+                           Math.abs(existing.montoUSD - montoUSD) < 0.01
+      
+      return sameDate && descSimilar && amountSimilar
+    })
+    
+    if (isDuplicate) {
+      console.log('[PDF Parsing] ⚠️ Saltando transacción duplicada:', originalDate, description.substring(0, 50))
+      continue
+    }
+    
+    lines.push({
+      date: parsedDate,
+      originalDate: originalDate,
+      description: description,
+      montoPesos: Math.abs(montoPesos),
+      montoUSD: Math.abs(montoUSD),
+      installments,
+      type,
+    })
+    
+    console.log('[PDF Parsing] ✅ Transacción agregada:', parsedDate, description.substring(0, 40), montoPesos > 0 ? `$${montoPesos.toFixed(2)}` : `U$D${montoUSD.toFixed(2)}`)
+  }
+  
+  console.log(`[PDF Parsing] ✅ Estadísticas finales:`)
+  console.log(`  - Transacciones encontradas: ${lines.length}`)
+  
+  if (lines.length === 0) {
+    console.warn('[PDF Parsing] ⚠️ No se encontraron transacciones en DETALLE DEL CONSUMO')
+  }
+  
+  return lines
+}
+
+// Función legacy como fallback si no se encuentra DETALLE DEL CONSUMO
+function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTemplate): ParsedLine[] {
+  
+  // Dividir en líneas primero
+  const rows = raw.split(/\r?\n+/).map((r) => r.trim()).filter(Boolean)
   
   // Palabras clave a ignorar (no son transacciones)
   // Solo filtrar si la línea EMPIECE con estas palabras (más específico)
@@ -137,26 +697,111 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     'SALDO PENDIENTE',
     'SALDO ANTERIOR',
     'SU PAGO',
-    'CONSOLIDADO'
+    'CONSOLIDADO',
+    'RESUMEN',
+    'PERIODO',
+    'FECHA DE CORTE',
+    'FECHA DE PAGO'
   ]
   
-  // Filtrar líneas que empiecen con palabras clave a ignorar
-  // PERO mantener líneas que tienen fechas (son transacciones válidas)
+  // Regex para fechas
   const dateRegexForFilter = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
-  const filteredRows = rows.filter(row => {
+  
+  // Filtrar líneas manualmente en un bucle para evitar problemas de TDZ
+  const filteredRowsArray: string[] = []
+  for (let idx = 0; idx < rows.length; idx++) {
+    const row = rows[idx]
     // Si la línea tiene una fecha, es una transacción válida
     if (dateRegexForFilter.test(row)) {
-      return true
+      filteredRowsArray.push(row)
+      continue
     }
     const upperRow = row.toUpperCase().trim()
     // Solo filtrar si la línea empieza con una de estas palabras clave
-    const shouldSkip = skipKeywords.some(keyword => {
-      return upperRow.startsWith(keyword) || upperRow === keyword
-    })
-    return !shouldSkip
-  })
+    let shouldSkip = false
+    for (let k = 0; k < skipKeywords.length; k++) {
+      const keyword = skipKeywords[k]
+      if (upperRow.startsWith(keyword) || upperRow === keyword) {
+        shouldSkip = true
+        break
+      }
+    }
+    if (!shouldSkip) {
+      filteredRowsArray.push(row)
+    }
+  }
   
-  console.log('[PDF Parsing] Líneas después del filtrado:', filteredRows.length)
+  let filteredRows = filteredRowsArray
+  
+  // Intentar combinar líneas consecutivas que puedan ser parte de una misma transacción
+  // Si una línea tiene una fecha pero no tiene monto, combinar con líneas siguientes hasta encontrar monto
+  const combinedRows: string[] = []
+  const dateRegexForCombining = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
+  const amountRegexForCombining = /(\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+[.,]\d{1,3}|\$\s*\d+[.,]\d{2}|\$\d+[.,]\d{2})/
+  
+  for (let i = 0; i < filteredRows.length; i++) {
+    const currentRow = filteredRows[i]
+    const hasDate = dateRegexForCombining.test(currentRow)
+    const hasAmount = amountRegexForCombining.test(currentRow)
+    
+    // Si la línea tiene fecha pero no tiene monto, intentar combinar con líneas siguientes
+    if (hasDate && !hasAmount) {
+      let combinedRow = currentRow
+      let j = i + 1
+      let combined = false
+      let linesToSkip = 0
+      
+      // Buscar hasta 6 líneas siguientes o hasta encontrar otra fecha
+      while (j < Math.min(i + 7, filteredRows.length) && !combined && linesToSkip < 6) {
+        const nextRow = filteredRows[j]
+        const nextHasDate = dateRegexForCombining.test(nextRow)
+        const nextHasAmount = amountRegexForCombining.test(nextRow)
+        
+        if (!nextHasDate) {
+          // La siguiente línea no tiene fecha, combinar
+          combinedRow += ' ' + nextRow
+          linesToSkip++
+          if (nextHasAmount) {
+            // Encontramos un monto, guardar la combinación y saltar líneas combinadas
+            combinedRows.push(combinedRow)
+            i += linesToSkip // Saltar las líneas que combinamos
+            combined = true
+            console.log('[PDF Parsing] Líneas combinadas:', linesToSkip + 1, '| Resultado:', combinedRow.substring(0, 120))
+            break
+          }
+          j++
+        } else {
+          // La siguiente línea tiene fecha, detener búsqueda
+          // Pero si ya combinamos algo, guardarlo
+          if (linesToSkip > 0) {
+            combinedRows.push(combinedRow)
+            i += linesToSkip
+            combined = true
+            break
+          }
+          break
+        }
+      }
+      
+      if (combined) {
+        continue
+      }
+      
+      // Si no encontramos monto en las siguientes líneas, aún así incluir la línea original
+      // El parsing posterior intentará buscar en más líneas
+      combinedRows.push(currentRow)
+    } else {
+      combinedRows.push(currentRow)
+    }
+  }
+  filteredRows = combinedRows
+  
+  console.log('[PDF Parsing] Líneas después del filtrado y combinación:', filteredRows.length)
+  console.log('[PDF Parsing] Primeras 15 líneas combinadas:', filteredRows.slice(0, 15))
+  
+  // Mostrar ejemplos de líneas con fechas para debugging
+  const dateExamples = filteredRows.filter(row => /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/.test(row)).slice(0, 10)
+  console.log('[PDF Parsing] Ejemplos de líneas con fechas:', dateExamples)
   
   // Regex mejorado para detectar fechas: múltiples formatos
   // Formato 1: DD-MMM-YY o DD-MMM-YYYY (ej: 25-Jul-25, 25-Jul-2025)
@@ -172,6 +817,21 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
   let linesProcessed = 0
   let datesFound = 0
   let validTransactions = 0
+  
+  // DEBUG: Mostrar ejemplos de líneas con fechas y sus siguientes líneas ANTES de procesar
+  console.log('[PDF Parsing] 🔍 Analizando formato del PDF...')
+  const dateExampleRegex = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
+  let exampleCount = 0
+  for (let i = 0; i < filteredRows.length && exampleCount < 10; i++) {
+    const testRow = filteredRows[i]
+    if (dateExampleRegex.test(testRow)) {
+      exampleCount++
+      console.log(`[PDF Parsing] 📅 Ejemplo #${exampleCount} - Fecha encontrada en línea ${i}:`)
+      console.log(`  Línea actual:`, testRow.substring(0, 150))
+      console.log(`  Próximas 5 líneas:`, filteredRows.slice(i + 1, i + 6))
+    }
+  }
+  console.log(`[PDF Parsing] Total de ejemplos de fechas encontrados: ${exampleCount}`)
   
   // Para cada línea, buscar si empieza con fecha
   for (let i = 0; i < filteredRows.length; i++) {
@@ -194,13 +854,17 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     if (!dateMatch || !dateMatch[0]) continue
     datesFound++
     
-    // Verificar que la fecha esté al inicio o cerca del inicio (más flexible: hasta 20 caracteres)
+    // Verificar que la fecha esté al inicio o cerca del inicio (más flexible: hasta 50 caracteres)
     const dateIndex = row.indexOf(dateMatch[0])
-    if (dateIndex > 20) {
+    if (dateIndex > 50) {
       // Si la fecha está muy lejos, verificar si hay texto antes que indique que no es una transacción
-      const beforeDate = row.substring(0, dateIndex).trim()
-      if (beforeDate.length > 10 || /^[A-Z]{2,}/.test(beforeDate)) {
-        continue // Probablemente no es una fila de consumo
+      const beforeDate = row.substring(0, dateIndex).trim().toUpperCase()
+      // Solo ignorar si tiene palabras clave de encabezado
+      const isHeader = skipKeywords.some(keyword => beforeDate.includes(keyword)) || 
+                       /^(PERIODO|RESUMEN|FECHA|CORTE|PAGO|DESDE|HASTA)/.test(beforeDate)
+      if (isHeader) {
+        console.log('[PDF Parsing] Ignorando línea con fecha lejana (probablemente encabezado):', row.substring(0, 80))
+        continue
       }
     }
     
@@ -237,15 +901,299 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     // Remover la fecha de la línea para obtener descripción y monto
     let remainingRow = row.substring(dateIndex + originalDate.length).trim()
     
+    // Si la fecha está seguida de "- " o " - ", puede que sea parte de una descripción
+    // Ejemplo: "19/08/2025- AUBASA"
+    if (remainingRow.startsWith('-') || remainingRow.startsWith(' -')) {
+      // Mantener la descripción que viene después del guión
+      remainingRow = remainingRow.replace(/^[- ]+/, '').trim()
+    }
+    
     // Buscar todos los números en la línea (montos)
     // Regex mejorado: captura números con formato argentino (punto miles, coma decimal) o inglés
-    // También captura números simples con decimales
-    const amountRegex = /([+-]?\d{1,3}(?:\.\d{3})+(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+(?:\.\d{2})?|[+-]?\d+[.,]\d{1,3}|[+-]?\d{4,})/g
-    const amountMatches = remainingRow.match(amountRegex)
+    // También captura números simples con decimales y enteros grandes
+    // Incluye formatos con $ y sin signos
+    const amountRegex = /([+-]?\d{1,3}(?:\.\d{3})+(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+(?:\.\d{2})?|[+-]?\d+[.,]\d{1,3}|[+-]?\d{4,}|\d+[.,]\d{2}|[+-]?\$?\s*\d+[.,]\d{2}|\$\s?\d+(?:[.,]\d{2})?)/g
+    let amountMatches = remainingRow.match(amountRegex)
+    
+    // Si no encuentra montos en la línea actual o remainingRow está casi vacío, buscar en líneas siguientes
+    const dateRegexForAmountSearch = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
+    if (!amountMatches || amountMatches.length === 0 || remainingRow.length < 5) {
+      let extendedRow = remainingRow
+      let linesCombined = 0
+      let foundAmount = false
+      const isDateOnly = remainingRow.length < 5
+      const hasDescription = remainingRow.length > 5 && remainingRow.length < 100
+      
+      // Si la línea solo tiene fecha, buscar más agresivamente
+      if (isDateOnly) {
+        console.log('[PDF Parsing] 🔍 Fecha SOLA detectada:', originalDate, '- Buscando AGRESIVAMENTE en siguientes 25 líneas...')
+      } else if (hasDescription) {
+        console.log('[PDF Parsing] 🔍 Fecha con descripción pero sin monto:', originalDate, '- Descripción:', remainingRow.substring(0, 50))
+      }
+      
+      // Intentar combinar con líneas siguientes (hasta 25 líneas si es solo fecha, o hasta encontrar otra fecha)
+      // Si ya tiene descripción, buscar más agresivamente porque el monto debe estar cerca
+      const maxLinesToSearch = isDateOnly ? 25 : (hasDescription ? 18 : 15)
+      for (let j = i + 1; j < Math.min(i + maxLinesToSearch + 1, filteredRows.length) && linesCombined < maxLinesToSearch && !foundAmount; j++) {
+        const nextRow = filteredRows[j]
+        const nextHasDate = dateRegexForAmountSearch.test(nextRow)
+        
+        if (!nextHasDate) {
+          // La siguiente línea no tiene fecha, probablemente es continuación de la transacción
+          if (extendedRow.length > 0) {
+            extendedRow += ' ' + nextRow
+          } else {
+            extendedRow = nextRow
+          }
+          linesCombined++
+          
+          // Verificar si ahora tiene monto
+          const extendedMatches = extendedRow.match(amountRegex)
+          if (extendedMatches && extendedMatches.length > 0) {
+            // Validar que el monto sea razonable
+            const lastMatch = extendedMatches[extendedMatches.length - 1]
+            const cleanAmount = lastMatch.replace(/[$\s]/g, '')
+            // Manejar formato argentino (punto miles, coma decimal)
+            let numericValue = 0
+            if (cleanAmount.includes(',')) {
+              // Formato argentino: 1.234,56
+              numericValue = parseFloat(cleanAmount.replace(/\./g, '').replace(',', '.')) || 0
+            } else if (cleanAmount.includes('.')) {
+              // Puede ser formato inglés o miles
+              const parts = cleanAmount.split('.')
+              if (parts.length === 2 && parts[1].length <= 3) {
+                // Probablemente decimal: 123.45
+                numericValue = parseFloat(cleanAmount) || 0
+              } else {
+                // Probablemente miles: 1.234.567
+                numericValue = parseFloat(cleanAmount.replace(/\./g, '')) || 0
+              }
+            } else {
+              numericValue = parseFloat(cleanAmount) || 0
+            }
+            
+            if (numericValue > 0.01 && numericValue < 10000000) {
+              amountMatches = extendedMatches
+              remainingRow = extendedRow
+              foundAmount = true
+              console.log('[PDF Parsing] ✅ Monto encontrado en línea extendida (líneas:', linesCombined, '| monto:', numericValue, '):', extendedRow.substring(0, 120))
+              break
+            }
+          }
+        } else {
+          // La siguiente línea tiene fecha
+          // Si nuestra línea solo tenía fecha y aún no encontramos monto, 
+          // puede que la descripción/monto esté en líneas intermedias que no detectamos
+          // O puede que la estructura sea: fecha1, descripción, monto, fecha2
+          if (isDateOnly && linesCombined === 0) {
+            // Intentar buscar en líneas anteriores (por si el formato es fecha-descr-monto)
+            // O buscar en líneas entre esta fecha y la siguiente
+            let descWithAmount = ''
+            let searchBackwards = false
+            
+            // Primero intentar buscar entre líneas
+            for (let k = i + 1; k < j; k++) {
+              const intermediateRow = filteredRows[k]
+              if (descWithAmount.length > 0) {
+                descWithAmount += ' ' + intermediateRow
+              } else {
+                descWithAmount = intermediateRow
+              }
+            }
+            
+            // Verificar si tiene monto
+            const intermediateMatches = descWithAmount.match(amountRegex)
+            if (intermediateMatches && intermediateMatches.length > 0) {
+              const lastMatch = intermediateMatches[intermediateMatches.length - 1]
+              const cleanAmount = lastMatch.replace(/[$\s]/g, '')
+              const numericValue = parseFloat(cleanAmount.replace(',', '.')) || 0
+              
+              if (numericValue > 0.01 && numericValue < 10000000) {
+                amountMatches = intermediateMatches
+                remainingRow = descWithAmount
+                foundAmount = true
+                console.log('[PDF Parsing] ✅ Monto encontrado en líneas intermedias:', descWithAmount.substring(0, 120))
+                break
+              }
+            }
+            
+            // Si no encontramos, intentar con la siguiente fecha y sus líneas
+            let descWithAmount2 = nextRow
+            for (let k = j + 1; k < Math.min(j + 5, filteredRows.length); k++) {
+              const furtherRow = filteredRows[k]
+              if (!dateRegexForAmountSearch.test(furtherRow)) {
+                descWithAmount2 += ' ' + furtherRow
+                const furtherMatches = descWithAmount2.match(amountRegex)
+                if (furtherMatches && furtherMatches.length > 0) {
+                  const lastMatch = furtherMatches[furtherMatches.length - 1]
+                  const cleanAmount = lastMatch.replace(/[$\s]/g, '')
+                  const numericValue = parseFloat(cleanAmount.replace(',', '.')) || 0
+                  
+                  if (numericValue > 0.01 && numericValue < 10000000) {
+                    amountMatches = furtherMatches
+                    remainingRow = descWithAmount2
+                    foundAmount = true
+                    console.log('[PDF Parsing] ✅ Monto encontrado después de próxima fecha:', descWithAmount2.substring(0, 120))
+                    break
+                  }
+                }
+              } else {
+                break
+              }
+            }
+            if (foundAmount) {
+              break
+            }
+          }
+          // Detener búsqueda si la siguiente línea tiene fecha y ya buscamos
+          break
+        }
+      }
+      
+      if (!foundAmount && linesCombined > 0) {
+        console.log('[PDF Parsing] ⚠️ Líneas combinadas pero sin monto válido:', extendedRow.substring(0, 150))
+      }
+    }
     
     if (!amountMatches || amountMatches.length === 0) {
-      console.log('[PDF Parsing] No se encontró monto en línea con fecha:', originalDate, '| Línea:', row.substring(0, 100))
-      continue
+      // Último intento desesperado: buscar cualquier número que parezca un monto en las siguientes líneas
+      // Esto maneja casos donde el formato del PDF es completamente diferente
+      console.log('[PDF Parsing] 🔍 Último intento: búsqueda desesperada de montos...')
+      console.log('[PDF Parsing] Fecha:', originalDate, '| Línea:', row.substring(0, 100))
+      
+      // Buscar en las siguientes 20 líneas cualquier número que parezca un monto válido
+      for (let j = i + 1; j < Math.min(i + 21, filteredRows.length); j++) {
+        const nextRow = filteredRows[j]
+        const nextHasDate = dateRegexForAmountSearch.test(nextRow)
+        
+        // Buscar cualquier número en esta línea (más permisivo)
+        const anyNumbers = nextRow.match(/\d+[.,]\d{2,3}|\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d{4,}/g)
+        
+        if (anyNumbers && anyNumbers.length > 0) {
+          // Verificar cada número para ver si es un monto válido
+          for (const num of anyNumbers) {
+            const cleanNum = num.replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.')
+            const numericValue = parseFloat(cleanNum) || 0
+            
+            // Validar que sea un monto razonable de transacción
+            if (numericValue > 0.01 && numericValue < 10000000 && numericValue !== Math.floor(numericValue)) {
+              // Tiene decimales, probablemente es un monto
+              amountMatches = [num]
+              
+              // Si la línea no tiene fecha, usarla como descripción completa
+              if (!nextHasDate) {
+                remainingRow = nextRow
+                console.log('[PDF Parsing] ✅ Monto encontrado en búsqueda desesperada (línea', j - i, 'después):', nextRow.substring(0, 120))
+                break
+              } else {
+                // Tiene fecha, pero el monto puede ser de nuestra transacción
+                // Usar la línea anterior si existe y no tiene fecha
+                if (j > i + 1) {
+                  const prevRow = filteredRows[j - 1]
+                  if (!dateRegexForAmountSearch.test(prevRow)) {
+                    remainingRow = prevRow + ' ' + nextRow
+                  } else {
+                    remainingRow = nextRow
+                  }
+                } else {
+                  remainingRow = nextRow
+                }
+                console.log('[PDF Parsing] ✅ Monto encontrado en búsqueda desesperada (con fecha):', remainingRow.substring(0, 120))
+                break
+              }
+            }
+          }
+          
+          if (amountMatches && amountMatches.length > 0) {
+            break
+          }
+        }
+        
+        // Si encontramos otra fecha y ya buscamos 10+ líneas, detener
+        if (nextHasDate && j > i + 10) {
+          break
+        }
+      }
+      
+      if (!amountMatches || amountMatches.length === 0) {
+        console.log('[PDF Parsing] ❌ No se encontró monto después de TODAS las búsquedas')
+        console.log('[PDF Parsing] Fecha:', originalDate, '| Línea completa:', row.substring(0, 150))
+        console.log('[PDF Parsing] RemainingRow después de búsqueda:', remainingRow.substring(0, 150))
+        // Debug: mostrar las siguientes 15 líneas para diagnóstico completo
+        if (i + 1 < filteredRows.length) {
+          console.log('[PDF Parsing] 🔍 Próximas 15 líneas después de fecha:', filteredRows.slice(i + 1, i + 16))
+        }
+        
+        // ÚLTIMO INTENTO: buscar cualquier patrón numérico en las siguientes 30 líneas
+        console.log('[PDF Parsing] 🔥 Búsqueda final agresiva: buscando CUALQUIER número en 30 líneas siguientes...')
+        for (let j = i + 1; j < Math.min(i + 31, filteredRows.length); j++) {
+          const nextRow = filteredRows[j]
+          // Buscar cualquier número que pueda ser un monto
+          const allNumbers = nextRow.match(/\d+(?:[.,]\d+)?/g)
+          if (allNumbers) {
+            console.log(`[PDF Parsing]   Línea ${j - i}:`, nextRow.substring(0, 120), '| Números encontrados:', allNumbers)
+            for (const num of allNumbers) {
+              const cleanNum = num.replace(/[$\s]/g, '')
+              let numericValue = 0
+              
+              // Intentar parsear el número
+              if (cleanNum.includes(',')) {
+                // Formato con coma: puede ser decimal argentino o miles
+                const parts = cleanNum.split(',')
+                if (parts.length === 2 && parts[1].length <= 3) {
+                  // Probablemente decimal: 1,99 o 1234,56
+                  numericValue = parseFloat(cleanNum.replace(/\./g, '').replace(',', '.')) || 0
+                } else {
+                  // Miles con coma
+                  numericValue = parseFloat(cleanNum.replace(/\./g, '').replace(',', '')) || 0
+                }
+              } else if (cleanNum.includes('.')) {
+                const parts = cleanNum.split('.')
+                if (parts.length === 2 && parts[1].length <= 3) {
+                  // Probablemente decimal: 1.99
+                  numericValue = parseFloat(cleanNum) || 0
+                } else {
+                  // Miles con punto
+                  numericValue = parseFloat(cleanNum.replace(/\./g, '')) || 0
+                }
+              } else {
+                numericValue = parseFloat(cleanNum) || 0
+              }
+              
+              // Si es un monto razonable (más de $0.01 y menos de $10M)
+              if (numericValue > 0.01 && numericValue < 10000000) {
+                // Verificar si parece un monto (tiene decimales o es >= 10)
+                const hasDecimals = numericValue !== Math.floor(numericValue)
+                const looksLikeAmount = hasDecimals || numericValue >= 10
+                
+                if (looksLikeAmount) {
+                  console.log(`[PDF Parsing] ✅ MONTO POTENCIAL ENCONTRADO en línea ${j - i}:`, numericValue, '| Original:', num)
+                  // Intentar usar este número como monto
+                  amountMatches = [num]
+                  remainingRow = nextRow
+                  break
+                }
+              }
+            }
+            if (amountMatches && amountMatches.length > 0) break
+          }
+          
+          // Si encontramos otra fecha después de buscar 5+ líneas, probablemente esta transacción no tiene monto
+          const nextHasDate = dateRegexForAmountSearch.test(nextRow)
+          if (nextHasDate && j > i + 5) {
+            console.log(`[PDF Parsing]   Otra fecha encontrada en línea ${j - i}, deteniendo búsqueda`)
+            break
+          }
+        }
+        
+        // Si después de todo aún no encontramos monto, saltar esta transacción
+        if (!amountMatches || amountMatches.length === 0) {
+          console.log('[PDF Parsing] ⚠️ Saltando transacción sin monto:', originalDate)
+          continue
+        } else {
+          console.log('[PDF Parsing] ✅ Usando monto encontrado en búsqueda final agresiva')
+        }
+      }
     }
     
     // Tomar el último número como monto
@@ -366,6 +1314,23 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     
     validTransactions++
     
+    // Verificar duplicados antes de agregar (por fecha, descripción y monto similar)
+    const isDuplicate = lines.some(existing => {
+      const sameDate = existing.date === parsedDate
+      const descSimilar = existing.description.toLowerCase().trim() === description.toLowerCase().trim() ||
+                          existing.description.toLowerCase().includes(description.substring(0, 10).toLowerCase()) ||
+                          description.toLowerCase().includes(existing.description.substring(0, 10).toLowerCase())
+      const amountSimilar = Math.abs(existing.montoPesos - montoPesos) < 0.01 || 
+                           Math.abs(existing.montoUSD - montoUSD) < 0.01
+      
+      return sameDate && descSimilar && amountSimilar
+    })
+    
+    if (isDuplicate) {
+      console.log('[PDF Parsing] Se saltó transacción duplicada:', originalDate, description.substring(0, 50), montoPesos || montoUSD)
+      continue
+    }
+    
     lines.push({
       date: parsedDate,
       originalDate: originalDate,
@@ -375,6 +1340,8 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
       installments,
       type,
     })
+    
+    console.log('[PDF Parsing] Transacción agregada:', parsedDate, description.substring(0, 40), montoPesos || montoUSD)
   }
   
   // Debug: mostrar estadísticas detalladas
@@ -398,11 +1365,12 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
 
 export default function CreditCardStatementImport({ isOpen, onClose, cardId }: Props) {
   const { error, success } = useToastContext()
+  const { categories, fetchCategories } = useCategories()
   const [bank, setBank] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [parsing, setParsing] = useState(false)
   const [rows, setRows] = useState<ParsedLine[]>([])
-  const [editingRow, setEditingRow] = useState<number | null>(null)
+  const [editableRows, setEditableRows] = useState<EditableParsedLine[]>([])
   const [saving, setSaving] = useState(false)
   const [rawText, setRawText] = useState<string>('')
   const [showRawText, setShowRawText] = useState(false)
@@ -410,11 +1378,16 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
   const [selectedTemplate, setSelectedTemplate] = useState<string>('')
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [showTemplateManager, setShowTemplateManager] = useState(false)
+  const [smartTemplate, setSmartTemplate] = useState<SmartTemplate | null>(null)
+  const [loadingSmartTemplate, setLoadingSmartTemplate] = useState(false)
+  const [showCorrectionAssistant, setShowCorrectionAssistant] = useState(false)
 
-  // Cargar templates al abrir el modal
+  // Cargar categorías, templates y smart template al abrir el modal
   useEffect(() => {
     if (isOpen && cardId) {
+      fetchCategories()
       loadTemplates()
+      loadSmartTemplate()
     }
   }, [isOpen, cardId])
 
@@ -437,12 +1410,23 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
     }
   }
 
+  const loadSmartTemplate = async () => {
+    try {
+      setLoadingSmartTemplate(true)
+      const res = await fetch(`/api/credit-cards/${cardId}/smart-template`)
+      const data = await res.json()
+      if (data.success && data.smartTemplate) {
+        setSmartTemplate(data.smartTemplate)
+        console.log('[Smart Template] Cargado:', data.smartTemplate)
+      }
+    } catch (e) {
+      console.error('Error cargando smart template:', e)
+    } finally {
+      setLoadingSmartTemplate(false)
+    }
+  }
+
   const handleParse = async () => {
-    alert('handleParse ejecutado!')
-    console.log('=== HANDLE PARSE EJECUTADO ===')
-    console.log('File:', file?.name)
-    console.log('Bank:', bank)
-    
     try {
       if (!file) {
         console.error('[PDF Import] No hay archivo seleccionado')
@@ -461,7 +1445,7 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
       
       const text = await extractPdfText(file)
       console.log('[PDF Import] Texto extraído. Longitud:', text.length, 'caracteres')
-      setRawText(text) // Guardar texto crudo para debug
+      setRawText(text) // Guardar texto crudo para debug y aprendizaje
       
       // Mostrar muestra del texto extraído
       if (text.length > 0) {
@@ -473,19 +1457,40 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
         return
       }
       
-      // Buscar template seleccionado
-      const template = templates.find(t => t.id === selectedTemplate)
+      // Buscar template seleccionado o smart template
+      const template = smartTemplate || templates.find(t => t.id === selectedTemplate)
       
       console.log('[PDF Import] Iniciando parsing con banco:', bank)
+      console.log('[PDF Import] Usando smart template:', !!smartTemplate)
       const parsed = parseByBank(bank, text, template)
       console.log('[PDF Import] Parsing completado. Resultado:', parsed.length, 'transacciones')
       
-      setRows(parsed)
+      // Aplicar mapeos de comercios para autocategorización
+      let editableParsedRows: EditableParsedLine[]
+      if (smartTemplate?.mapeoComercios) {
+        editableParsedRows = applyMerchantMappings(parsed, smartTemplate.mapeoComercios)
+        console.log('[PDF Import] Se aplicaron mapeos de comercios para autocategorización')
+      } else {
+        // Crear filas editables sin mapeos
+        editableParsedRows = parsed.map((row, i) => ({
+          id: `row-${i}`,
+          ...row,
+          categoryId: undefined,
+          subcategoryId: undefined,
+          ignored: false,
+        }))
+      }
+      
+      setRows(parsed) // Mantener para compatibilidad
+      setEditableRows(editableParsedRows)
+      setShowCorrectionAssistant(true)
+      
       if (parsed.length === 0) {
         console.warn('[PDF Import] No se detectaron movimientos. Revisa la consola para más detalles.')
         error('No se detectaron movimientos. Abre la consola del navegador (F12) para ver detalles del parsing.')
       } else {
-        success(`Se detectaron ${parsed.length} movimientos${template ? ` usando template "${template.name}"` : ''}`)
+        const templateName = smartTemplate ? 'Plantilla Inteligente' : template?.name
+        success(`Se detectaron ${parsed.length} movimientos${templateName ? ` usando ${templateName}` : ''}`)
       }
     } catch (e: any) {
       console.error('[PDF Import] Error:', e)
@@ -496,31 +1501,26 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
     }
   }
 
-  const updateRow = (index: number, field: keyof ParsedLine, value: any) => {
-    const newRows = [...rows]
-    if (field === 'installments') {
-      if (typeof value === 'string' && value.includes('/')) {
-        const [current, total] = value.split('/').map(n => parseInt(n.trim()))
-        newRows[index].installments = { current, total }
-      } else {
-        newRows[index].installments = value
-      }
-    } else {
-      (newRows[index] as any)[field] = value
-    }
-    setRows(newRows)
-  }
-
-  const handleSave = async () => {
-    if (rows.length === 0) return
+  const handleSaveWithLearning = async (rowsToSave: EditableParsedLine[]) => {
+    if (rowsToSave.length === 0) return
     try {
       setSaving(true)
+      
       // Convertir rows a formato esperado por la API (agregar amount calculado)
-      const itemsToSave = rows.map(row => ({
-        ...row,
-        amount: row.montoPesos > 0 ? row.montoPesos : row.montoUSD, // Usar PESOS como principal, o USD si no hay PESOS
+      const itemsToSave = rowsToSave.map(row => ({
+        date: row.date,
+        originalDate: row.originalDate,
+        description: row.description,
+        montoPesos: row.montoPesos,
+        montoUSD: row.montoUSD,
+        installments: row.installments,
+        type: row.type,
+        amount: row.montoPesos > 0 ? row.montoPesos : row.montoUSD,
+        categoryId: row.categoryId,
+        subcategoryId: row.subcategoryId,
       }))
       
+      // Guardar consumos
       const res = await fetch(`/api/credit-cards/${cardId}/consumptions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -529,17 +1529,56 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error al guardar')
       
+      // Aprender de las correcciones del usuario
+      if (rawText) {
+        const learnedPatterns = learnPatternsFromText(rawText)
+        const merchantMappings = learnMerchantMappings(
+          rowsToSave,
+          smartTemplate?.mapeoComercios
+        )
+        
+        // Actualizar smart template
+        const updatedSmartTemplate = {
+          creditCardId: cardId,
+          ...learnedPatterns,
+          mapeoComercios: merchantMappings,
+          name: smartTemplate?.name || 'Plantilla Inteligente',
+        }
+        
+        // Guardar smart template
+        try {
+          const templateRes = await fetch(`/api/credit-cards/${cardId}/smart-template`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedSmartTemplate)
+          })
+          
+          if (templateRes.ok) {
+            const templateData = await templateRes.json()
+            if (templateData.success) {
+              setSmartTemplate(templateData.smartTemplate)
+              console.log('[Smart Template] Actualizado con nuevos aprendizajes')
+            }
+          }
+        } catch (templateError) {
+          console.error('Error guardando smart template:', templateError)
+          // No fallar el guardado si hay error en el template
+        }
+      }
+      
       // Mostrar mensaje con información de duplicados si hay
       if (data.message) {
         success(data.message)
       } else {
-        success(`Se importaron ${rows.length} movimientos`)
+        success(`Se importaron ${rowsToSave.length} movimientos y se actualizó la plantilla inteligente`)
       }
       
       // Cerrar y limpiar
       setRows([])
+      setEditableRows([])
       setRawText('')
       setFile(null)
+      setShowCorrectionAssistant(false)
       onClose()
     } catch (e) {
       console.error(e)
@@ -552,8 +1591,8 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
   if (!isOpen) return null
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <AnimatePresence mode="wait">
+      <motion.div key="modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <motion.div className="absolute inset-0 bg-black/50" onClick={onClose} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} />
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -601,26 +1640,18 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              {console.log('[RENDER] Estado del botón Analizar:', { hasFile: !!file, hasBank: !!bank, parsing, file: file?.name, bank })}
-              <button onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                alert(`Botón clickeado! File: ${file?.name || 'no file'}, Bank: ${bank || 'no bank'}`)
-                console.log('===== BOTÓN ANALIZAR CLICKEADO =====')
-                console.log('Event:', e)
-                console.log('File:', file)
-                console.log('Bank:', bank)
-                console.log('Parsing:', parsing)
-                handleParse()
-              }} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 cursor-pointer flex items-center gap-2" style={{ opacity: (!file || !bank || parsing) ? 0.5 : 1 }}>
+              <button 
+                onClick={handleParse}
+                disabled={!file || !bank || parsing}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
+              >
                 <Upload className="w-4 h-4"/> 
                 {parsing ? 'Analizando...' : 'Analizar'}
               </button>
-              {rows.length>0 && (
-                <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 cursor-pointer flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4"/> 
-                  {saving ? 'Importando...' : `Importar ${rows.length} movimientos`}
-                </button>
+              {smartTemplate && (
+                <div className="px-3 py-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg text-xs text-purple-700 dark:text-purple-300">
+                  🧠 Plantilla Inteligente activa ({smartTemplate.totalImports || 0} importaciones)
+                </div>
               )}
               {rawText && (
                 <button onClick={() => setShowRawText(!showRawText)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 cursor-pointer flex items-center gap-2 text-sm">
@@ -636,7 +1667,20 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
                 </pre>
               </div>
             )}
-            {rows.length>0 ? (
+            {showCorrectionAssistant && editableRows.length > 0 ? (
+              <StatementCorrectionAssistant
+                rows={editableRows}
+                onRowsChange={setEditableRows}
+                onSave={handleSaveWithLearning}
+                onCancel={() => {
+                  setShowCorrectionAssistant(false)
+                  setEditableRows([])
+                  setRows([])
+                }}
+                categories={categories}
+                saving={saving}
+              />
+            ) : rows.length > 0 ? (
               <div className="overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div className="p-2 bg-gray-50 dark:bg-gray-700 text-sm text-gray-600 dark:text-gray-300">
                   Revisa y edita los datos antes de importar. Haz clic en cualquier celda para editarla.
@@ -650,123 +1694,17 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
                       <th className="p-2 text-right">USD</th>
                       <th className="p-2 text-left">Cuotas</th>
                       <th className="p-2 text-left">Tipo</th>
-                      <th className="p-2 text-left">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r,i)=> (
-                      <tr key={i} className={`border-t border-gray-200 dark:border-gray-700 ${editingRow === i ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
-                        <td className="p-2">
-                          {editingRow === i ? (
-                            <input
-                              type="text"
-                              value={r.date}
-                              onChange={e => updateRow(i, 'date', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white"
-                              onBlur={() => setEditingRow(null)}
-                              autoFocus
-                            />
-                          ) : (
-                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>{r.date}</span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          {editingRow === i ? (
-                            <input
-                              type="text"
-                              value={r.description}
-                              onChange={e => updateRow(i, 'description', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white"
-                              onBlur={() => setEditingRow(null)}
-                            />
-                          ) : (
-                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>{r.description}</span>
-                          )}
-                        </td>
-                        <td className="p-2 text-right">
-                          {editingRow === i ? (
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={r.montoPesos === 0 ? '' : r.montoPesos.toString().replace('.', ',')}
-                              onChange={e => {
-                                const val = e.target.value.replace(',', '.')
-                                updateRow(i, 'montoPesos', parseFloat(val) || 0)
-                              }}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-right"
-                              onBlur={() => setEditingRow(null)}
-                              placeholder="0,00"
-                            />
-                          ) : (
-                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>
-                              {r.montoPesos > 0 ? formatCurrency(r.montoPesos, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2 text-right">
-                          {editingRow === i ? (
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={r.montoUSD === 0 ? '' : r.montoUSD.toString().replace('.', ',')}
-                              onChange={e => {
-                                const val = e.target.value.replace(',', '.')
-                                updateRow(i, 'montoUSD', parseFloat(val) || 0)
-                              }}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-right"
-                              onBlur={() => setEditingRow(null)}
-                              placeholder="0,00"
-                            />
-                          ) : (
-                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>
-                              {r.montoUSD > 0 ? `$${r.montoUSD.toFixed(2)}` : '-'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          {editingRow === i ? (
-                            <input
-                              type="text"
-                              placeholder="1/1"
-                              value={r.installments ? `${r.installments.current}/${r.installments.total}` : ''}
-                              onChange={e => updateRow(i, 'installments', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white"
-                              onBlur={() => setEditingRow(null)}
-                            />
-                          ) : (
-                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>
-                              {r.installments ? `${r.installments.current}/${r.installments.total}` : '-'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          {editingRow === i ? (
-                            <select
-                              value={r.type}
-                              onChange={e => updateRow(i, 'type', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white"
-                              onBlur={() => setEditingRow(null)}
-                            >
-                              <option value="consumption">Consumo</option>
-                              <option value="interest">Interés</option>
-                              <option value="fee">Comisión</option>
-                            </select>
-                          ) : (
-                            <span className="cursor-pointer" onClick={() => setEditingRow(i)}>{r.type}</span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          <button
-                            onClick={() => {
-                              const newRows = rows.filter((_, idx) => idx !== i)
-                              setRows(newRows)
-                              setEditingRow(null)
-                            }}
-                            className="px-2 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-xs"
-                          >
-                            Eliminar
-                          </button>
-                        </td>
+                    {rows.map((r, i) => (
+                      <tr key={i} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="p-2">{r.date}</td>
+                        <td className="p-2">{r.description}</td>
+                        <td className="p-2 text-right">{r.montoPesos > 0 ? formatCurrency(r.montoPesos, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                        <td className="p-2 text-right">{r.montoUSD > 0 ? `$${r.montoUSD.toFixed(2)}` : '-'}</td>
+                        <td className="p-2">{r.installments ? `${r.installments.current}/${r.installments.total}` : '-'}</td>
+                        <td className="p-2">{r.type}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -777,20 +1715,23 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
             )}
           </div>
         </motion.div>
-      </div>
-
-      <PDFTemplateManager
-        isOpen={showTemplateManager}
-        onClose={() => {
-          setShowTemplateManager(false)
-          loadTemplates()
-        }}
-        cardId={cardId}
-        onTemplateSelected={(templateId) => {
-          setSelectedTemplate(templateId)
-          success('Template seleccionado')
-        }}
-      />
+      </motion.div>
+      
+      {showTemplateManager && (
+        <PDFTemplateManager
+          key="template-manager"
+          isOpen={showTemplateManager}
+          onClose={() => {
+            setShowTemplateManager(false)
+            loadTemplates()
+          }}
+          cardId={cardId}
+          onTemplateSelected={(templateId) => {
+            setSelectedTemplate(templateId)
+            success('Template seleccionado')
+          }}
+        />
+      )}
     </AnimatePresence>
   )
 }
