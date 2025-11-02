@@ -41,6 +41,7 @@ export default function StatementCorrectionAssistant({
 }: Props) {
   const [editingRow, setEditingRow] = useState<string | null>(null)
   const [showIgnored, setShowIgnored] = useState(false)
+  const [savedRows, setSavedRows] = useState<Set<string>>(new Set())
 
   const visibleRows = showIgnored ? rows : rows.filter(r => !r.ignored)
 
@@ -109,13 +110,14 @@ export default function StatementCorrectionAssistant({
         💡 <strong>Consejo:</strong> Haz clic en cualquier celda para editarla. Los cambios se guardan automáticamente en la plantilla inteligente.
       </div>
 
-      <div className="overflow-auto border border-gray-200 dark:border-gray-700 rounded-lg max-h-[60vh]">
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-[60vh] overflow-y-auto overflow-x-visible">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
               <th className="p-2 text-left">Fecha</th>
               <th className="p-2 text-left">Descripción</th>
               <th className="p-2 text-right">Monto</th>
+              <th className="p-2 text-left">Moneda</th>
               <th className="p-2 text-left">Cuotas</th>
               <th className="p-2 text-left">Categoría</th>
               <th className="p-2 text-left">Tipo</th>
@@ -134,7 +136,7 @@ export default function StatementCorrectionAssistant({
                   key={row.id}
                   className={`border-t border-gray-200 dark:border-gray-700 ${
                     isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                  } ${row.ignored ? 'opacity-50' : ''}`}
+                  } ${row.ignored ? 'opacity-50' : ''} ${savedRows.has(row.id) && !isEditing ? 'bg-green-50 dark:bg-green-900/10' : ''}`}
                 >
                   <td className="p-2">
                     {isEditing ? (
@@ -143,13 +145,27 @@ export default function StatementCorrectionAssistant({
                         value={row.date}
                         onChange={e => updateRow(row.id, 'date', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm"
-                        onBlur={() => setEditingRow(null)}
+                        onBlur={(e) => {
+                          // Solo cerrar si el focus no se mueve a otro input de la misma fila
+                          setTimeout(() => {
+                            const relatedTarget = e.relatedTarget as HTMLElement
+                            const currentRow = e.currentTarget.closest('tr')
+                            if (!relatedTarget || !currentRow?.contains(relatedTarget)) {
+                              // Marcar como guardada cuando se sale de la edición
+                              setSavedRows(prev => new Set(prev).add(row.id))
+                              setEditingRow(null)
+                            }
+                        }, 100)
+                        }}
                         autoFocus
                       />
                     ) : (
                       <span
                         className="cursor-pointer"
-                        onClick={() => setEditingRow(row.id)}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setEditingRow(row.id)
+                        }}
                       >
                         {row.date}
                       </span>
@@ -162,12 +178,25 @@ export default function StatementCorrectionAssistant({
                         value={row.description}
                         onChange={e => updateRow(row.id, 'description', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm"
-                        onBlur={() => setEditingRow(null)}
+                        onBlur={(e) => {
+                          setTimeout(() => {
+                            const relatedTarget = e.relatedTarget as HTMLElement
+                            const currentRow = e.currentTarget.closest('tr')
+                            if (!relatedTarget || !currentRow?.contains(relatedTarget)) {
+                              // Marcar como guardada cuando se sale de la edición
+                              setSavedRows(prev => new Set(prev).add(row.id))
+                              setEditingRow(null)
+                            }
+                        }, 100)
+                        }}
                       />
                     ) : (
                       <span
                         className="cursor-pointer"
-                        onClick={() => setEditingRow(row.id)}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setEditingRow(row.id)
+                        }}
                         title={row.description}
                       >
                         {row.description.length > 40 ? `${row.description.substring(0, 40)}...` : row.description}
@@ -176,42 +205,46 @@ export default function StatementCorrectionAssistant({
                   </td>
                   <td className="p-2 text-right">
                     {isEditing ? (
-                      <div className="flex gap-1">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={currency === 'pesos' ? (amount > 0 ? amount.toString().replace('.', ',') : '') : ''}
-                          onChange={e => {
-                            const val = e.target.value.replace(',', '.')
-                            updateRow(row.id, 'montoPesos', parseFloat(val) || 0)
-                            if (parseFloat(val) > 0) {
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={amount > 0 ? (currency === 'pesos' ? amount.toString().replace('.', ',') : amount.toFixed(2)) : ''}
+                        onChange={e => {
+                          const val = e.target.value.replace(',', '.')
+                          const numVal = parseFloat(val) || 0
+                          if (currency === 'pesos') {
+                            updateRow(row.id, 'montoPesos', numVal)
+                            if (numVal > 0) {
                               updateRow(row.id, 'montoUSD', 0)
                             }
-                          }}
-                          className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-right text-sm"
-                          onBlur={() => setEditingRow(null)}
-                          placeholder="ARS"
-                        />
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={currency === 'usd' ? (amount > 0 ? amount.toFixed(2) : '') : ''}
-                          onChange={e => {
-                            const val = e.target.value
-                            updateRow(row.id, 'montoUSD', parseFloat(val) || 0)
-                            if (parseFloat(val) > 0) {
+                          } else {
+                            updateRow(row.id, 'montoUSD', numVal)
+                            if (numVal > 0) {
                               updateRow(row.id, 'montoPesos', 0)
                             }
-                          }}
-                          className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-right text-sm"
-                          onBlur={() => setEditingRow(null)}
-                          placeholder="USD"
-                        />
-                      </div>
+                          }
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-right text-sm"
+                        onBlur={(e) => {
+                          setTimeout(() => {
+                            const relatedTarget = e.relatedTarget as HTMLElement
+                            const currentRow = e.currentTarget.closest('tr')
+                            if (!relatedTarget || !currentRow?.contains(relatedTarget)) {
+                              // Marcar como guardada cuando se sale de la edición
+                              setSavedRows(prev => new Set(prev).add(row.id))
+                              setEditingRow(null)
+                            }
+                        }, 100)
+                        }}
+                        placeholder={currency === 'pesos' ? 'ARS' : 'USD'}
+                      />
                     ) : (
                       <span
                         className="cursor-pointer"
-                        onClick={() => setEditingRow(row.id)}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setEditingRow(row.id)
+                        }}
                       >
                         {currency === 'pesos' 
                           ? formatCurrency(amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -222,18 +255,94 @@ export default function StatementCorrectionAssistant({
                   </td>
                   <td className="p-2">
                     {isEditing ? (
+                      <select
+                        value={currency}
+                        onChange={e => {
+                          const newCurrency = e.target.value as 'pesos' | 'usd'
+                          if (newCurrency === 'pesos') {
+                            // Cambiar a pesos: mantener montoPesos, limpiar montoUSD
+                            const currentAmount = row.montoUSD > 0 ? row.montoUSD : row.montoPesos
+                            updateRow(row.id, 'montoPesos', currentAmount)
+                            updateRow(row.id, 'montoUSD', 0)
+                          } else {
+                            // Cambiar a USD: mantener montoUSD, limpiar montoPesos
+                            const currentAmount = row.montoPesos > 0 ? row.montoPesos : row.montoUSD
+                            updateRow(row.id, 'montoUSD', currentAmount)
+                            updateRow(row.id, 'montoPesos', 0)
+                          }
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm"
+                        onBlur={(e) => {
+                          setTimeout(() => {
+                            const relatedTarget = e.relatedTarget as HTMLElement
+                            const currentRow = e.currentTarget.closest('tr')
+                            if (!relatedTarget || !currentRow?.contains(relatedTarget)) {
+                              // Marcar como guardada cuando se sale de la edición
+                              setSavedRows(prev => new Set(prev).add(row.id))
+                              setEditingRow(null)
+                            }
+                        }, 100)
+                        }}
+                      >
+                        <option value="pesos">PESOS</option>
+                        <option value="usd">DÓLARES</option>
+                      </select>
+                    ) : (
+                      <span
+                        className="cursor-pointer inline-flex items-center px-2 py-1 rounded text-xs font-medium"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setEditingRow(row.id)
+                        }}
+                      >
+                        <span className={`px-2 py-0.5 rounded ${
+                          currency === 'pesos' 
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+                            : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                        }`}>
+                          {currency === 'pesos' ? 'ARS' : 'USD'}
+                        </span>
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    {isEditing ? (
                       <input
                         type="text"
                         placeholder="1/1"
                         value={row.installments ? `${row.installments.current}/${row.installments.total}` : ''}
-                        onChange={e => updateRow(row.id, 'installments', e.target.value)}
+                        onChange={e => {
+                          const value = e.target.value.trim()
+                          if (value === '' || value === '-') {
+                            updateRow(row.id, 'installments', null)
+                          } else {
+                            updateRow(row.id, 'installments', value)
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '') {
+                            updateRow(row.id, 'installments', null)
+                          }
+                          setTimeout(() => {
+                            const relatedTarget = e.relatedTarget as HTMLElement
+                            const currentRow = e.currentTarget.closest('tr')
+                            if (!relatedTarget || !currentRow?.contains(relatedTarget)) {
+                              // Marcar como guardada cuando se sale de la edición
+                              setSavedRows(prev => new Set(prev).add(row.id))
+                              setEditingRow(null)
+                            }
+                        }, 100)
+                        }}
                         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm"
-                        onBlur={() => setEditingRow(null)}
                       />
                     ) : (
                       <span
                         className="cursor-pointer"
-                        onClick={() => setEditingRow(row.id)}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setEditingRow(row.id)
+                        }}
                       >
                         {row.installments ? `${row.installments.current}/${row.installments.total}` : '-'}
                       </span>
@@ -245,7 +354,17 @@ export default function StatementCorrectionAssistant({
                         value={row.categoryId || ''}
                         onChange={e => updateRow(row.id, 'categoryId', e.target.value || undefined)}
                         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm"
-                        onBlur={() => setEditingRow(null)}
+                        onBlur={(e) => {
+                          setTimeout(() => {
+                            const relatedTarget = e.relatedTarget as HTMLElement
+                            const currentRow = e.currentTarget.closest('tr')
+                            if (!relatedTarget || !currentRow?.contains(relatedTarget)) {
+                              // Marcar como guardada cuando se sale de la edición
+                              setSavedRows(prev => new Set(prev).add(row.id))
+                              setEditingRow(null)
+                            }
+                        }, 100)
+                        }}
                       >
                         <option value="">Sin categoría</option>
                         {categories
@@ -259,7 +378,10 @@ export default function StatementCorrectionAssistant({
                     ) : (
                       <span
                         className="cursor-pointer"
-                        onClick={() => setEditingRow(row.id)}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setEditingRow(row.id)
+                        }}
                       >
                         {category ? (
                           <span className="inline-flex items-center gap-1">
@@ -278,7 +400,17 @@ export default function StatementCorrectionAssistant({
                         value={row.type}
                         onChange={e => updateRow(row.id, 'type', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm"
-                        onBlur={() => setEditingRow(null)}
+                        onBlur={(e) => {
+                          setTimeout(() => {
+                            const relatedTarget = e.relatedTarget as HTMLElement
+                            const currentRow = e.currentTarget.closest('tr')
+                            if (!relatedTarget || !currentRow?.contains(relatedTarget)) {
+                              // Marcar como guardada cuando se sale de la edición
+                              setSavedRows(prev => new Set(prev).add(row.id))
+                              setEditingRow(null)
+                            }
+                        }, 100)
+                        }}
                       >
                         <option value="consumption">Consumo</option>
                         <option value="interest">Interés</option>
@@ -286,10 +418,13 @@ export default function StatementCorrectionAssistant({
                       </select>
                     ) : (
                       <span
-                        className="cursor-pointer text-xs"
-                        onClick={() => setEditingRow(row.id)}
+                        className="cursor-pointer"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setEditingRow(row.id)
+                        }}
                       >
-                        {row.type === 'consumption' ? '✓' : row.type === 'interest' ? 'ℹ' : '⚙'}
+                        {row.type === 'consumption' ? 'Consumo' : row.type === 'interest' ? 'Interés' : row.type === 'fee' ? 'Comisión' : '-'}
                       </span>
                     )}
                   </td>
@@ -321,4 +456,5 @@ export default function StatementCorrectionAssistant({
     </div>
   )
 }
+
 

@@ -484,33 +484,55 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         console.log('[PDF Parsing]   Índice original en originalDetailRows:', originalIndex)
         console.log('[PDF Parsing]   Total líneas en originalDetailRows:', originalDetailRows.length)
         
-        for (let k = originalIndex + 1; k < Math.min(originalIndex + 6, originalDetailRows.length); k++) {
+        // Buscar en las siguientes 10 líneas (más agresivo para PDFs tabulares)
+        let foundAmountsInNextLine = false
+        for (let k = originalIndex + 1; k < Math.min(originalIndex + 11, originalDetailRows.length); k++) {
           const nextDetailLine = originalDetailRows[k]
           console.log('[PDF Parsing]   Línea siguiente', k - originalIndex, '(índice', k, '):', nextDetailLine.substring(0, 120))
           const nextHasDate = dateRegex.test(nextDetailLine)
           
           // Si la siguiente línea tiene fecha, probablemente es otra transacción
-          if (nextHasDate) {
+          if (nextHasDate && k > originalIndex + 1) {
             console.log('[PDF Parsing]   Siguiente línea tiene fecha, deteniendo búsqueda')
             break
           }
           
           // Buscar montos en la línea siguiente (puede que solo contenga montos)
-          // Usar un regex más estricto para PESOS que no detecte comprobantes
-          const strictPesosRegex = /(\d{1,3}(?:\.\d{3})+,\d{2}|\d{6,},\d{2})/ // Debe tener punto miles O 6+ dígitos y coma decimal
+          // Usar regex más flexible: buscar cualquier número que parezca monto (con coma decimal)
+          const flexiblePesosRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g // Cualquier número con coma decimal (incluye 63.104,00)
           const nextUsdMatches = nextDetailLine.match(usdAmountRegex)
-          const nextPesosMatches = nextDetailLine.match(strictPesosRegex)
+          const nextPesosMatches = [...(nextDetailLine.matchAll(flexiblePesosRegex) || [])].map(m => m[1])
+          
+          // Filtrar comprobantes: si el match es solo el comprobante (4-5 dígitos sin punto miles), ignorarlo
+          const validPesosMatches = nextPesosMatches.filter(m => {
+            const numericOnly = m.replace(/[.,]/g, '')
+            // Si es un número de 4-5 dígitos sin punto miles, probablemente es comprobante
+            if (numericOnly.length >= 4 && numericOnly.length <= 5 && !m.includes('.')) {
+              return false
+            }
+            // Si coincide con el comprobante detectado, ignorarlo
+            if (comprobanteMatch && m.includes(comprobanteMatch[1])) {
+              return false
+            }
+            return true
+          })
           
           console.log('[PDF Parsing]   USD matches en línea siguiente:', nextUsdMatches)
-          console.log('[PDF Parsing]   PESOS matches (estricto) en línea siguiente:', nextPesosMatches)
+          console.log('[PDF Parsing]   PESOS matches (flexible) en línea siguiente:', nextPesosMatches)
+          console.log('[PDF Parsing]   PESOS matches válidos (sin comprobantes):', validPesosMatches)
           
-          if ((nextUsdMatches && nextUsdMatches.length > 0) || (nextPesosMatches && nextPesosMatches.length > 0)) {
+          if ((nextUsdMatches && nextUsdMatches.length > 0) || validPesosMatches.length > 0) {
             usdMatches = nextUsdMatches
-            pesosMatches = nextPesosMatches
+            pesosMatches = validPesosMatches.length > 0 ? validPesosMatches as any : null
             textAfterComprobante = nextDetailLine
-            console.log('[PDF Parsing] ✅ Montos encontrados en línea siguiente del detalle:', nextDetailLine.substring(0, 100))
+            foundAmountsInNextLine = true
+            console.log('[PDF Parsing] ✅ Montos encontrados en línea siguiente del detalle (índice', k, '):', nextDetailLine.substring(0, 100))
             break
           }
+        }
+        
+        if (!foundAmountsInNextLine) {
+          console.log('[PDF Parsing] ⚠️ No se encontraron montos en ninguna línea siguiente (buscadas hasta 10 líneas)')
         }
       } else {
         console.log('[PDF Parsing] ⚠️ No se puede buscar en líneas siguientes: originalIndex=', originalIndex, 'originalDetailRows.length=', originalDetailRows.length)
@@ -519,39 +541,50 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     
     // Fallback final: buscar en toda la línea combinada
     const allUsdMatches = usdMatches || row.match(usdAmountRegex) || []
-    const allPesosMatches = pesosMatches || row.match(pesosAmountRegex) || []
+    
+    // Si pesosMatches viene de líneas siguientes (es array), usarlo directamente
+    // Si no, buscar en la línea actual
+    let allPesosMatches: string[] = []
+    if (pesosMatches && Array.isArray(pesosMatches)) {
+      allPesosMatches = pesosMatches
+    } else {
+      // Buscar en la línea combinada usando regex flexible
+      const flexiblePesosRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g
+      const matches = [...(textAfterComprobante.matchAll(flexiblePesosRegex) || []), ...(row.matchAll(flexiblePesosRegex) || [])]
+        .map(m => m[1])
+        .filter((v, i, a) => a.indexOf(v) === i) // Eliminar duplicados
+      
+      // Filtrar comprobantes
+      allPesosMatches = matches.filter(m => {
+        const numericOnly = m.replace(/[.,]/g, '')
+        if (numericOnly.length >= 4 && numericOnly.length <= 5 && !m.includes('.')) {
+          return false
+        }
+        if (comprobanteMatch && m.includes(comprobanteMatch[1])) {
+          return false
+        }
+        return true
+      })
+    }
     
     let montoPesos = 0
     let montoUSD = 0
     
-    // Procesar monto PESOS (formato: X.XXX,XX o XXXX,XX)
-    // Usar un regex más estricto que excluya comprobantes (números de 4-5 dígitos)
-    const strictPesosRegex = /(\d{1,3}(?:\.\d{3})+,\d{2}|\d{6,},\d{2})/ // Debe tener punto miles O 6+ dígitos con coma decimal
-    const strictPesosMatches = textAfterComprobante.match(strictPesosRegex) || row.match(strictPesosRegex) || []
-    
-    if (strictPesosMatches.length > 0 || allPesosMatches.length > 0) {
-      // Usar los matches estrictos primero, luego los normales como fallback
-      const matchesToUse = strictPesosMatches.length > 0 ? strictPesosMatches : allPesosMatches
-      
-      // Filtrar montos que no sean parte de la descripción ni sean comprobantes
-      const validPesosMatches = matchesToUse.filter(m => {
-        const searchText = textAfterComprobante || row
-        const index = searchText.indexOf(m)
-        // Si está dentro de paréntesis con USD, no es pesos
-        const before = searchText.substring(Math.max(0, index - 20), index)
-        if (before.includes('USD') || before.includes('USA')) return false
-        
-        // Si es un número pequeño (1-5 dígitos) sin punto miles, probablemente es comprobante
-        const numericOnly = m.replace(/[.,]/g, '')
-        if (numericOnly.length <= 5 && !m.includes('.')) return false
-        
-        // Debe tener formato de monto argentino (punto miles O muchos dígitos)
-        return (m.includes('.') && m.includes(',')) || (numericOnly.length >= 6 && m.includes(','))
-      })
+    // Procesar monto PESOS
+    if (allPesosMatches.length > 0) {
+      // Los matches ya vienen filtrados
+      const validPesosMatches = allPesosMatches
       
       if (validPesosMatches.length > 0) {
-        // Tomar el último monto válido que esté DESPUÉS del comprobante o al final de la línea
-        const pesosAmount = validPesosMatches[validPesosMatches.length - 1]
+        // Si hay múltiples matches, usar el más grande (probablemente el monto principal)
+        // O si hay solo uno, usarlo
+        const pesosAmount = validPesosMatches.length === 1 
+          ? validPesosMatches[0] 
+          : validPesosMatches.reduce((max, current) => {
+              const maxNum = parseFloat(max.replace(/\./g, '').replace(',', '.'))
+              const currentNum = parseFloat(current.replace(/\./g, '').replace(',', '.'))
+              return currentNum > maxNum ? current : max
+            })
         const cleanPesos = pesosAmount.replace(/\./g, '').replace(',', '.')
         montoPesos = parseFloat(cleanPesos) || 0
         console.log('[PDF Parsing] Monto PESOS encontrado:', pesosAmount, '->', montoPesos)
@@ -1594,7 +1627,7 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
     <AnimatePresence mode="wait">
       <motion.div key="modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <motion.div className="absolute inset-0 bg-black/50" onClick={onClose} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} />
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Importar Resumen (PDF)</h3>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer"><X className="w-5 h-5" /></button>
