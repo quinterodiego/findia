@@ -105,7 +105,7 @@ export default function CreditCardProjectionModal({
     }
   }, [isOpen, cards])
 
-  const loadAllConsumptions = async () => {
+  const loadAllConsumptions = async (): Promise<Record<string, CreditCardConsumption[]>> => {
     const consumptionsMap: Record<string, CreditCardConsumption[]> = {}
     
     for (const card of cards) {
@@ -135,16 +135,27 @@ export default function CreditCardProjectionModal({
     }
     
     setAllConsumptions(consumptionsMap)
+    return consumptionsMap
   }
 
-  const calculateProjections = useCallback(async () => {
+  const calculateProjections = useCallback(async (forceReload = false) => {
     if (cards.length === 0) {
       error('Necesitas al menos una tarjeta de crédito para calcular la proyección')
       return
     }
 
-      setLoading(true)
+    setLoading(true)
     try {
+      // Recargar consumos solo si se fuerza (click en "Recalcular") o si no hay consumos cargados
+      let consumptionsToUse: Record<string, CreditCardConsumption[]>
+      if (forceReload || Object.keys(allConsumptions).length === 0) {
+        console.log('[Proyección] 🔄 Recargando consumos antes de recalcular...')
+        consumptionsToUse = await loadAllConsumptions()
+        console.log('[Proyección] ✅ Consumos recargados, calculando proyecciones...')
+      } else {
+        console.log('[Proyección] 📊 Usando consumos ya cargados para calcular proyecciones...')
+        consumptionsToUse = allConsumptions
+      }
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
       const currentDate = new Date()
       const currentMonth = currentDate.getMonth()
@@ -196,7 +207,7 @@ export default function CreditCardProjectionModal({
         
         // Para cada tarjeta
         for (const card of cards) {
-          const consumptions = allConsumptions[card.id] || []
+          const consumptions = consumptionsToUse[card.id] || []
 
           // Calcular saldo inicial (Deuda anterior)
           let previousDebt = monthOffset === 0 ? card.currentBalance : 0
@@ -252,10 +263,16 @@ export default function CreditCardProjectionModal({
 
           for (const consumption of consumptions) {
             const rawCategory = (consumption.categoryId || '').trim()
-            const effectiveCategory = rawCategory || inferCategory(consumption)
+            const hasMultipleInstallments = (consumption.installments || 0) > 1
+            
+            // IMPORTANTE: Si un consumo tiene múltiples cuotas, forzar categoría "Cuotas"
+            // Esto asegura que todos los consumos en cuotas se incluyan en la proyección
+            // independientemente de la categoría asignada al cargarlo
+            const effectiveCategory = hasMultipleInstallments 
+              ? 'Cuotas' 
+              : (rawCategory || inferCategory(consumption))
             
             // Debug: Log detallado para todos los consumos en cuotas o que deberían estar en cuotas
-            const hasMultipleInstallments = (consumption.installments || 0) > 1
             if (monthOffset === 0 || monthOffset === 1 || hasMultipleInstallments) {
               console.log(`[Proyección] 🔍 Consumo ${consumption.merchant}:`, {
                 categoryId: rawCategory || '(vacío)',
@@ -265,23 +282,13 @@ export default function CreditCardProjectionModal({
                 monthlyPayment: consumption.monthlyPayment,
                 amount: consumption.amount,
                 date: consumption.date,
-                willInclude: effectiveCategory === 'Cuotas'
+                willInclude: effectiveCategory === 'Cuotas',
+                forcedCategory: hasMultipleInstallments && rawCategory !== 'Cuotas' ? 'Sí (múltiples cuotas)' : 'No'
               })
             }
             
             // Solo incluir consumos con categoría "Cuotas"
             if (effectiveCategory !== 'Cuotas') {
-              if (hasMultipleInstallments && monthOffset === 0) {
-                console.log(`[Proyección] ⚠️ ATENCIÓN: Consumo con múltiples cuotas NO está en categoría "Cuotas": ${consumption.merchant}`, {
-                  categoryId: rawCategory || '(vacío)',
-                  effectiveCategory,
-                  installments: consumption.installments,
-                  amount: consumption.amount
-                })
-              }
-              if (monthOffset === 0 && hasMultipleInstallments) {
-                console.log(`[Proyección] ⏭️ Saltando consumo ${consumption.merchant} - categoría efectiva: "${effectiveCategory}" (debería ser "Cuotas" porque tiene ${consumption.installments} cuotas)`)
-              }
               continue
             }
             
@@ -319,6 +326,11 @@ export default function CreditCardProjectionModal({
             // Calcular cuántos meses han pasado desde el consumo hasta el mes objetivo
             const monthsDiff = (targetYear - consumptionYear) * 12 + (targetMonth - consumptionMonth)
             
+            // La primera cuota vence el mes siguiente al consumo (monthsDiff = 1 corresponde a cuota 1)
+            // Por lo tanto, installmentNumber = monthsDiff
+            // Pero debemos asegurarnos de que monthsDiff >= 1 (al menos un mes después del consumo)
+            const installmentNumber = monthsDiff
+            
             // Debug detallado
             if (monthOffset === 0 || monthOffset === 1) {
               console.log(`[Proyección] 📅 Consumo en cuotas ${consumption.merchant}:`, {
@@ -326,22 +338,31 @@ export default function CreditCardProjectionModal({
                 parsed: `${consumptionMonth + 1}/${consumptionYear}`,
                 target: `${targetMonth + 1}/${targetYear}`,
                 monthsDiff,
+                installmentNumber,
                 installments: consumption.installments,
                 currentInstallment: consumption.currentInstallment,
                 monthlyPayment: consumption.monthlyPayment
               })
             }
             
-            // Si la cuota corresponde a este mes (o futuro)
-            // monthsDiff puede ser negativo para meses pasados o >= 0 para meses presentes/futuros
-            // Solo incluir cuotas que vencen en este mes o en el futuro (monthsDiff >= 0)
-            // y que aún no hayan sido pagadas todas (monthsDiff < consumption.installments)
-            if (monthsDiff >= 0 && monthsDiff < consumption.installments) {
-              const installmentNumber = monthsDiff + 1
+            // Si la cuota corresponde a este mes o futuro
+            // monthsDiff >= 1 significa que al menos pasó un mes desde el consumo (primera cuota)
+            // installmentNumber <= consumption.installments significa que aún hay cuotas pendientes
+            // IMPORTANTE: También incluir cuotas que ya vencieron pero aún no se han pagado
+            // (monthsDiff > consumption.installments pero currentInstallment < installments)
+            const isWithinInstallmentRange = monthsDiff >= 1 && installmentNumber <= consumption.installments
+            const isOverdueButUnpaid = monthsDiff > consumption.installments && 
+                                       (consumption.currentInstallment || 0) < consumption.installments
+            
+            if (isWithinInstallmentRange || isOverdueButUnpaid) {
+              // Para cuotas vencidas, usar la última cuota pendiente
+              const effectiveInstallmentNumber = isOverdueButUnpaid 
+                ? consumption.installments 
+                : installmentNumber
               
               // Verificar que esta cuota aún no se haya pagado
-              // La cuota está pagada si installmentNumber <= currentInstallment
-              if (installmentNumber > (consumption.currentInstallment || 0)) {
+              // La cuota está pagada si effectiveInstallmentNumber <= currentInstallment
+              if (effectiveInstallmentNumber > (consumption.currentInstallment || 0)) {
                 // El amount ya es la cuota mensual, no el total
                 // Para calcular el total original: amount * installments
                 const monthlyPayment = consumption.monthlyPayment || consumption.amount || 0
@@ -364,7 +385,7 @@ export default function CreditCardProjectionModal({
                 installmentsDetail.push({
                   merchant: consumption.merchant || 'Consumo',
                   amount: monthlyPayment,
-                  installment: `${installmentNumber}/${consumption.installments}`,
+                  installment: `${effectiveInstallmentNumber}/${consumption.installments}`,
                   amountARS,
                   amountUSD
                 })
@@ -372,9 +393,9 @@ export default function CreditCardProjectionModal({
                 totalInstallmentsARS += amountARS
                 totalInstallmentsUSD += amountUSD
                 
-                console.log(`[Proyección] ✅ Cuota agregada: ${consumption.merchant} - Cuota ${installmentNumber}/${consumption.installments} = ${monthlyPayment} (ARS: ${amountARS}, USD: ${amountUSD})`)
+                console.log(`[Proyección] ✅ Cuota agregada: ${consumption.merchant} - Cuota ${effectiveInstallmentNumber}/${consumption.installments} = ${monthlyPayment} (ARS: ${amountARS}, USD: ${amountUSD})${isOverdueButUnpaid ? ' [VENCIDA]' : ''}`)
               } else {
-                console.log(`[Proyección] ⏭️ Cuota ya pagada: ${consumption.merchant} - Cuota ${installmentNumber}/${consumption.installments} (current: ${consumption.currentInstallment || 0})`)
+                console.log(`[Proyección] ⏭️ Cuota ya pagada: ${consumption.merchant} - Cuota ${effectiveInstallmentNumber}/${consumption.installments} (current: ${consumption.currentInstallment || 0})`)
               }
             } else {
               if (monthOffset === 0 || monthOffset === 1) {
@@ -962,7 +983,7 @@ export default function CreditCardProjectionModal({
               </div>
               <div className="flex items-center gap-2">
                 <button
-                onClick={calculateProjections}
+                onClick={() => calculateProjections(true)}
                 disabled={loading}
                 className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
