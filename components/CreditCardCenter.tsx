@@ -93,6 +93,18 @@ export default function CreditCardCenter({
   }>>([]);
   const [loadingProjections, setLoadingProjections] = useState(false);
   
+  // Detectar si es móvil
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint de Tailwind
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
   const { success, error } = useToastContext();
   const { cards, loading, fetchCards, createCard, updateCard, deleteCard, makePayment, fetchPayments } = useCreditCards();
   const { debts, fetchDebts } = useDebts();
@@ -537,25 +549,45 @@ export default function CreditCardCenter({
           className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden"
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Wallet className="w-6 h-6" />
-                <div>
-                  <h2 className="text-2xl font-bold">Centro de Control de Tarjetas</h2>
-                  <p className="text-blue-100 text-sm">Gestiona tus tarjetas y sal de deudas inteligentemente</p>
+          <div className={`bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white ${isMobile ? 'p-3' : 'p-6'}`}>
+            {isMobile ? (
+              // Layout vertical para móvil
+              <div className="flex flex-col gap-2 mb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Wallet className="w-5 h-5 shrink-0" />
+                    <h2 className="text-lg font-bold truncate">Centro de Control</h2>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="p-1.5 hover:bg-white/20 rounded-lg transition-colors cursor-pointer shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
+                <p className="text-blue-100 text-xs leading-tight">Gestiona tus tarjetas y sal de deudas inteligentemente</p>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            ) : (
+              // Layout horizontal para desktop
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Wallet className="w-6 h-6" />
+                  <div>
+                    <h2 className="text-2xl font-bold">Centro de Control de Tarjetas</h2>
+                    <p className="text-blue-100 text-sm">Gestiona tus tarjetas y sal de deudas inteligentemente</p>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
 
             {/* Tabs */}
-            <div className="flex gap-2 overflow-x-auto">
+            <div className={`flex ${isMobile ? 'gap-1' : 'gap-2'} overflow-x-auto ${isMobile ? '-mx-3 px-3' : ''}`}>
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -563,7 +595,7 @@ export default function CreditCardCenter({
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`
-                      flex items-center gap-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap
+                      flex items-center ${isMobile ? 'gap-1.5 px-2.5 py-1.5 text-xs' : 'gap-2 px-4 py-2'} rounded-lg transition-colors whitespace-nowrap
                       ${activeTab === tab.id
                         ? 'bg-white text-blue-600 font-semibold'
                         : 'bg-white/10 hover:bg-white/20 text-white'
@@ -571,7 +603,7 @@ export default function CreditCardCenter({
                       cursor-pointer
                     `}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className={`${isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
                     {tab.label}
                   </button>
                 );
@@ -1664,6 +1696,8 @@ export default function CreditCardCenter({
           isOpen={showProjection}
           onClose={() => setShowProjection(false)}
           cards={cards}
+          loading={loading}
+          onCreateCard={() => setShowQuickAdd(true)}
         />
       </div>
     </AnimatePresence>

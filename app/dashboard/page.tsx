@@ -13,6 +13,7 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useGoals } from '@/hooks/useGoals'
 import { useCategories } from '@/hooks/useCategories'
 import { useSubcategories } from '@/hooks/useSubcategories'
+import { useCreditCards } from '@/hooks/useCreditCards'
 import type { Income, Expense, Goal } from '@/types'
 import { formatNumber, formatCurrency } from '@/lib/formatNumber'
 import FloatingActionButton from '@/components/FloatingActionButton'
@@ -167,6 +168,9 @@ export default function Dashboard() {
   // Hook para manejar subcategorías
   const { subcategories = [] } = useSubcategories()
 
+  // Hook para manejar tarjetas de crédito
+  const { cards: creditCards, loading: cardsLoading, fetchCards } = useCreditCards()
+
   // Evitar dobles cargas (StrictMode/dev y re-hidratación de sesión)
   const hasLoadedRef = useRef(false)
   useEffect(() => {
@@ -175,7 +179,8 @@ export default function Dashboard() {
     hasLoadedRef.current = true
     fetchDebts()
     fetchStats()
-  }, [status, session?.user?.id, fetchDebts, fetchStats])
+    fetchCards()
+  }, [status, session?.user?.id, fetchDebts, fetchStats, fetchCards])
 
   useEffect(() => {
     if (status === 'loading') return
@@ -1938,9 +1943,12 @@ export default function Dashboard() {
       <CreditCardProjectionModal
         isOpen={showCreditCardProjectionModal}
         onClose={() => setShowCreditCardProjectionModal(false)}
-        selectedCard={selectedCreditCard}
-        consumptions={[]} // Aquí irían los consumos reales
-        payments={[]} // Aquí irían los pagos reales
+        cards={creditCards || []}
+        loading={cardsLoading}
+        onCreateCard={() => {
+          setShowCreditCardProjectionModal(false)
+          setShowCreditCardModal(true)
+        }}
       />
 
       {/* Modal de Alertas */}

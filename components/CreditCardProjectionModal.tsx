@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Sparkles, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, Sparkles, TrendingUp, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
 import { formatCurrency } from '@/lib/formatNumber'
 import type { CreditCard, CreditCardConsumption } from '@/types'
@@ -10,7 +10,9 @@ import type { CreditCard, CreditCardConsumption } from '@/types'
 interface CreditCardProjectionModalProps {
   isOpen: boolean
   onClose: () => void
-  cards: CreditCard[]
+  cards?: CreditCard[] // Opcional para evitar errores si no se pasa
+  loading?: boolean // Estado de carga de las tarjetas
+  onCreateCard?: () => void // Función para crear una tarjeta
 }
 
 interface ProjectionData {
@@ -56,7 +58,9 @@ interface ProjectionData {
 export default function CreditCardProjectionModal({ 
   isOpen, 
   onClose, 
-  cards
+  cards = [],
+  loading: cardsLoading = false,
+  onCreateCard
 }: CreditCardProjectionModalProps) {
   const { error } = useToastContext()
   const [projections, setProjections] = useState<ProjectionData[]>([])
@@ -85,6 +89,18 @@ export default function CreditCardProjectionModal({
     year: 0,
     monthKey: ''
   })
+  
+  // Detectar si es móvil
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // md breakpoint de Tailwind
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // Prevenir scroll del body cuando el modal está abierto
   useEffect(() => {
@@ -100,13 +116,18 @@ export default function CreditCardProjectionModal({
 
   // Cargar todos los consumos una sola vez
   useEffect(() => {
-    if (isOpen && cards.length > 0) {
+    if (isOpen && cards && cards.length > 0) {
       loadAllConsumptions()
     }
   }, [isOpen, cards])
 
   const loadAllConsumptions = async (): Promise<Record<string, CreditCardConsumption[]>> => {
     const consumptionsMap: Record<string, CreditCardConsumption[]> = {}
+    
+    if (!cards || cards.length === 0) {
+      setAllConsumptions(consumptionsMap)
+      return consumptionsMap
+    }
     
     for (const card of cards) {
       try {
@@ -139,7 +160,7 @@ export default function CreditCardProjectionModal({
   }
 
   const calculateProjections = useCallback(async (forceReload = false) => {
-    if (cards.length === 0) {
+    if (!cards || cards.length === 0) {
       error('Necesitas al menos una tarjeta de crédito para calcular la proyección')
       return
     }
@@ -879,8 +900,41 @@ export default function CreditCardProjectionModal({
 
   if (!isOpen) return null
 
+  // Si está cargando, mostrar indicador de carga
+  if (cardsLoading) {
+    return (
+      <AnimatePresence>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-8 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <X 
+              onClick={onClose}
+              className="absolute top-4 right-4 w-6 h-6 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+            />
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="animate-spin w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Cargando tarjetas...</p>
+            </div>
+          </motion.div>
+        </div>
+      </AnimatePresence>
+    )
+  }
+
   // Si no hay tarjetas, mostrar mensaje
-  if (cards.length === 0) {
+  if (!cards || cards.length === 0) {
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -905,16 +959,32 @@ export default function CreditCardProjectionModal({
             <TrendingUp className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               No hay tarjetas de crédito
-                </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-2">
               Necesitas al menos una tarjeta de crédito registrada para ver la proyección mensual.
             </p>
+            <p className="text-sm text-gray-500 dark:text-gray-500 mb-6">
+              La proyección te muestra cómo evolucionará tu saldo mes a mes, incluyendo cuotas pendientes, gastos fijos, consumos e intereses.
+            </p>
+            <div className="flex gap-3 justify-center">
+              {onCreateCard && (
                 <button
-                  onClick={onClose}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer font-semibold"
+                  onClick={() => {
+                    onClose()
+                    onCreateCard()
+                  }}
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors cursor-pointer font-semibold"
                 >
-              Cerrar
+                  Crear Tarjeta
                 </button>
+              )}
+              <button
+                onClick={onClose}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors cursor-pointer font-semibold"
+              >
+                Cerrar
+              </button>
+            </div>
           </motion.div>
               </div>
       </AnimatePresence>
@@ -922,26 +992,32 @@ export default function CreditCardProjectionModal({
   }
 
   // Ordenar meses cronológicamente: año-mes (YYYY-MM) para orden natural
-  const allMonthKeys = Array.from(new Set(projections.map(p => {
-    const monthStr = String(p.month).padStart(2, '0')
-    return `${p.year}-${monthStr}`
-  }))).sort()
+  const allMonthKeys = projections && projections.length > 0
+    ? Array.from(new Set(projections.map(p => {
+        const monthStr = String(p.month).padStart(2, '0')
+        return `${p.year}-${monthStr}`
+      }))).sort()
+    : []
 
   // Encontrar el índice del mes actual
   const currentDate = new Date()
   const currentMonth = currentDate.getMonth() + 1 // 1-12
   const currentYear = currentDate.getFullYear()
   const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
-  const currentMonthIndex = allMonthKeys.findIndex(key => key === currentMonthKey)
+  const currentMonthIndex = allMonthKeys.length > 0 ? allMonthKeys.findIndex(key => key === currentMonthKey) : -1
   
   // Si no encontramos el mes actual, usar índice 0
   // visibleMonthOffset puede ser negativo (meses pasados) o positivo (meses futuros)
-  const startIndex = currentMonthIndex >= 0 
-    ? Math.max(0, Math.min(allMonthKeys.length - monthsToShow, currentMonthIndex + visibleMonthOffset))
-    : Math.max(0, Math.min(allMonthKeys.length - monthsToShow, visibleMonthOffset))
+  const startIndex = allMonthKeys.length > 0
+    ? (currentMonthIndex >= 0 
+        ? Math.max(0, Math.min(allMonthKeys.length - monthsToShow, currentMonthIndex + visibleMonthOffset))
+        : Math.max(0, Math.min(allMonthKeys.length - monthsToShow, visibleMonthOffset)))
+    : 0
   
   // Obtener el rango de meses visibles
-  const visibleMonthKeys = allMonthKeys.slice(startIndex, startIndex + monthsToShow)
+  const visibleMonthKeys = allMonthKeys.length > 0
+    ? allMonthKeys.slice(startIndex, startIndex + monthsToShow)
+    : []
   
   // Verificar si hay más meses hacia atrás
   const canGoBack = startIndex > 0
@@ -973,51 +1049,84 @@ export default function CreditCardProjectionModal({
           className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full h-full max-w-[98vw] max-h-[98vh] overflow-hidden flex flex-col"
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <TrendingUp className="w-6 h-6" />
-              <div>
-                <h2 className="text-2xl font-bold">Proyección Mensual Completa</h2>
-                <p className="text-green-100 text-sm">Visualiza cómo evolucionará tu saldo mensualmente</p>
-                    </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                onClick={() => calculateProjections(true)}
-                disabled={loading}
-                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                <Sparkles className="w-4 h-4" />
-                {loading ? 'Calculando...' : 'Recalcular'}
-                </button>
-                <button
-                  onClick={onClose}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
-                >
-                <X className="w-5 h-5" />
-                </button>
-              </div>
+          <div className={`bg-gradient-to-r from-green-600 to-green-700 text-white ${isMobile ? 'p-2' : 'p-4'} shrink-0`}>
+            {isMobile ? (
+              // Layout vertical para móvil
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <TrendingUp className="w-4 h-4 shrink-0" />
+                    <h2 className="text-base font-bold truncate">Proyección Mensual</h2>
                   </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => calculateProjections(true)}
+                      disabled={loading}
+                      className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Actualizar"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="p-1.5 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-green-100 text-xs">Visualiza cómo evolucionará tu saldo mensualmente</p>
+              </div>
+            ) : (
+              // Layout horizontal para desktop
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <TrendingUp className="w-6 h-6 shrink-0" />
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-bold truncate">Proyección Mensual Completa</h2>
+                    <p className="text-green-100 text-sm">Visualiza cómo evolucionará tu saldo mensualmente</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => calculateProjections(true)}
+                    disabled={loading}
+                    className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    {loading ? 'Calculando...' : 'Recalcular'}
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Navigation Controls */}
-          <div className="bg-green-50 dark:bg-green-900/20 px-4 py-2 flex items-center justify-between border-b border-green-200 dark:border-green-800 shrink-0">
-            <div className="flex items-center gap-2">
+          <div className={`bg-green-50 dark:bg-green-900/20 ${isMobile ? 'px-2 py-1.5' : 'px-4 py-2'} flex items-center justify-between border-b border-green-200 dark:border-green-800 shrink-0`}>
+            <div className="flex items-center gap-1 md:gap-2 flex-1 md:flex-none">
                     <button
                 onClick={() => setVisibleMonthOffset(Math.max(-allMonthKeys.length + monthsToShow, visibleMonthOffset - 1))}
                 disabled={!canGoBack}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-sm"
+                className="px-2 md:px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer flex items-center gap-0.5 md:gap-1 text-xs md:text-sm"
               >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Anterior</span>
+                <ChevronLeft className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden md:inline">Anterior</span>
                     </button>
                     <button
                 onClick={() => {
                   // Volver al mes actual
                   setVisibleMonthOffset(0)
                 }}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors cursor-pointer text-sm"
+                className="px-2 md:px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors cursor-pointer text-xs md:text-sm"
               >
-                Mes Actual
+                <span className="hidden md:inline">Mes Actual</span>
+                <span className="md:hidden">Hoy</span>
                     </button>
                     <button
                 onClick={() => {
@@ -1037,15 +1146,32 @@ export default function CreditCardProjectionModal({
                   }
                 }}
                 disabled={!canGoForward}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-sm"
+                className="px-2 md:px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer flex items-center gap-0.5 md:gap-1 text-xs md:text-sm"
                     >
-                <span>Siguiente</span>
-                <ChevronRight className="w-4 h-4" />
+                <span className="hidden md:inline">Siguiente</span>
+                <ChevronRight className="w-3 h-3 md:w-4 md:h-4" />
                     </button>
                   </div>
-            <div className="text-sm text-green-700 dark:text-green-300">
-              Mostrando {visibleMonthKeys.length} meses
-            </div>
+            {isMobile ? (
+              <div className="text-xs text-green-700 dark:text-green-300 font-medium">
+                {(() => {
+                  if (!visibleMonthKeys || visibleMonthKeys.length === 0) {
+                    return 'Cargando...'
+                  }
+                  const displayedMonthKey = visibleMonthKeys[0]
+                  if (!displayedMonthKey) {
+                    return 'Cargando...'
+                  }
+                  const [year, month] = displayedMonthKey.split('-').map(Number)
+                  const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+                  return `${monthNames[month - 1]} ${year}`
+                })()}
+              </div>
+            ) : (
+              <div className="text-xs md:text-sm text-green-700 dark:text-green-300">
+                {visibleMonthKeys && visibleMonthKeys.length > 0 ? `Mostrando ${visibleMonthKeys.length} meses` : 'Cargando...'}
+              </div>
+            )}
           </div>
 
           {/* Content */}
@@ -1058,17 +1184,245 @@ export default function CreditCardProjectionModal({
               <div className="h-full flex items-center justify-center">
                 <p className="text-gray-500 dark:text-gray-400">Cargando consumos...</p>
                     </div>
+            ) : isMobile ? (
+              // Vista móvil: Cards en lugar de tabla - Mostrar solo un mes a la vez para todas las tarjetas
+              <div className="h-full overflow-auto bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-2 md:p-4">
+                <div className="space-y-3">
+                  {/* Mostrar solo el mes actual según visibleMonthOffset */}
+                  {(() => {
+                    if (!visibleMonthKeys || visibleMonthKeys.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                          <p>No hay proyecciones disponibles. Calcula las proyecciones para ver los datos.</p>
+                        </div>
+                      )
+                    }
+                    const displayedMonthKey = visibleMonthKeys[0] // El primer mes visible es el que se muestra
+                    if (!displayedMonthKey) {
+                      return (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                          <p>Cargando proyecciones...</p>
+                        </div>
+                      )
+                    }
+                    const currentDate = new Date()
+                    const currentMonth = currentDate.getMonth() + 1
+                    const currentYear = currentDate.getFullYear()
+                    const globalCurrentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
+                    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+                    
+                    return cards.map((card) => {
+                      const cardProjections = projections.filter(p => p.cardId === card.id)
+                      const [year, month] = displayedMonthKey.split('-').map(Number)
+                      const proj = cardProjections.find(p => {
+                        const projMonth = String(p.month).padStart(2, '0')
+                        return p.year === year && projMonth === String(month).padStart(2, '0')
+                      })
+                      
+                      if (!proj) return null
+                      
+                      const isCurrentMonth = displayedMonthKey === globalCurrentMonthKey
+                      
+                      return (
+                        <div
+                          key={`${card.id}-${displayedMonthKey}`}
+                          className={`bg-white dark:bg-gray-800 rounded-lg border-2 shadow-sm ${
+                            isCurrentMonth 
+                              ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                              : 'border-gray-200 dark:border-gray-700'
+                          }`}
+                        >
+                          {/* Header del mes */}
+                          <div className={`px-3 py-2 rounded-t-lg ${
+                            isCurrentMonth 
+                              ? 'bg-green-600 dark:bg-green-700 text-white' 
+                              : 'bg-gray-100 dark:bg-gray-700'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-bold text-sm">
+                                {card.name} - {monthNames[proj.month - 1]} {proj.year}
+                              </h3>
+                              {isCurrentMonth && (
+                                <span className="text-xs bg-white/20 px-2 py-0.5 rounded">Actual</span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Contenido */}
+                          <div className="p-3 space-y-2.5">
+                            {/* Deuda anterior */}
+                            <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Deuda anterior</span>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold">{formatCurrency(proj.previousDebtARS || 0)}</div>
+                                {(proj.previousDebtUSD || 0) > 0 && (
+                                  <div className="text-xs text-gray-500">{formatCurrency(proj.previousDebtUSD || 0)} USD</div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Cuotas */}
+                            {(proj.installmentsARS || 0) > 0 || (proj.installmentsUSD || 0) > 0 ? (
+                              <div 
+                                className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded px-2 -mx-2"
+                                onClick={() => {
+                                  if (proj.installmentsDetail && proj.installmentsDetail.length > 0) {
+                                    setDetailModal({
+                                      isOpen: true,
+                                      category: 'Cuotas',
+                                      cardId: card.id,
+                                      month: proj.month,
+                                      year: proj.year,
+                                      monthKey: displayedMonthKey
+                                    })
+                                  }
+                                }}
+                              >
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Cuotas</span>
+                                <div className="text-right">
+                                  <div className="text-sm font-semibold">{formatCurrency(proj.installmentsARS || 0)}</div>
+                                  {(proj.installmentsUSD || 0) > 0 && (
+                                    <div className="text-xs text-gray-500">{formatCurrency(proj.installmentsUSD || 0)} USD</div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                            
+                            {/* Gastos Fijos */}
+                            {(proj.fixedExpensesARS || 0) > 0 || (proj.fixedExpensesUSD || 0) > 0 ? (
+                              <div 
+                                className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded px-2 -mx-2"
+                                onClick={() => {
+                                  if (proj.fixedExpensesDetail && proj.fixedExpensesDetail.length > 0) {
+                                    setDetailModal({
+                                      isOpen: true,
+                                      category: 'Gastos Fijos',
+                                      cardId: card.id,
+                                      month: proj.month,
+                                      year: proj.year,
+                                      monthKey: displayedMonthKey
+                                    })
+                                  }
+                                }}
+                              >
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Gastos Fijos</span>
+                                <div className="text-right">
+                                  <div className="text-sm font-semibold">{formatCurrency(proj.fixedExpensesARS || 0)}</div>
+                                  {(proj.fixedExpensesUSD || 0) > 0 && (
+                                    <div className="text-xs text-gray-500">{formatCurrency(proj.fixedExpensesUSD || 0)} USD</div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                            
+                            {/* Consumos del mes */}
+                            {(proj.consumptionsARS || 0) > 0 || (proj.consumptionsUSD || 0) > 0 ? (
+                              <div 
+                                className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded px-2 -mx-2"
+                                onClick={() => {
+                                  if (proj.consumptionsDetail && proj.consumptionsDetail.length > 0) {
+                                    setDetailModal({
+                                      isOpen: true,
+                                      category: 'Consumos del mes',
+                                      cardId: card.id,
+                                      month: proj.month,
+                                      year: proj.year,
+                                      monthKey: displayedMonthKey
+                                    })
+                                  }
+                                }}
+                              >
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Consumos del mes</span>
+                                <div className="text-right">
+                                  <div className="text-sm font-semibold">{formatCurrency(proj.consumptionsARS || 0)}</div>
+                                  {(proj.consumptionsUSD || 0) > 0 && (
+                                    <div className="text-xs text-gray-500">{formatCurrency(proj.consumptionsUSD || 0)} USD</div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                            
+                            {/* Intereses y Gastos */}
+                            {(proj.interestARS || 0) > 0 || (proj.interestUSD || 0) > 0 ? (
+                              <div 
+                                className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded px-2 -mx-2"
+                                onClick={() => {
+                                  if (proj.interestDetail && proj.interestDetail.length > 0) {
+                                    setDetailModal({
+                                      isOpen: true,
+                                      category: 'Intereses y Gastos',
+                                      cardId: card.id,
+                                      month: proj.month,
+                                      year: proj.year,
+                                      monthKey: displayedMonthKey
+                                    })
+                                  }
+                                }}
+                              >
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Intereses y Gastos</span>
+                                <div className="text-right">
+                                  <div className="text-sm font-semibold">{formatCurrency(proj.interestARS || 0)}</div>
+                                  {(proj.interestUSD || 0) > 0 && (
+                                    <div className="text-xs text-gray-500">{formatCurrency(proj.interestUSD || 0)} USD</div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                            
+                            {/* Total del mes */}
+                            <div className="flex justify-between items-center py-2 border-t-2 border-gray-300 dark:border-gray-600 pt-3">
+                              <span className="text-sm font-semibold text-gray-900 dark:text-white">Total del mes</span>
+                              <div className="text-right">
+                                <div className="text-base font-bold">{formatCurrency(proj.monthlyTotalARS || 0)}</div>
+                                {(proj.monthlyTotalUSD || 0) > 0 && (
+                                  <div className="text-xs text-gray-500">{formatCurrency(proj.monthlyTotalUSD || 0)} USD</div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Total a Pagar */}
+                            <div className="flex justify-between items-center py-2 bg-gray-50 dark:bg-gray-700/50 rounded px-3 -mx-2">
+                              <span className="text-sm font-semibold text-gray-900 dark:text-white">Total a Pagar</span>
+                              <div className="text-right">
+                                <div className="text-base font-bold text-green-700 dark:text-green-400">{formatCurrency(proj.totalToPayARS || 0)}</div>
+                                {(proj.totalToPayUSD || 0) > 0 && (
+                                  <div className="text-xs text-gray-500">{formatCurrency(proj.totalToPayUSD || 0)} USD</div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Saldo */}
+                            <div className="flex justify-between items-center py-2 bg-gray-100 dark:bg-gray-800 rounded px-3 -mx-2">
+                              <span className="text-sm font-semibold text-gray-900 dark:text-white">Saldo</span>
+                              <div className="text-right">
+                                <div className={`text-base font-bold ${
+                                  (proj.balanceARS || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                                }`}>
+                                  {formatCurrency(proj.balanceARS || 0)}
+                                </div>
+                                {(proj.balanceUSD || 0) > 0 && (
+                                  <div className="text-xs text-gray-500">{formatCurrency(proj.balanceUSD || 0)} USD</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+              </div>
             ) : (
               <div className="h-full overflow-auto bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl">
                     <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-sm">
+                  <table className="w-full border-collapse text-xs md:text-sm lg:text-base">
                     <thead>
                       {/* Primera fila: Mes/Año */}
                       <tr className="bg-green-600 dark:bg-green-700 text-white">
-                        <th rowSpan={2} className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-left font-semibold sticky left-0 z-20 bg-green-600 dark:bg-green-700 min-w-[60px]">
+                        <th rowSpan={2} className="border border-gray-300 dark:border-gray-600 px-1 md:px-2 py-1 md:py-2 text-left font-semibold sticky left-0 z-20 bg-green-600 dark:bg-green-700 min-w-[40px] md:min-w-[60px] text-xs md:text-sm">
                           TC
                         </th>
-                        <th rowSpan={2} className="border border-gray-300 dark:border-gray-600 px-2 py-2 text-left font-semibold sticky left-[60px] z-20 bg-green-600 dark:bg-green-700 min-w-[120px]">
+                        <th rowSpan={2} className="border border-gray-300 dark:border-gray-600 px-1 md:px-2 py-1 md:py-2 text-left font-semibold sticky left-[40px] md:left-[60px] z-20 bg-green-600 dark:bg-green-700 min-w-[80px] md:min-w-[120px] text-xs md:text-sm">
                           Categoría
                         </th>
                         {visibleMonthKeys.map((monthKey: string) => {
