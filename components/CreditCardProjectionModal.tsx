@@ -1163,8 +1163,9 @@ export default function CreditCardProjectionModal({
                             return p.year === year && projMonth === String(month).padStart(2, '0')
                           })
                           return {
-                            ars: proj?.installmentsARS || proj?.installments || 0,
-                            usd: proj?.installmentsUSD || 0,
+                            // No usar proj?.installments como fallback para evitar duplicación
+                            ars: proj?.installmentsARS ?? 0,
+                            usd: proj?.installmentsUSD ?? 0,
                             proj
                           }
                         })
@@ -1177,8 +1178,9 @@ export default function CreditCardProjectionModal({
                             return p.year === year && projMonth === String(month).padStart(2, '0')
                           })
                           return {
-                            ars: proj?.fixedExpensesARS || proj?.fixedExpenses || 0,
-                            usd: proj?.fixedExpensesUSD || 0,
+                            // No usar proj?.fixedExpenses como fallback para evitar duplicación
+                            ars: proj?.fixedExpensesARS ?? 0,
+                            usd: proj?.fixedExpensesUSD ?? 0,
                             proj
                           }
                         })
@@ -1191,8 +1193,10 @@ export default function CreditCardProjectionModal({
                             return p.year === year && projMonth === String(month).padStart(2, '0')
                           })
                           return {
-                            ars: proj?.consumptionsARS || proj?.consumptions || 0,
-                            usd: proj?.consumptionsUSD || 0,
+                            // No usar proj?.consumptions como fallback para evitar duplicación
+                            // Si consumptionsARS es 0, debe mostrar 0 (no el total general)
+                            ars: proj?.consumptionsARS ?? 0,
+                            usd: proj?.consumptionsUSD ?? 0,
                             proj
                           }
                         })
@@ -1205,8 +1209,9 @@ export default function CreditCardProjectionModal({
                             return p.year === year && projMonth === String(month).padStart(2, '0')
                           })
                           return {
-                            ars: proj?.interestARS || proj?.interest || 0,
-                            usd: proj?.interestUSD || 0,
+                            // No usar proj?.interest como fallback para evitar duplicación
+                            ars: proj?.interestARS ?? 0,
+                            usd: proj?.interestUSD ?? 0,
                             proj
                           }
                         })
@@ -2009,27 +2014,31 @@ export default function CreditCardProjectionModal({
                   switch (detailModal.category) {
                     case 'Cuotas':
                       details = proj.installmentsDetail || []
-                      total = proj.installments || 0
-                      totalARS = proj.installmentsARS || proj.installments || 0
-                      totalUSD = proj.installmentsUSD || 0
+                      // Calcular totales desde los detalles para evitar duplicación
+                      totalARS = details.reduce((sum, item) => sum + (item.amountARS || 0), 0)
+                      totalUSD = details.reduce((sum, item) => sum + (item.amountUSD || 0), 0)
+                      total = totalARS + totalUSD
                       break
                     case 'Gastos Fijos':
                       details = proj.fixedExpensesDetail || []
-                      total = proj.fixedExpenses || 0
-                      totalARS = proj.fixedExpensesARS || proj.fixedExpenses || 0
-                      totalUSD = proj.fixedExpensesUSD || 0
+                      // Calcular totales desde los detalles para evitar duplicación
+                      totalARS = details.reduce((sum, item) => sum + (item.amountARS || 0), 0)
+                      totalUSD = details.reduce((sum, item) => sum + (item.amountUSD || 0), 0)
+                      total = totalARS + totalUSD
                       break
                     case 'Consumos del mes':
                       details = proj.consumptionsDetail || []
-                      total = proj.consumptions || 0
-                      totalARS = proj.consumptionsARS || proj.consumptions || 0
-                      totalUSD = proj.consumptionsUSD || 0
+                      // Calcular totales desde los detalles para evitar duplicación
+                      totalARS = details.reduce((sum, item) => sum + (item.amountARS || 0), 0)
+                      totalUSD = details.reduce((sum, item) => sum + (item.amountUSD || 0), 0)
+                      total = totalARS + totalUSD
                       break
                     case 'Intereses y Gastos':
                       details = proj.interestDetail || []
-                      total = proj.interest || 0
-                      totalARS = proj.interestARS || proj.interest || 0
-                      totalUSD = proj.interestUSD || 0
+                      // Calcular totales desde los detalles para evitar duplicación
+                      totalARS = details.reduce((sum, item) => sum + (item.amountARS || 0), 0)
+                      totalUSD = details.reduce((sum, item) => sum + (item.amountUSD || 0), 0)
+                      total = totalARS + totalUSD
                       break
                   }
 
