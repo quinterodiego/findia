@@ -10,14 +10,14 @@ import {
  * GET /api/credit-cards/[id]/smart-template
  * Obtiene el smart template para una tarjeta
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions as any)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const cardId = params.id
+    const { id: cardId } = await params
     const smartTemplate = await getSmartTemplate(cardId, session.user.id as string)
 
     return NextResponse.json({ success: true, smartTemplate }, { status: 200 })
@@ -31,14 +31,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
  * POST /api/credit-cards/[id]/smart-template
  * Guarda o actualiza el smart template para una tarjeta
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions as any)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const cardId = params.id
+    const { id: cardId } = await params
     const body = await req.json()
 
     const smartTemplate = await saveSmartTemplate({

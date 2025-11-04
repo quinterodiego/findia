@@ -13,14 +13,14 @@ import {
  * GET /api/credit-cards/[id]/templates
  * Obtiene todos los templates de importación PDF para una tarjeta
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions as any)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const cardId = params.id
+    const { id: cardId } = await params
     const templates = await getPDFImportTemplates(cardId, session.user.id as string)
 
     return NextResponse.json({ success: true, templates }, { status: 200 })
@@ -34,14 +34,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
  * POST /api/credit-cards/[id]/templates
  * Crea un nuevo template de importación PDF
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions as any)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const cardId = params.id
+    const { id: cardId } = await params
     const body = await req.json()
 
     const template = await createPDFImportTemplate({

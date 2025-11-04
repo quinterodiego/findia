@@ -7,14 +7,14 @@ import { createCreditCardConsumption, getCreditCardConsumptions } from '@/lib/go
  * GET /api/credit-cards/[id]/consumptions
  * Obtiene todos los consumos de una tarjeta de crédito
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions as any)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const cardId = params.id
+    const { id: cardId } = await params
     const consumptions = await getCreditCardConsumptions(cardId, session.user.id as string)
 
     return NextResponse.json({ success: true, consumptions }, { status: 200 })
@@ -28,14 +28,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
  * POST /api/credit-cards/[id]/consumptions
  * Crea nuevos consumos (desde importación de PDF)
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions as any)
     if (!session?.user?.id) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
     }
 
-    const cardId = params.id
+    const { id: cardId } = await params
     const body = await req.json()
     const items = Array.isArray(body.items) ? body.items : []
     const skipDuplicates = body.skipDuplicates !== false // Por defecto true para evitar duplicados
@@ -69,21 +69,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         }
       }
       const totalInstallments = it.installments?.total || 1
-      const monthlyPayment = totalInstallments > 1 
-        ? totalAmount / totalInstallments 
-        : totalAmount
+      // El totalAmount ya es la cuota mensual, no el total
+      // Para calcular el total original: totalAmount * totalInstallments
+      const monthlyPayment = totalAmount
 
       await createCreditCardConsumption({
         creditCardId: cardId,
         userId: session.user.id as string,
         merchant: it.description || 'Movimiento',
-        amount: totalAmount,
+        amount: totalAmount, // Este es la cuota mensual
         installments: totalInstallments,
         currentInstallment: it.installments?.current || 1,
         monthlyPayment: monthlyPayment,
         date: it.date, // dd/mm/aaaa
+        categoryId: it.categoryId || '',
+        subcategoryId: it.subcategoryId || '',
         description: it.type,
         createdAt: new Date().toISOString(),
+        montoPesos: it.montoPesos || 0,
+        montoUSD: it.montoUSD || 0,
       })
       
       created++

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -22,7 +22,9 @@ import {
   Info,
   Play,
   ChevronRight,
-  Wallet
+  Wallet,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useToastContext } from '@/components/Toast';
@@ -33,6 +35,8 @@ import { argentineBanks } from '@/lib/argentineBanks';
 import { formatCurrency, formatNumber } from '@/lib/formatNumber';
 import CreditCardStatementImport from './CreditCardStatementImport';
 import CreditCardConsumptionModal from './CreditCardConsumptionModal';
+import EditCardModal from './EditCardModal';
+import CreditCardProjectionModal from './CreditCardProjectionModal';
 
 interface PaymentStrategy {
   type: 'snowball' | 'avalanche';
@@ -63,7 +67,7 @@ interface CreditCardCenterProps {
   subcategories?: any[];
 }
 
-type TabType = 'overview' | 'strategies' | 'plan' | 'calculator' | 'progress';
+type TabType = 'overview' | 'strategies' | 'plan' | 'calculator' | 'progress' | 'projection';
 
 export default function CreditCardCenter({
   isOpen,
@@ -75,6 +79,19 @@ export default function CreditCardCenter({
   const [selectedStrategy, setSelectedStrategy] = useState<PaymentStrategy | null>(null);
   const [paymentPlan, setPaymentPlan] = useState<PaymentPlan[]>([]);
   const [progressHistory, setProgressHistory] = useState<Array<{ date: string; totalDebt: number; paid: number }>>([]);
+  const [projections, setProjections] = useState<Array<{
+    month: number;
+    monthName: string;
+    year: number;
+    cardId: string;
+    cardName: string;
+    initialBalance: number;
+    installmentsDue: number;
+    interest: number;
+    finalBalance: number;
+    installmentsDetail: Array<{ merchant: string; amount: number; installment: string }>;
+  }>>([]);
+  const [loadingProjections, setLoadingProjections] = useState(false);
   
   const { success, error } = useToastContext();
   const { cards, loading, fetchCards, createCard, updateCard, deleteCard, makePayment, fetchPayments } = useCreditCards();
@@ -92,14 +109,13 @@ export default function CreditCardCenter({
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showImport, setShowImport] = useState<{ open: boolean; cardId?: string }>({ open: false });
   const [showConsumptions, setShowConsumptions] = useState<CreditCard | null>(null);
+  const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
+  const [showProjection, setShowProjection] = useState(false);
   const [quickForm, setQuickForm] = useState({
     name: '',
     bank: '',
     last4: '',
     limit: '',
-    minPayment: '',
-    dueDay: '25',
-    currentBalance: '',
   });
 
   const handleQuickCreate = async () => {
@@ -113,14 +129,15 @@ export default function CreditCardCenter({
         bank: quickForm.bank,
         cardNumber: quickForm.last4 ? `**** **** **** ${quickForm.last4}` : '**** **** **** ****',
         limit: Number(quickForm.limit),
-        currentBalance: Number(quickForm.currentBalance || 0),
-        paymentDate: Number(quickForm.dueDay || 25),
-        minPayment: Number(quickForm.minPayment || 0),
+        currentBalance: 0, // Se actualizará al importar el PDF
+        cutDate: 1, // Se actualizará al importar el PDF
+        paymentDate: 1, // Se actualizará al importar el PDF
+        interestRate: 0, // Se actualizará al importar el PDF
         status: 'active',
       } as any);
-      success('Tarjeta creada');
+      success('Tarjeta creada. Importa un resumen PDF para completar los datos.');
       setShowQuickAdd(false);
-      setQuickForm({ name: '', bank: '', last4: '', limit: '', minPayment: '', dueDay: '25', currentBalance: '' });
+      setQuickForm({ name: '', bank: '', last4: '', limit: '' });
       fetchCards();
     } catch (e) {
       error('No se pudo crear la tarjeta');
@@ -163,6 +180,26 @@ export default function CreditCardCenter({
       console.error('Error sincronizando tarjetas con deudas:', err);
     }
   }, [cards, debts, updateCard]);
+
+  // Prevenir scroll del body cuando el modal está abierto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
+  // Cargar proyecciones cuando se selecciona la pestaña de proyección
+  useEffect(() => {
+    if (activeTab === 'projection' && cards.length > 0 && projections.length === 0) {
+      calculateProjections();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Cargar tarjetas al abrir
   useEffect(() => {
@@ -341,12 +378,134 @@ export default function CreditCardCenter({
     setPaymentPlan(plan);
   };
 
+  // Función para calcular proyección mensual basada en cuotas pendientes
+  const calculateProjections = useCallback(async () => {
+    if (cards.length === 0) {
+      return;
+    }
+
+    setLoadingProjections(true);
+    
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
+    const allProjections: Array<{
+      month: number;
+      monthName: string;
+      year: number;
+      cardId: string;
+      cardName: string;
+      initialBalance: number;
+      installmentsDue: number;
+      interest: number;
+      finalBalance: number;
+      installmentsDetail: Array<{ merchant: string; amount: number; installment: string }>;
+    }> = [];
+
+    try {
+
+      // Calcular proyección para los próximos 12 meses
+      for (let monthOffset = 0; monthOffset < 12; monthOffset++) {
+        const targetMonth = (currentMonth + monthOffset) % 12;
+        const targetYear = currentYear + Math.floor((currentMonth + monthOffset) / 12);
+        
+        // Para cada tarjeta
+        for (const card of cards) {
+          // Obtener consumos de la tarjeta
+          const response = await fetch(`/api/credit-cards/${card.id}/consumptions`);
+          const data = await response.json();
+          const consumptions = Array.isArray(data.consumptions) ? data.consumptions : [];
+
+          // Calcular saldo inicial (para el primer mes es el currentBalance, para los siguientes se calcula)
+          let initialBalance = monthOffset === 0 ? card.currentBalance : 0;
+          
+          // Si no es el primer mes, calcular el saldo inicial basándose en la proyección anterior
+          if (monthOffset > 0) {
+            const previousMonthProjection = allProjections.find(
+              p => p.cardId === card.id && 
+              p.month === (targetMonth - 1 >= 0 ? targetMonth - 1 : 11) &&
+              p.year === (targetMonth - 1 >= 0 ? targetYear : targetYear - 1)
+            );
+            if (previousMonthProjection) {
+              initialBalance = previousMonthProjection.finalBalance;
+            } else {
+              // Si no hay proyección anterior, usar el saldo actual
+              initialBalance = card.currentBalance;
+            }
+          }
+
+          // Calcular qué cuotas vencen este mes
+          const installmentsDetail: Array<{ merchant: string; amount: number; installment: string }> = [];
+          let totalInstallmentsDue = 0;
+
+          for (const consumption of consumptions) {
+            // Parsear fecha del consumo (formato dd/mm/yyyy)
+            const [day, month, year] = (consumption.date || '').split('/').map(Number);
+            if (!day || !month || !year) continue;
+            
+            const consumptionDate = new Date(year, month - 1, day);
+            
+            // Calcular cuántas cuotas han pasado desde el consumo hasta el mes objetivo
+            const monthsSinceConsumption = (targetYear - year) * 12 + (targetMonth - (month - 1));
+            
+            // Si el consumo es anterior o en el mismo mes que el objetivo
+            if (monthsSinceConsumption >= 0 && monthsSinceConsumption < consumption.installments) {
+              const installmentNumber = monthsSinceConsumption + 1;
+              
+              // Verificar que esta cuota aún no se haya pagado completamente
+              if (installmentNumber > consumption.currentInstallment) {
+                // Esta cuota vence este mes (o debería vencer cerca del día de pago)
+                installmentsDetail.push({
+                  merchant: consumption.merchant || 'Consumo',
+                  amount: consumption.monthlyPayment || 0,
+                  installment: `${installmentNumber}/${consumption.installments}`
+                });
+                totalInstallmentsDue += consumption.monthlyPayment || 0;
+              }
+            }
+          }
+
+          // Calcular intereses sobre el saldo inicial
+          const interest = (initialBalance * card.interestRate) / 100;
+
+          // Calcular saldo final = saldo inicial + intereses + cuotas del mes
+          const finalBalance = initialBalance + interest + totalInstallmentsDue;
+
+          allProjections.push({
+            month: targetMonth + 1,
+            monthName: monthNames[targetMonth],
+            year: targetYear,
+            cardId: card.id,
+            cardName: card.name,
+            initialBalance,
+            installmentsDue: totalInstallmentsDue,
+            interest,
+            finalBalance,
+            installmentsDetail
+          });
+        }
+      }
+
+      setProjections(allProjections);
+    } catch (err) {
+      console.error('Error calculando proyecciones:', err);
+      if (error) {
+        error('Error al calcular proyecciones');
+      }
+    } finally {
+      setLoadingProjections(false);
+    }
+  }, [cards, error]);
+
   const tabs = [
     { id: 'overview' as TabType, label: 'Vista General', icon: BarChart3 },
     { id: 'strategies' as TabType, label: 'Estrategias', icon: Target },
     { id: 'plan' as TabType, label: 'Plan de Pago', icon: Calendar },
     { id: 'calculator' as TabType, label: 'Calculadora', icon: Calculator },
-    { id: 'progress' as TabType, label: 'Progreso', icon: TrendingUp }
+    { id: 'progress' as TabType, label: 'Progreso', icon: TrendingUp },
+    { id: 'projection' as TabType, label: 'Proyección', icon: TrendingUp }
   ];
 
   const totalDebt = cards.reduce((sum, card) => sum + card.currentBalance, 0);
@@ -540,7 +699,27 @@ export default function CreditCardCenter({
                               <span>Interés: {card.interestRate}%</span>
                             </div>
                           </div>
-                          <div className="mt-3 flex gap-2">
+                          <div className="mt-3 flex gap-2 flex-wrap">
+                            <button onClick={() => setEditingCard(card)} className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors cursor-pointer text-sm flex items-center gap-1">
+                              <Edit2 className="w-3 h-3" />
+                              Editar
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                if (confirm(`¿Estás seguro de que deseas eliminar la tarjeta "${card.name}"? Esta acción eliminará también todos sus consumos, pagos y plantillas relacionados.`)) {
+                                  try {
+                                    await deleteCard(card.id);
+                                    success('Tarjeta eliminada exitosamente');
+                                  } catch (err: any) {
+                                    error(err?.message || 'Error al eliminar tarjeta');
+                                  }
+                                }
+                              }}
+                              className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors cursor-pointer text-sm flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              Eliminar
+                            </button>
                             <button onClick={() => setShowImport({ open: true, cardId: card.id })} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer text-sm">Importar PDF</button>
                             <button onClick={() => setShowConsumptions(card)} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors cursor-pointer text-sm flex items-center gap-1">
                               <DollarSign className="w-3 h-3" />
@@ -1029,6 +1208,356 @@ export default function CreditCardCenter({
                   )}
                 </motion.div>
               )}
+
+              {activeTab === 'projection' && (
+                <motion.div
+                  key="projection"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="space-y-6"
+                >
+                  {cards.length === 0 ? (
+                    <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-12 text-center">
+                      <CreditCard className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        No tienes tarjetas de crédito registradas
+                      </h4>
+                      <p className="text-gray-600 dark:text-gray-400 mb-6">
+                        Agrega al menos una tarjeta de crédito para poder ver la proyección mensual
+                      </p>
+                      <button
+                        onClick={() => setShowQuickAdd(true)}
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer font-semibold"
+                      >
+                        Agregar Primera Tarjeta
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                            Proyección Mensual Completa
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-300">
+                            Visualiza cómo evolucionará tu saldo según las cuotas pendientes, intereses y nuevos consumos.
+                          </p>
+                        </div>
+                    <button
+                      onClick={() => {
+                        if (cards.length === 0) {
+                          error('Necesitas al menos una tarjeta de crédito para ver la proyección');
+                          return;
+                        }
+                        setShowProjection(true);
+                      }}
+                      disabled={cards.length === 0}
+                      className={`px-4 py-2 ${
+                        cards.length === 0 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+                      } text-white rounded-lg transition-colors flex items-center gap-2`}
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      Ver Proyección Completa
+                    </button>
+                  </div>
+
+                  {loadingProjections ? (
+                    <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-12">
+                      <p className="text-center text-gray-500 dark:text-gray-400">
+                        Calculando proyecciones...
+                      </p>
+                    </div>
+                  ) : projections.length === 0 ? (
+                    <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-12">
+                      <p className="text-center text-gray-500 dark:text-gray-400">
+                        Haz clic en "Recalcular" para generar la proyección mensual basada en tus consumos y cuotas.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse min-w-full">
+                          <thead>
+                            <tr className="bg-green-600 dark:bg-green-700 text-white">
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left font-semibold sticky left-0 z-10 bg-green-600 dark:bg-green-700">
+                                TC
+                              </th>
+                              <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left font-semibold sticky left-[100px] z-10 bg-green-600 dark:bg-green-700">
+                                Categoría
+                              </th>
+                              {Array.from(new Set(projections.map(p => `${p.year}-${p.month}`))).map((monthKey) => {
+                                const firstProj = projections.find(p => `${p.year}-${p.month}` === monthKey);
+                                return (
+                                  <th
+                                    key={monthKey}
+                                    className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-center font-semibold min-w-[120px]"
+                                  >
+                                    {firstProj?.monthName} {firstProj?.year}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {/* Filas por tarjeta */}
+                            {cards.map((card) => {
+                              const cardProjections = projections.filter(p => p.cardId === card.id);
+                              const monthKeys = Array.from(new Set(projections.map(p => `${p.year}-${p.month}`))).sort();
+                              
+                              // Deuda anterior (primer mes usa currentBalance, siguientes meses usan saldo anterior)
+                              const previousDebtRow = monthKeys.map((monthKey, idx) => {
+                                if (idx === 0) {
+                                  return card.currentBalance;
+                                }
+                                const prevMonth = monthKeys[idx - 1];
+                                const prevProj = cardProjections.find(p => `${p.year}-${p.month}` === prevMonth);
+                                return prevProj?.finalBalance || 0;
+                              });
+
+                              // Cuotas del mes
+                              const installmentsRow = monthKeys.map((monthKey) => {
+                                const proj = cardProjections.find(p => `${p.year}-${p.month}` === monthKey);
+                                return proj?.installmentsDue || 0;
+                              });
+
+                              // Intereses y Gastos
+                              const interestRow = monthKeys.map((monthKey) => {
+                                const proj = cardProjections.find(p => `${p.year}-${p.month}` === monthKey);
+                                return proj?.interest || 0;
+                              });
+
+                              // Consumos del mes (0 por ahora, podría extenderse)
+                              const consumptionsRow = monthKeys.map(() => 0);
+
+                              // Gastos Fijos (0 por ahora, podría extenderse)
+                              const fixedExpensesRow = monthKeys.map(() => 0);
+
+                              // Total del mes
+                              const monthlyTotalRow = monthKeys.map((monthKey, idx) => {
+                                return installmentsRow[idx] + interestRow[idx] + consumptionsRow[idx] + fixedExpensesRow[idx];
+                              });
+
+                              // Total a Pagar
+                              const totalToPayRow = monthKeys.map((idx) => {
+                                return previousDebtRow[idx] + monthlyTotalRow[idx];
+                              });
+
+                              // Pago del mes (0 por ahora, podría ser configurable)
+                              const paymentRow = monthKeys.map(() => 0);
+
+                              // Saldo
+                              const balanceRow = monthKeys.map((idx) => {
+                                return totalToPayRow[idx] - paymentRow[idx];
+                              });
+
+                              return (
+                                <React.Fragment key={card.id}>
+                                  {/* Nombre de la tarjeta */}
+                                  <tr className="bg-green-700 dark:bg-green-800 text-white">
+                                    <td colSpan={monthKeys.length + 2} className="px-3 py-2 font-bold">
+                                      {card.name}
+                                    </td>
+                                  </tr>
+                                  
+                                  {/* Deuda anterior */}
+                                  <tr className="bg-gray-50 dark:bg-gray-800">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                                      Deuda anterior
+                                    </td>
+                                    {previousDebtRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {/* Cuotas */}
+                                  <tr className="bg-gray-50 dark:bg-gray-800">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                                      Cuotas
+                                    </td>
+                                    {installmentsRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {/* Gastos Fijos */}
+                                  <tr className="bg-gray-50 dark:bg-gray-800">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                                      Gastos Fijos
+                                    </td>
+                                    {fixedExpensesRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {/* Consumos del mes */}
+                                  <tr className="bg-gray-50 dark:bg-gray-800">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                                      Consumos del mes
+                                    </td>
+                                    {consumptionsRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {/* Intereses y Gastos */}
+                                  <tr className="bg-gray-50 dark:bg-gray-800">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                                      Intereses y Gastos
+                                    </td>
+                                    {interestRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {/* Total del mes */}
+                                  <tr className="bg-green-100 dark:bg-green-900/30">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-green-100 dark:bg-green-900/30 font-semibold"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-green-100 dark:bg-green-900/30 font-semibold">
+                                      Total del mes
+                                    </td>
+                                    {monthlyTotalRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right font-semibold"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {/* Total a Pagar */}
+                                  <tr className="bg-green-100 dark:bg-green-900/30">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-green-100 dark:bg-green-900/30 font-semibold"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-green-100 dark:bg-green-900/30 font-semibold">
+                                      Total a Pagar
+                                    </td>
+                                    {totalToPayRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right font-semibold"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {/* Pago del mes */}
+                                  <tr className="bg-gray-50 dark:bg-gray-800">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                                      Pago del mes
+                                    </td>
+                                    {paymentRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+
+                                  {/* Saldo */}
+                                  <tr className="bg-green-100 dark:bg-green-900/30">
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-green-100 dark:bg-green-900/30 font-semibold"></td>
+                                    <td className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-[100px] z-10 bg-green-100 dark:bg-green-900/30 font-semibold">
+                                      Saldo
+                                    </td>
+                                    {balanceRow.map((amount, idx) => (
+                                      <td
+                                        key={idx}
+                                        className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right font-semibold"
+                                      >
+                                        {formatCurrency(amount)}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                </React.Fragment>
+                              );
+                            })}
+
+                            {/* Posición Global */}
+                            <tr className="bg-green-600 dark:bg-green-700 text-white font-bold">
+                              <td colSpan={2} className="border border-gray-300 dark:border-gray-600 px-3 py-2 sticky left-0 z-10 bg-green-600 dark:bg-green-700">
+                                Posición Global
+                              </td>
+                              {Array.from(new Set(projections.map(p => `${p.year}-${p.month}`))).sort().map((monthKey, idx) => {
+                                // Calcular el saldo global sumando todos los saldos de todas las tarjetas
+                                const monthProjections = projections.filter(p => `${p.year}-${p.month}` === monthKey);
+                                const totalBalance = cards.reduce((sum, card) => {
+                                  const cardProj = monthProjections.find(p => p.cardId === card.id);
+                                  if (!cardProj) return sum;
+                                  
+                                  // Calcular saldo de esta tarjeta para este mes
+                                  const prevMonth = idx === 0 ? null : Array.from(new Set(projections.map(p => `${p.year}-${p.month}`))).sort()[idx - 1];
+                                  let prevBalance = 0;
+                                  if (idx === 0) {
+                                    prevBalance = card.currentBalance;
+                                  } else if (prevMonth) {
+                                    const prevProj = projections.find(p => 
+                                      p.cardId === card.id && 
+                                      `${p.year}-${p.month}` === prevMonth
+                                    );
+                                    prevBalance = prevProj ? prevProj.finalBalance : card.currentBalance;
+                                  }
+                                  
+                                  const totalToPay = prevBalance + (cardProj.installmentsDue || 0) + (cardProj.interest || 0);
+                                  const payment = 0; // Por ahora sin pagos
+                                  return sum + (totalToPay - payment);
+                                }, 0);
+                                
+                                return (
+                                  <td
+                                    key={monthKey}
+                                    className="border border-gray-300 dark:border-gray-600 px-3 py-2 text-right"
+                                  >
+                                    {formatCurrency(totalBalance)}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                    </>
+                  )}
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </motion.div>
@@ -1055,6 +1584,12 @@ export default function CreditCardCenter({
                     <X className="w-5 h-5" />
                   </button>
                 </div>
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    <Info className="w-4 h-4 inline mr-1" />
+                    Solo completa los datos generales de la tarjeta. El saldo actual, fecha de cierre, vencimiento e intereses se cargarán automáticamente al importar un resumen PDF.
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Nombre de la Tarjeta *</label>
@@ -1076,28 +1611,13 @@ export default function CreditCardCenter({
                   </div>
 
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Últimos 4 dígitos</label>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Últimos 4 dígitos (opcional)</label>
                     <input maxLength={4} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="1234" value={quickForm.last4} onChange={(e)=>setQuickForm({...quickForm,last4:e.target.value.replace(/[^0-9]/g,'')})} />
                   </div>
 
                   <div>
                     <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Límite *</label>
                     <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="500000" value={quickForm.limit} onChange={(e)=>setQuickForm({...quickForm,limit:e.target.value})} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Pago mínimo</label>
-                    <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="0" value={quickForm.minPayment} onChange={(e)=>setQuickForm({...quickForm,minPayment:e.target.value})} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Vencimiento (día)</label>
-                    <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="25" value={quickForm.dueDay} onChange={(e)=>setQuickForm({...quickForm,dueDay:e.target.value})} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Saldo actual</label>
-                    <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="0" value={quickForm.currentBalance} onChange={(e)=>setQuickForm({...quickForm,currentBalance:e.target.value})} />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
@@ -1111,6 +1631,24 @@ export default function CreditCardCenter({
 
         {/* Importar Resumen */}
         <CreditCardStatementImport isOpen={showImport.open} onClose={() => setShowImport({ open: false })} cardId={showImport.cardId || ''} />
+        
+        {/* Modal de edición de tarjeta */}
+        {editingCard && (
+          <EditCardModal
+            card={editingCard}
+            onClose={() => setEditingCard(null)}
+            onSave={async (updatedData) => {
+              try {
+                await updateCard(editingCard.id, updatedData);
+                success('Tarjeta actualizada exitosamente');
+                setEditingCard(null);
+                await fetchCards(); // Recargar tarjetas
+              } catch (err) {
+                error('Error al actualizar tarjeta');
+              }
+            }}
+          />
+        )}
 
         {/* Modal de Consumos */}
         <CreditCardConsumptionModal
@@ -1119,6 +1657,13 @@ export default function CreditCardCenter({
           selectedCard={showConsumptions}
           categories={categories}
           subcategories={subcategories}
+        />
+
+        {/* Modal de Proyección Independiente */}
+        <CreditCardProjectionModal
+          isOpen={showProjection}
+          onClose={() => setShowProjection(false)}
+          cards={cards}
         />
       </div>
     </AnimatePresence>

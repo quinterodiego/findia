@@ -460,19 +460,64 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     pesosMatches = filterComprobantes(pesosMatches)
     
     // Si no encontramos montos válidos en la línea actual, buscar en toda la línea (puede que estén antes del comprobante)
+    // PERO solo si la línea no tiene números muy grandes que son parte del nombre del comercio
     if ((!usdMatches || usdMatches.length === 0) && (!pesosMatches || pesosMatches.length === 0)) {
-      // Buscar en toda la línea combinada (row puede tener múltiples líneas ya combinadas)
-      usdMatches = row.match(usdAmountRegex)
-      const allPesosMatches = row.match(pesosAmountRegex)
-      
-      // Filtrar comprobantes de los matches
-      pesosMatches = filterComprobantes(allPesosMatches)
-      
-      textAfterComprobante = row // Usar toda la línea para búsqueda
+      // Primero verificar que no hayamos encontrado un número grande que es parte del nombre
+      // Si la línea tiene un número de 6+ dígitos sin punto miles, probablemente es parte del nombre
+      const largeNumberInName = row.match(/\d{6,}/)
+      if (largeNumberInName) {
+        const largeNum = parseInt(largeNumberInName[0])
+        // Si el número es muy grande (más de 100,000) y está en la descripción, probablemente no es un monto
+        // Los montos típicos de consumos son menores a 1 millón, y si es mayor probablemente es parte del nombre
+        if (largeNum > 100000) {
+          console.log('[PDF Parsing] ⚠️ Número grande encontrado en nombre de comercio, saltando búsqueda en línea completa:', largeNum)
+          // No buscar en toda la línea, esperar a buscar en líneas siguientes
+        } else {
+          // Buscar en toda la línea combinada (row puede tener múltiples líneas ya combinadas)
+          usdMatches = row.match(usdAmountRegex)
+          const allPesosMatches = row.match(pesosAmountRegex)
+          
+          // Filtrar comprobantes de los matches
+          pesosMatches = filterComprobantes(allPesosMatches)
+          
+          textAfterComprobante = row // Usar toda la línea para búsqueda
+        }
+      } else {
+        // Buscar en toda la línea combinada (row puede tener múltiples líneas ya combinadas)
+        usdMatches = row.match(usdAmountRegex)
+        const allPesosMatches = row.match(pesosAmountRegex)
+        
+        // Filtrar comprobantes de los matches
+        pesosMatches = filterComprobantes(allPesosMatches)
+        
+        textAfterComprobante = row // Usar toda la línea para búsqueda
+      }
     }
     
-    // Verificar si tenemos montos válidos (no comprobantes)
-    const hasValidAmounts = (usdMatches && usdMatches.length > 0) || (pesosMatches && pesosMatches.length > 0)
+    // Verificar si tenemos montos válidos (no comprobantes, no números grandes en nombres)
+    let hasValidAmounts = false
+    
+    // Primero filtrar pesosMatches si existen
+    if (pesosMatches && pesosMatches.length > 0) {
+      const validPesos = pesosMatches.filter(m => {
+        const cleanAmount = typeof m === 'string' ? m.replace(/\./g, '').replace(',', '.') : m.toString().replace(/\./g, '').replace(',', '.')
+        const numericValue = parseFloat(cleanAmount) || 0
+        // Filtrar números muy grandes (probablemente parte del nombre del comercio)
+        if (numericValue > 1000000) {
+          console.log('[PDF Parsing] ⚠️ Descartando monto sospechoso en pesosMatches (> 1M):', m)
+          return false
+        }
+        const numericOnly = (typeof m === 'string' ? m : m.toString()).replace(/[.,]/g, '')
+        if (numericOnly.length >= 6 && !(typeof m === 'string' ? m : m.toString()).includes('.')) {
+          console.log('[PDF Parsing] ⚠️ Descartando número grande sin punto miles en pesosMatches:', m)
+          return false
+        }
+        return true
+      })
+      pesosMatches = validPesos.length > 0 ? validPesos as any : null
+    }
+    
+    hasValidAmounts = (usdMatches && usdMatches.length > 0) || (pesosMatches && pesosMatches.length > 0)
     
     // Si aún no encontramos montos válidos, buscar en las líneas siguientes del detalleRows ORIGINAL
     // (En PDFs tabulares, los montos pueden estar en líneas separadas)
@@ -499,19 +544,34 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
           
           // Buscar montos en la línea siguiente (puede que solo contenga montos)
           // Usar regex más flexible: buscar cualquier número que parezca monto (con coma decimal)
-          const flexiblePesosRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g // Cualquier número con coma decimal (incluye 63.104,00)
+          // Incluir montos con punto miles (63.104,00) y montos pequeños sin punto miles (129,60)
+          const flexiblePesosRegex = /(\d{1,3}(?:\.\d{3})*,\d{2})/g // Con punto miles (63.104,00)
+          const smallPesosRegex = /(\d{1,6},\d{2})(?:\s|$)/g // Sin punto miles pero con coma decimal (129,60)
           const nextUsdMatches = nextDetailLine.match(usdAmountRegex)
-          const nextPesosMatches = [...(nextDetailLine.matchAll(flexiblePesosRegex) || [])].map(m => m[1])
+          
+          // Combinar ambos tipos de matches
+          const nextPesosMatchesWithThousands = [...(nextDetailLine.matchAll(flexiblePesosRegex) || [])].map(m => m[1])
+          const nextPesosMatchesSmall = [...(nextDetailLine.matchAll(smallPesosRegex) || [])].map(m => m[1])
+          const nextPesosMatches = [...nextPesosMatchesWithThousands, ...nextPesosMatchesSmall]
           
           // Filtrar comprobantes: si el match es solo el comprobante (4-5 dígitos sin punto miles), ignorarlo
+          // También filtrar números muy grandes que son parte del nombre del comercio
           const validPesosMatches = nextPesosMatches.filter(m => {
             const numericOnly = m.replace(/[.,]/g, '')
-            // Si es un número de 4-5 dígitos sin punto miles, probablemente es comprobante
-            if (numericOnly.length >= 4 && numericOnly.length <= 5 && !m.includes('.')) {
-              return false
+            // Si es un número de 4-5 dígitos SIN coma decimal, probablemente es comprobante
+            // Pero si tiene coma decimal (129,60), es un monto válido
+            if (numericOnly.length >= 4 && numericOnly.length <= 5 && !m.includes(',') && !m.includes('.')) {
+              return false // Es un número sin coma decimal, probablemente comprobante
             }
             // Si coincide con el comprobante detectado, ignorarlo
             if (comprobanteMatch && m.includes(comprobanteMatch[1])) {
+              return false
+            }
+            // Si es un número de 6+ dígitos sin punto miles, probablemente es parte del nombre del comercio
+            const cleanAmount = m.replace(/\./g, '').replace(',', '.')
+            const numericValue = parseFloat(cleanAmount) || 0
+            if (numericValue > 1000000 || (numericOnly.length >= 6 && !m.includes('.') && !m.includes(','))) {
+              console.log('[PDF Parsing] ⚠️ Descartando número grande en línea siguiente (probable parte del nombre):', m)
               return false
             }
             return true
@@ -572,8 +632,26 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     
     // Procesar monto PESOS
     if (allPesosMatches.length > 0) {
-      // Los matches ya vienen filtrados
-      const validPesosMatches = allPesosMatches
+      // Filtrar montos que son parte del nombre del comercio (números muy grandes sin punto miles)
+      const validPesosMatches = allPesosMatches.filter(m => {
+        const cleanAmount = m.replace(/\./g, '').replace(',', '.')
+        const numericValue = parseFloat(cleanAmount) || 0
+        
+        // Si es mayor a 1 millón, probablemente no es un monto válido de consumo
+        if (numericValue > 1000000) {
+          console.log('[PDF Parsing] ⚠️ Descartando monto sospechoso (> 1M) en procesamiento final:', m, 'valor:', numericValue)
+          return false
+        }
+        
+        // Si es un número de 6+ dígitos sin punto miles (ni coma decimal visible), probablemente es parte del nombre
+        const numericOnly = m.replace(/[.,]/g, '')
+        if (numericOnly.length >= 6 && !m.includes('.')) {
+          console.log('[PDF Parsing] ⚠️ Descartando número grande sin punto miles (probable parte del nombre):', m)
+          return false
+        }
+        
+        return true
+      })
       
       if (validPesosMatches.length > 0) {
         // Si hay múltiples matches, usar el más grande (probablemente el monto principal)
@@ -588,11 +666,14 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         const cleanPesos = pesosAmount.replace(/\./g, '').replace(',', '.')
         montoPesos = parseFloat(cleanPesos) || 0
         console.log('[PDF Parsing] Monto PESOS encontrado:', pesosAmount, '->', montoPesos)
+      } else {
+        console.log('[PDF Parsing] ⚠️ Todos los matches de PESOS fueron descartados como sospechosos en procesamiento final')
       }
     }
     
     // Procesar monto USD (formato: X,XX)
     // Debe ser un número pequeño con coma decimal (ej: 1,99, 2,99)
+    // Los montos de 3+ dígitos (como 129,60) son PESOS, no USD
     if (allUsdMatches.length > 0) {
       const validUSDMatches = allUsdMatches.filter(m => {
         const index = row.indexOf(m)
@@ -604,7 +685,12 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         const numericValue = m.replace(/[.,]/g, '')
         const isComprobante = numericValue.length >= 4 && numericValue.length <= 5 && !m.includes(',')
         
-        return (isAtEnd || isInParentheses) && !isComprobante
+        // Los montos de USD suelen ser muy pequeños (menos de 100). Si es mayor, probablemente es PESOS
+        const cleanAmount = m.replace(',', '.')
+        const numericAmount = parseFloat(cleanAmount) || 0
+        const isSmallAmount = numericAmount < 100
+        
+        return (isAtEnd || isInParentheses) && !isComprobante && isSmallAmount
       })
       
       if (validUSDMatches.length > 0) {
@@ -613,6 +699,20 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         const cleanUSD = usdAmount.replace(',', '.')
         montoUSD = parseFloat(cleanUSD) || 0
         console.log('[PDF Parsing] Monto USD encontrado:', usdAmount, '->', montoUSD)
+      } else {
+        // Si hay matches pero no pasaron el filtro, probablemente son PESOS pequeños sin punto miles
+        // Agregarlos a allPesosMatches si no están ya
+        for (const match of allUsdMatches) {
+          const cleanAmount = match.replace(',', '.')
+          const numericAmount = parseFloat(cleanAmount) || 0
+          // Si es mayor o igual a 100, es PESOS
+          if (numericAmount >= 100 && numericAmount < 1000000) {
+            if (!allPesosMatches.includes(match)) {
+              allPesosMatches.push(match)
+              console.log('[PDF Parsing] Convertiendo monto de USD a PESOS (>=100):', match)
+            }
+          }
+        }
       }
     }
     
@@ -703,6 +803,540 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     })
     
     console.log('[PDF Parsing] ✅ Transacción agregada:', parsedDate, description.substring(0, 40), montoPesos > 0 ? `$${montoPesos.toFixed(2)}` : `U$D${montoUSD.toFixed(2)}`)
+  }
+  
+  // AHORA: Buscar y parsear otras secciones importantes (Intereses, Impuestos, etc.)
+  console.log('[PDF Parsing] 🔍 Buscando otras secciones del resumen (Intereses, Impuestos, etc.)...')
+  
+  // Buscar secciones de intereses y cargos después del detalle de consumo
+  // Estas secciones suelen aparecer después del SUBTOTAL y antes del TOTAL A PAGAR
+  // Incluye variaciones para Visa y Mastercard
+  // IMPORTANTE: Ordenar de más específico a menos específico para evitar falsos positivos
+  const interestSections = [
+    // Variantes específicas de Visa y Mastercard (deben empezar con la keyword)
+    { keyword: '^INTERESES DE FINANCIACION', type: 'interest' as const },
+    { keyword: '^INTERESES COMPENSATORIOS', type: 'interest' as const },
+    { keyword: '^INTERESES PUNITORIOS', type: 'interest' as const },
+    { keyword: '^IMPUESTO DE SELLOS', type: 'fee' as const },
+    { keyword: '^PERCEPCION IVA DTO', type: 'fee' as const }, // PERCEPCION IVA DTO 354/18
+    { keyword: '^PERCEP\\.AFIP RG', type: 'fee' as const }, // PERCEP.AFIP RG 4815
+    { keyword: '^PERC IIBB SERV DIG', type: 'fee' as const }, // PERC IIBB SERV DIG CABA
+    { keyword: '^I\\.V\\.A\\.', type: 'fee' as const }, // I.V.A. 21,0%
+    // Palabras clave simples (pueden estar en cualquier parte, pero más abajo para evitar falsos positivos)
+    { keyword: 'INTERESES', type: 'interest' as const }, // INTERESES (sin importar posición)
+    { keyword: 'INTERES', type: 'interest' as const }, // INTERES (sin importar posición)
+    // Impuestos y cargos
+    { keyword: 'IMPUESTO', type: 'fee' as const }, // IMPUESTO (sin importar posición)
+    { keyword: 'I\\.V\\.A\\.', type: 'fee' as const }, // I.V.A. (sin importar posición)
+    { keyword: 'I\\.V\\.A', type: 'fee' as const }, // I.V.A (sin puntos finales)
+    { keyword: 'IVA', type: 'fee' as const }, // IVA (sin puntos)
+    { keyword: 'PERCEPCION', type: 'fee' as const }, // PERCEPCION (sin importar posición)
+    { keyword: 'IIBB', type: 'fee' as const }, // IIBB (sin importar posición)
+  ]
+  
+  // Buscar desde el final del detalle de consumo hasta el TOTAL A PAGAR
+  // IMPORTANTE: Las líneas de intereses/impuestos pueden estar ANTES del TOTAL A PAGAR
+  // Buscar desde ANTES del detalle también por si están en otra sección
+  let otherSectionsStart = Math.max(0, detailStartIndex - 20) // Buscar desde 20 líneas antes del detalle
+  let totalAPagarIndex = rows.length
+  let opcionesFinanciacionStart = rows.length
+  
+  // PRIMERO: Buscar TOTAL A PAGAR (marcador de fin de secciones de intereses/impuestos)
+  for (let i = detailEndIndex; i < rows.length; i++) {
+    const upperRow = rows[i].toUpperCase()
+    
+    // Buscar TOTAL A PAGAR (puede estar en la línea o en líneas cercanas)
+    if (upperRow.includes('TOTAL A PAGAR')) {
+      // Verificar si tiene un monto en esta línea o en las siguientes 2 líneas
+      let foundAmount = false
+      for (let j = i; j < Math.min(i + 3, rows.length); j++) {
+        if (/\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2}/.test(rows[j])) {
+          totalAPagarIndex = j
+          foundAmount = true
+          console.log('[PDF Parsing] ✅ Sección TOTAL A PAGAR encontrada en línea', j)
+          break
+        }
+      }
+      if (foundAmount) break
+    }
+  }
+  
+  // SEGUNDO: Buscar OPCIONES DE FINANCIACION (debe estar después del TOTAL A PAGAR)
+  for (let i = totalAPagarIndex; i < rows.length; i++) {
+    const upperRow = rows[i].toUpperCase()
+    if (upperRow.includes('OPCIONES DE FINANCIACION')) {
+      opcionesFinanciacionStart = i
+      console.log('[PDF Parsing] ⚠️ Sección OPCIONES DE FINANCIACION encontrada en línea', i)
+      break
+    }
+  }
+  
+  // NO limitar la búsqueda por OPCIONES DE FINANCIACION si está después del TOTAL A PAGAR
+  // Las líneas de intereses están ANTES del TOTAL A PAGAR
+  
+  console.log('[PDF Parsing] 📊 Búsqueda de secciones de intereses/impuestos:')
+  console.log('[PDF Parsing]   - Inicio (otherSectionsStart):', otherSectionsStart)
+  console.log('[PDF Parsing]   - Fin del detalle (detailEndIndex):', detailEndIndex)
+  console.log('[PDF Parsing]   - Fin (totalAPagarIndex):', totalAPagarIndex)
+  console.log('[PDF Parsing]   - Rango de búsqueda:', totalAPagarIndex - otherSectionsStart, 'líneas')
+  
+  // Mostrar TODAS las líneas del rango para debugging completo
+  // Buscar desde ANTES del detalle hasta el TOTAL A PAGAR
+  if (otherSectionsStart < totalAPagarIndex && otherSectionsStart < rows.length) {
+    const sampleStart = Math.max(0, otherSectionsStart)
+    const sampleEnd = Math.min(totalAPagarIndex, rows.length)
+    console.log('[PDF Parsing]   - TODAS las líneas del rango (índices', sampleStart, 'a', sampleEnd - 1, '):')
+    for (let idx = sampleStart; idx < sampleEnd; idx++) {
+      const rowUpper = rows[idx].toUpperCase()
+      const hasInterest = rowUpper.includes('INTERES') || rowUpper.includes('INTERESES')
+      const hasImpuesto = rowUpper.includes('IMPUESTO')
+      const hasIVA = rowUpper.includes('IVA') || rowUpper.includes('I.V.A')
+      const hasPercepcion = rowUpper.includes('PERCEPCION')
+      const hasIIBB = rowUpper.includes('IIBB')
+      const markers = []
+      if (hasInterest) markers.push('💡INTERES')
+      if (hasImpuesto) markers.push('💡IMPUESTO')
+      if (hasIVA) markers.push('💡IVA')
+      if (hasPercepcion) markers.push('💡PERCEPCION')
+      if (hasIIBB) markers.push('💡IIBB')
+      const marker = markers.length > 0 ? ' ' + markers.join(' ') : ''
+      console.log('[PDF Parsing]     [' + idx + ']' + marker, rows[idx].substring(0, 120))
+    }
+  }
+  
+  // También buscar líneas ANTES del detalle que puedan contener intereses/impuestos
+  // (por si están en una sección separada)
+  if (detailStartIndex > 0) {
+    const preDetailStart = Math.max(0, detailStartIndex - 50)
+    console.log('[PDF Parsing]   - Búsqueda adicional ANTES del detalle (índices', preDetailStart, 'a', detailStartIndex - 1, '):')
+    let foundInterestBeforeDetail = false
+    for (let idx = preDetailStart; idx < detailStartIndex; idx++) {
+      const rowUpper = rows[idx].toUpperCase()
+      const hasInterest = rowUpper.includes('INTERES') || rowUpper.includes('INTERESES')
+      const hasImpuesto = rowUpper.includes('IMPUESTO')
+      const hasIVA = rowUpper.includes('IVA') || rowUpper.includes('I.V.A')
+      const hasPercepcion = rowUpper.includes('PERCEPCION')
+      const hasIIBB = rowUpper.includes('IIBB')
+      if (hasInterest || hasImpuesto || hasIVA || hasPercepcion || hasIIBB) {
+        const markers = []
+        if (hasInterest) markers.push('💡INTERES')
+        if (hasImpuesto) markers.push('💡IMPUESTO')
+        if (hasIVA) markers.push('💡IVA')
+        if (hasPercepcion) markers.push('💡PERCEPCION')
+        if (hasIIBB) markers.push('💡IIBB')
+        const marker = markers.length > 0 ? ' ' + markers.join(' ') : ''
+        console.log('[PDF Parsing]     [' + idx + ']' + marker, rows[idx].substring(0, 120))
+        foundInterestBeforeDetail = true
+      }
+    }
+    if (foundInterestBeforeDetail) {
+      console.log('[PDF Parsing] ⚠️ Se encontraron líneas con intereses/impuestos ANTES del detalle, expandiendo búsqueda...')
+      otherSectionsStart = Math.min(otherSectionsStart, preDetailStart)
+    }
+  }
+  
+  // Buscar cada sección de interés/cargo
+  console.log('[PDF Parsing] 🔍 Iniciando búsqueda de intereses/impuestos...')
+  console.log('[PDF Parsing]   - Rango de búsqueda: líneas', otherSectionsStart, 'a', totalAPagarIndex)
+  
+  for (let i = otherSectionsStart; i < totalAPagarIndex; i++) {
+    const row = rows[i]
+    const upperRow = row.toUpperCase().trim()
+    
+    // Log cada línea para debugging
+    if (upperRow.includes('INTERES') || upperRow.includes('IMPUESTO') || upperRow.includes('IVA') || 
+        upperRow.includes('PERCEPCION') || upperRow.includes('IIBB')) {
+      console.log('[PDF Parsing] 📋 Línea candidata [', i, ']:', row.substring(0, 120))
+    }
+    
+    // PRIMERO: Filtrar líneas que claramente son parte de opciones de financiación
+    // Verificar también en líneas anteriores cercanas para detectar el contexto
+    let isOpcionFinanciacion = false
+    for (let checkIdx = Math.max(0, i - 3); checkIdx <= i; checkIdx++) {
+      const checkRow = rows[checkIdx]?.toUpperCase() || ''
+      if (checkRow.includes('OPCIONES DE FINANCIACION') || 
+          checkRow.includes('CUOTAS DE $') || 
+          (checkRow.includes('CUOTAS') && checkRow.includes('TNA')) ||
+          (checkRow.includes('TNA') && checkRow.includes('TEA'))) {
+        isOpcionFinanciacion = true
+        break
+      }
+    }
+    
+    if (isOpcionFinanciacion || upperRow.includes('TNA') || upperRow.includes('TEA') || 
+        upperRow.includes('CFT') || upperRow.includes('CUOTAS DE $') || 
+        (upperRow.includes('CUOTAS DE') && upperRow.includes('TNA')) ||
+        upperRow.includes('CUOTAS DE $') || upperRow.match(/^\d+\s+CUOTAS/i)) {
+      if (upperRow.includes('INTERES') || upperRow.includes('IMPUESTO')) {
+        console.log('[PDF Parsing] ⚠️ Saltando línea de opciones de financiación:', row.substring(0, 80))
+      }
+      continue
+    }
+    
+    // SIMPLIFICAR: Primero buscar palabras clave de forma simple y directa
+    // Buscar si esta línea contiene alguna de las secciones
+    let foundSection = null
+    let foundKeyword = ''
+    
+    for (const section of interestSections) {
+      const trimmedUpperRow = upperRow.trim()
+      let found = false
+      
+      // Simplificar: si la keyword empieza con ^, intentar buscar al inicio, pero si no funciona, buscar en cualquier parte
+      if (section.keyword.startsWith('^')) {
+        const searchPattern = section.keyword.substring(1).replace(/\\\./g, '.').replace(/\\/g, '')
+        // Intentar al inicio primero
+        if (trimmedUpperRow.startsWith(searchPattern) || trimmedUpperRow.includes(' ' + searchPattern)) {
+          found = true
+        } else {
+          // Si no está al inicio, buscar en cualquier parte
+          found = trimmedUpperRow.includes(searchPattern)
+        }
+      } else {
+        // Palabra simple: buscar en cualquier parte
+        const simpleKeyword = section.keyword.replace(/\\\./g, '.').replace(/\\/g, '').toUpperCase()
+        found = trimmedUpperRow.includes(simpleKeyword)
+      }
+      
+      if (found) {
+        foundSection = section
+        foundKeyword = section.keyword
+        console.log('[PDF Parsing] 🔍 Palabra clave encontrada:', section.keyword, '| Tipo:', section.type, '| Línea:', row.substring(0, 100))
+        break // Usar la primera que encontremos
+      }
+    }
+    
+    // Si encontramos una sección, procesarla
+    if (foundSection) {
+      const section = foundSection
+      
+      // PRIMERO: Verificar que la línea NO sea solo una nota explicativa
+      // Filtrar líneas que son explicaciones o notas sin montos reales
+      // IMPORTANTE: Solo filtrar si contiene palabras específicas de nota explicativa
+      const isExplanatoryNote = (upperRow.includes('NO PUEDE') && (upperRow.includes('DISCRIMINADO') || upperRow.includes('COMPUTARSE') || upperRow.includes('CREDITO FISCAL'))) ||
+                                (upperRow.includes('NO SE PUEDE') && (upperRow.includes('DISCRIMINADO') || upperRow.includes('COMPUTARSE') || upperRow.includes('CREDITO FISCAL'))) ||
+                                (upperRow.includes('NOTA:') && upperRow.includes('DISCRIMINADO')) ||
+                                (upperRow.includes('OBSERVACION') && upperRow.includes('DISCRIMINADO'))
+      
+      if (isExplanatoryNote) {
+        console.log('[PDF Parsing] ⚠️ Saltando línea que parece nota explicativa:', row.substring(0, 80))
+        continue // Continuar con siguiente línea
+      }
+      
+      // Verificar que la línea NO contenga términos de opciones de financiación
+      if (upperRow.includes('TNA') || upperRow.includes('TEA') || upperRow.includes('CFT') || 
+          upperRow.includes('CUOTAS DE $')) {
+        console.log('[PDF Parsing] ⚠️ Saltando línea de opciones de financiación:', row.substring(0, 80))
+        continue // Continuar con siguiente línea
+      }
+      
+      // AHORA: Buscar directamente el monto en la línea (más simple y directo)
+      console.log('[PDF Parsing] ✅ Línea con keyword detectada, buscando monto...')
+      
+      // Filtrar montos excesivamente grandes (más de 1 millón) que probablemente son opciones de financiación
+      // Buscar montos en la línea actual PRIMERO (formato tabular), luego en siguientes líneas
+      let montoEncontrado = 0
+      let montoEncontradoEnLinea = -1
+        
+        // PRIMERO: Buscar monto en la MISMA línea (formato tabular común en Mastercard)
+        // Patrones más flexibles para montos (incluye diferentes formatos)
+        // IMPORTANTE: Buscar al final de la línea o después del texto descriptivo
+        // El formato típico es: TEXTO MONTO (ej: "INTERESES DE FINANCIACION 171.828,46")
+        const amountPatterns = [
+          // PRIMERO: Buscar al final de la línea (más específico para formato tabular)
+          /(\d{1,3}(?:\.\d{3})+,\d{2})\s*$/, // 171.828,46 al final
+          /(\d{3,6},\d{2})\s*$/, // 480,54 al final
+          // Formato argentino con puntos miles: 171.828,46 o 2.626,24 o 36.285,80
+          /(\d{1,3}(?:\.\d{3})+,\d{2})/,
+          // Números con coma decimal: cualquier número seguido de coma y 2 decimales
+          /(\d+,\d{2})/, // 480,54 o 259,42 o 171.828,46
+          // Formato alternativo: 1,234.56
+          /(\d{1,3}(?:,\d{3})+\.\d{2})/,
+          // Números simples con punto: 123.45
+          /(\d+\.\d{2})/,
+        ]
+        
+        // Buscar en la línea actual primero
+        // Intentar buscar el monto al final de la línea (más común en formato tabular)
+        for (const pattern of amountPatterns) {
+          const amountMatch = row.match(pattern)
+          if (amountMatch) {
+            let cleanAmount = amountMatch[1].trim()
+            
+            // Normalizar formato: remover separadores de miles y convertir coma decimal a punto
+            if (cleanAmount.includes('.')) {
+              // Tiene punto: puede ser miles o decimal
+              const parts = cleanAmount.split('.')
+              if (parts.length === 2 && parts[1].length <= 3) {
+                // Decimal: 123.45
+                cleanAmount = cleanAmount.replace(',', '.')
+              } else {
+                // Miles: 1.234.567 o 1.234,56 o 171.828,46
+                cleanAmount = cleanAmount.replace(/\./g, '').replace(',', '.')
+              }
+            } else if (cleanAmount.includes(',')) {
+              // Solo coma: puede ser miles o decimal
+              const parts = cleanAmount.split(',')
+              if (parts.length === 2 && parts[1].length === 2) {
+                // Decimal simple: 123,45 o 480,54 o 259,42
+                // Verificar si tiene 3-6 dígitos antes de la coma (formato argentino común)
+                const beforeComma = parts[0]
+                if (beforeComma.length >= 3 && beforeComma.length <= 6) {
+                  // Es un monto con coma decimal: 480,54 o 259,42
+                  cleanAmount = cleanAmount.replace(',', '.')
+                } else {
+                  // Podría ser miles con coma
+                  cleanAmount = cleanAmount.replace(/,/g, '').replace('.', '.')
+                }
+              } else {
+                // Miles con coma: 1,234,567 o 1,234.56
+                cleanAmount = cleanAmount.replace(/,/g, '').replace('.', '.')
+              }
+            }
+            
+            const parsedAmount = parseFloat(cleanAmount) || 0
+            
+            // Filtrar montos muy grandes (más de 1 millón = probable opción de financiación)
+            // PERO: Para intereses e impuestos, permitir montos más grandes (hasta 2 millones)
+            const maxAmount = section.type === 'interest' || section.type === 'fee' ? 2000000 : 1000000
+            if (parsedAmount > 0 && parsedAmount <= maxAmount) {
+              montoEncontrado = parsedAmount
+              montoEncontradoEnLinea = i
+              console.log('[PDF Parsing] ✅ Monto encontrado en la MISMA línea (formato tabular):', parsedAmount, '| Línea:', row.substring(0, 80))
+              break
+            } else {
+              console.log('[PDF Parsing] ⚠️ Monto encontrado pero fuera de rango:', parsedAmount, '| Límite:', maxAmount, '| Línea:', row.substring(0, 80))
+            }
+          }
+        }
+        
+        // Si no encontramos monto, intentar buscar el último número que parezca un monto en la línea
+        if (montoEncontrado === 0) {
+          console.log('[PDF Parsing] 🔍 Intentando búsqueda alternativa de montos en la línea...')
+          // Buscar TODOS los números que parezcan montos en la línea (más flexible)
+          const allNumbers = row.match(/\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2}/g)
+          if (allNumbers && allNumbers.length > 0) {
+            console.log('[PDF Parsing]   - Números encontrados en la línea:', allNumbers)
+            // Tomar el último número (más probable que sea el monto en formato tabular)
+            const lastNumber = allNumbers[allNumbers.length - 1]
+            console.log('[PDF Parsing]   - Último número encontrado:', lastNumber)
+            
+            // Normalizar el número
+            let cleanAmount = lastNumber
+            if (cleanAmount.includes('.')) {
+              // Tiene puntos: son separadores de miles
+              cleanAmount = cleanAmount.replace(/\./g, '').replace(',', '.')
+            } else {
+              // Solo coma: es decimal
+              cleanAmount = cleanAmount.replace(',', '.')
+            }
+            
+            const parsedAmount = parseFloat(cleanAmount) || 0
+            console.log('[PDF Parsing]   - Monto parseado:', parsedAmount)
+            
+            const maxAmount = section.type === 'interest' || section.type === 'fee' ? 2000000 : 1000000
+            if (parsedAmount > 0 && parsedAmount <= maxAmount) {
+              montoEncontrado = parsedAmount
+              montoEncontradoEnLinea = i
+              console.log('[PDF Parsing] ✅ Monto encontrado (último número de la línea):', parsedAmount, '| Línea:', row.substring(0, 80))
+            } else {
+              console.log('[PDF Parsing] ⚠️ Monto fuera de rango:', parsedAmount, '| Límite:', maxAmount)
+            }
+          } else {
+            console.log('[PDF Parsing] ⚠️ No se encontraron números en la línea con los patrones esperados')
+            console.log('[PDF Parsing]   - Línea completa:', row)
+          }
+        }
+        
+        // Si no encontramos en la línea actual, buscar en siguientes 3 líneas
+        if (montoEncontrado === 0) {
+          for (let searchIdx = i + 1; searchIdx <= Math.min(i + 3, rows.length - 1); searchIdx++) {
+            const searchRow = rows[searchIdx]
+            
+            for (const pattern of amountPatterns) {
+              const amountMatch = searchRow.match(pattern)
+              if (amountMatch) {
+                let cleanAmount = amountMatch[1]
+                // Normalizar formato: remover separadores de miles y convertir coma decimal a punto
+                if (cleanAmount.includes('.')) {
+                  // Tiene punto: puede ser miles o decimal
+                  const parts = cleanAmount.split('.')
+                  if (parts.length === 2 && parts[1].length <= 3) {
+                    // Decimal: 123.45
+                    cleanAmount = cleanAmount.replace(',', '.')
+                  } else {
+                    // Miles: 1.234.567 o 1.234,56
+                    cleanAmount = cleanAmount.replace(/\./g, '').replace(',', '.')
+                  }
+                } else if (cleanAmount.includes(',')) {
+                  // Solo coma: puede ser miles o decimal
+                  const parts = cleanAmount.split(',')
+                  if (parts.length === 2 && parts[1].length <= 3 && parts[0].length <= 4) {
+                    // Decimal simple: 123,45
+                    cleanAmount = cleanAmount.replace(',', '.')
+                  } else {
+                    // Miles con coma: 1,234,567 o 1,234.56
+                    cleanAmount = cleanAmount.replace(/,/g, '').replace('.', '.')
+                  }
+                }
+                
+                const parsedAmount = parseFloat(cleanAmount) || 0
+                
+                // Filtrar montos muy grandes (más de 1 millón = probable opción de financiación)
+                // PERO: Para intereses e impuestos, permitir montos más grandes (hasta 2 millones)
+                const maxAmount = section.type === 'interest' || section.type === 'fee' ? 2000000 : 1000000
+                if (parsedAmount > 0 && parsedAmount <= maxAmount) {
+                  montoEncontrado = parsedAmount
+                  montoEncontradoEnLinea = searchIdx
+                  console.log('[PDF Parsing] ✅ Monto encontrado en línea', searchIdx - i, 'después:', parsedAmount)
+                  break
+                }
+              }
+            }
+            
+            if (montoEncontrado > 0) {
+              break // Salir del loop si encontramos un monto válido
+            }
+          }
+        }
+        
+        // Verificar si encontramos un monto válido (con límite aumentado para intereses/impuestos)
+        const maxAmount = section.type === 'interest' || section.type === 'fee' ? 2000000 : 1000000
+        if (montoEncontrado > 0 && montoEncontrado <= maxAmount) {
+          // Extraer descripción (limpiar la línea de números y espacios extra)
+          // SIEMPRE usar la línea donde encontramos el keyword como descripción principal
+          let descriptionRow = row // Usar la línea donde encontramos el keyword
+          
+          // Remover todos los patrones de montos posibles de la línea del keyword
+          let description = descriptionRow
+            .replace(/\d{1,3}(?:\.\d{3})+,\d{2}/g, '') // Formato argentino: 1.234,56
+            .replace(/\d{1,3}(?:,\d{3})+\.\d{2}/g, '') // Formato alternativo: 1,234.56
+            .replace(/\d{4,},\d{2}/g, '') // Números grandes con coma: 12345,67
+            .replace(/\d+,\d{2}/g, '') // Números simples con coma: 123,45
+            .replace(/\d+\.\d{2}/g, '') // Números simples con punto: 123.45
+            .replace(/\d{6,}/g, '') // Números muy grandes sin separadores
+            .replace(/\s+/g, ' ') // Normalizar espacios
+            .trim()
+          
+          // Si la descripción está vacía o es muy corta, usar el keyword limpio
+          if (!description || description.length < 3) {
+            // Intentar buscar en líneas anteriores si la línea actual solo tiene el monto
+            if (montoEncontradoEnLinea > i) {
+              // El monto está en una línea siguiente, usar la línea actual como descripción
+              description = row.replace(/\d{1,3}(?:\.\d{3})+,\d{2}|\d{6,},\d{2}/g, '').trim()
+              description = description.replace(/\s+/g, ' ')
+            }
+            
+            // Si aún está vacía, usar el keyword limpio
+            if (!description || description.length < 3) {
+              description = section.keyword
+                .replace(/\\\./g, '.')
+                .replace(/\\/g, '')
+                .replace(/\^/g, '')
+                .replace(/INTERESES?/gi, 'Intereses')
+                .replace(/\\s\+/g, ' ')
+            }
+          }
+          
+          // Verificar que la descripción no contenga términos de opciones de financiación
+          // PERO: Si es un impuesto real (IVA, IMPUESTO, PERCEPCION, IIBB), no filtrar por TNA/TEA
+          const descUpper = description.toUpperCase()
+          const isRealTax = section.type === 'fee' && (
+            descUpper.includes('IVA') || 
+            descUpper.includes('IMPUESTO') || 
+            descUpper.includes('PERCEPCION') || 
+            descUpper.includes('IIBB') ||
+            section.keyword.toUpperCase().includes('IVA') ||
+            section.keyword.toUpperCase().includes('IMPUESTO') ||
+            section.keyword.toUpperCase().includes('PERCEPCION') ||
+            section.keyword.toUpperCase().includes('IIBB')
+          )
+          
+          // Verificar que la descripción NO sea una nota explicativa
+          if (descUpper.includes('NO PUEDE') || 
+              descUpper.includes('NO SE PUEDE') ||
+              descUpper.includes('DISCRIMINADO') ||
+              descUpper.includes('COMPUTARSE') ||
+              descUpper.includes('CREDITO FISCAL') ||
+              descUpper.includes('NOTA:') ||
+              descUpper.includes('OBSERVACION')) {
+            console.log('[PDF Parsing] ⚠️ Saltando descripción que parece nota explicativa:', description)
+            break
+          }
+          
+          // Solo filtrar términos de financiación si NO es un impuesto real
+          if (!isRealTax) {
+            if (descUpper.includes('TNA') || descUpper.includes('TEA') || descUpper.includes('CFT') ||
+                descUpper.includes('CUOTAS DE') || descUpper.includes('CUOTAS DE $') ||
+                descUpper.match(/\d+\s+CUOTAS/i)) {
+              console.log('[PDF Parsing] ⚠️ Saltando descripción con términos de financiación:', description)
+              break
+            }
+            
+            // Verificar que la línea original no contenga términos de opciones de financiación
+            if (upperRow.includes('CUOTAS DE $') || upperRow.match(/^\d+\s+CUOTAS/i)) {
+              console.log('[PDF Parsing] ⚠️ Saltando línea que parece opción de financiación:', row.substring(0, 80))
+              break
+            }
+          } else {
+            console.log('[PDF Parsing] ℹ️ Impuesto real detectado, ignorando filtros de financiación:', description)
+          }
+          
+          // Intentar encontrar una fecha asociada (puede estar en la misma línea o en líneas anteriores cercanas)
+          let fecha = null
+          for (let j = Math.max(0, i - 2); j <= i; j++) {
+            const fechaMatch = rows[j].match(dateRegex)
+            if (fechaMatch) {
+              fecha = fechaMatch[0]
+              break
+            }
+          }
+          
+          // Si no hay fecha específica, usar la fecha de corte del resumen (aproximada)
+          // O usar una fecha genérica del mes
+          const parsedDate = fecha ? parseDateWithMonth(fecha) : null
+          
+          if (!parsedDate) {
+            // Intentar usar una fecha del detalle de consumos como referencia
+            if (lines.length > 0) {
+              // Usar la fecha más reciente de los consumos
+              const latestConsumption = lines[lines.length - 1]
+              fecha = latestConsumption.date
+            } else {
+              // Fecha genérica si no hay consumos
+              fecha = new Date().toLocaleDateString('es-AR')
+            }
+          } else {
+            fecha = parsedDate
+          }
+          
+          // Verificar si ya existe una transacción similar para evitar duplicados
+          const isDuplicate = lines.some(existing => 
+            existing.description.toLowerCase().trim() === description.toLowerCase().trim() &&
+            Math.abs(existing.montoPesos - montoEncontrado) < 0.01 &&
+            existing.type === section.type
+          )
+          
+          if (!isDuplicate) {
+            lines.push({
+              date: fecha,
+              originalDate: fecha,
+              description: description,
+              montoPesos: montoEncontrado,
+              montoUSD: 0,
+              installments: null,
+              type: section.type,
+            })
+            
+            console.log('[PDF Parsing] ✅ Sección agregada:', section.type, description.substring(0, 40), `$${montoEncontrado.toFixed(2)}`)
+          }
+      } else {
+        // Si no se encontró monto válido, puede ser que la sección esté mal formateada
+        console.log('[PDF Parsing] ⚠️ Sección encontrada pero sin monto válido:', section.keyword, '| Tipo:', section.type, '| Línea:', row.substring(0, 100))
+        console.log('[PDF Parsing]   - Línea completa:', row)
+        console.log('[PDF Parsing]   - Líneas siguientes (3):', rows.slice(i, Math.min(i + 4, rows.length)))
+      }
+    }
   }
   
   console.log(`[PDF Parsing] ✅ Estadísticas finales:`)

@@ -12,7 +12,7 @@ import {
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,9 +24,10 @@ export async function PUT(
       );
     }
     
+    const { id } = await params;
     const body = await req.json();
     
-    const updatedCard = await updateCreditCard(params.id, session.user.id, {
+    const updatedCard = await updateCreditCard(id, session.user.id, {
       name: body.name,
       bank: body.bank,
       cardNumber: body.cardNumber,
@@ -57,7 +58,7 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -69,7 +70,8 @@ export async function DELETE(
       );
     }
     
-    await deleteCreditCard(params.id, session.user.id);
+    const { id } = await params;
+    await deleteCreditCard(id, session.user.id);
     
     return NextResponse.json({
       success: true,

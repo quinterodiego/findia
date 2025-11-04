@@ -13,7 +13,7 @@ import {
  */
 export async function GET(
   req: NextRequest, 
-  { params }: { params: { id: string; templateId: string } }
+  { params }: { params: Promise<{ id: string; templateId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions as any)
@@ -21,7 +21,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const template = await getPDFImportTemplate(params.templateId, session.user.id as string)
+    const { templateId } = await params
+    const template = await getPDFImportTemplate(templateId, session.user.id as string)
     
     if (!template) {
       return NextResponse.json({ error: 'Template no encontrado' }, { status: 404 })
@@ -40,7 +41,7 @@ export async function GET(
  */
 export async function PUT(
   req: NextRequest, 
-  { params }: { params: { id: string; templateId: string } }
+  { params }: { params: Promise<{ id: string; templateId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions as any)
@@ -48,6 +49,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { templateId } = await params
     const body = await req.json()
     const updates: any = {}
 
@@ -65,7 +67,7 @@ export async function PUT(
     if (body.skipLines !== undefined) updates.skipLines = body.skipLines
 
     const template = await updatePDFImportTemplate(
-      params.templateId,
+      templateId,
       session.user.id as string,
       updates
     )
@@ -83,7 +85,7 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest, 
-  { params }: { params: { id: string; templateId: string } }
+  { params }: { params: Promise<{ id: string; templateId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions as any)
@@ -91,7 +93,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await deletePDFImportTemplate(params.templateId, session.user.id as string)
+    const { templateId } = await params
+    await deletePDFImportTemplate(templateId, session.user.id as string)
 
     return NextResponse.json({ success: true, message: 'Template eliminado' }, { status: 200 })
   } catch (e: any) {

@@ -12,7 +12,7 @@ import {
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,7 +24,8 @@ export async function GET(
       );
     }
     
-    const payments = await getCreditCardPayments(params.id, session.user.id);
+    const { id } = await params;
+    const payments = await getCreditCardPayments(id, session.user.id);
     
     return NextResponse.json({
       success: true,
@@ -45,7 +46,7 @@ export async function GET(
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -57,6 +58,7 @@ export async function POST(
       );
     }
     
+    const { id } = await params;
     const body = await req.json();
     
     if (!body.amount || !body.date) {
@@ -67,7 +69,7 @@ export async function POST(
     }
     
     const payment = await createCreditCardPayment(session.user.id, {
-      creditCardId: params.id,
+      creditCardId: id,
       amount: parseFloat(body.amount),
       date: body.date,
       paymentMethod: body.paymentMethod || 'transfer',

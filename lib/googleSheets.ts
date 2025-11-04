@@ -1831,11 +1831,189 @@ export async function updateCreditCard(
 }
 
 /**
- * Elimina una tarjeta de crédito
+ * Elimina todos los consumos de una tarjeta de crédito
+ */
+async function deleteCreditCardConsumptions(cardId: string, userId: string): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.CREDIT_CARD_CONSUMPTIONS);
+    if (!exists) {
+      return; // Si la hoja no existe, no hay nada que eliminar
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARD_CONSUMPTIONS}!A2:M`,
+    });
+    
+    const rows = response.data.values || [];
+    // Encontrar todas las filas relacionadas con esta tarjeta
+    const matchingRows: number[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][1] === cardId && rows[i][2] === userId) {
+        matchingRows.push(i + 2); // +2 porque empieza en fila 2 (después del header)
+      }
+    }
+    
+    if (matchingRows.length === 0) {
+      return; // No hay consumos para eliminar
+    }
+    
+    // Eliminar las filas de abajo hacia arriba para evitar que cambien los índices
+    matchingRows.sort((a, b) => b - a);
+    
+    const sheetId = await getSheetId(SHEETS.CREDIT_CARD_CONSUMPTIONS);
+    const deleteRequests = matchingRows.map(rowIndex => ({
+      deleteDimension: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'ROWS',
+          startIndex: rowIndex - 1,
+          endIndex: rowIndex,
+        },
+      },
+    }));
+    
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: deleteRequests,
+      },
+    });
+    
+    console.log(`✅ ${matchingRows.length} consumos eliminados para tarjeta:`, cardId);
+  } catch (error) {
+    console.error('Error eliminando consumos de tarjeta:', error);
+    // No lanzar el error, solo loguear
+  }
+}
+
+/**
+ * Elimina todos los pagos de una tarjeta de crédito
+ */
+async function deleteCreditCardPayments(cardId: string, userId: string): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.CREDIT_CARD_PAYMENTS);
+    if (!exists) {
+      return; // Si la hoja no existe, no hay nada que eliminar
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARD_PAYMENTS}!A2:H`,
+    });
+    
+    const rows = response.data.values || [];
+    // Encontrar todas las filas relacionadas con esta tarjeta
+    const matchingRows: number[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][1] === cardId && rows[i][2] === userId) {
+        matchingRows.push(i + 2); // +2 porque empieza en fila 2 (después del header)
+      }
+    }
+    
+    if (matchingRows.length === 0) {
+      return; // No hay pagos para eliminar
+    }
+    
+    // Eliminar las filas de abajo hacia arriba para evitar que cambien los índices
+    matchingRows.sort((a, b) => b - a);
+    
+    const sheetId = await getSheetId(SHEETS.CREDIT_CARD_PAYMENTS);
+    const deleteRequests = matchingRows.map(rowIndex => ({
+      deleteDimension: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'ROWS',
+          startIndex: rowIndex - 1,
+          endIndex: rowIndex,
+        },
+      },
+    }));
+    
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: deleteRequests,
+      },
+    });
+    
+    console.log(`✅ ${matchingRows.length} pagos eliminados para tarjeta:`, cardId);
+  } catch (error) {
+    console.error('Error eliminando pagos de tarjeta:', error);
+    // No lanzar el error, solo loguear
+  }
+}
+
+/**
+ * Elimina todos los templates (incluyendo smart templates) de una tarjeta de crédito
+ */
+async function deleteCreditCardTemplates(cardId: string, userId: string): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.PDF_IMPORT_TEMPLATES);
+    if (!exists) {
+      return; // Si la hoja no existe, no hay nada que eliminar
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PDF_IMPORT_TEMPLATES}!A2:Z`,
+    });
+    
+    const rows = response.data.values || [];
+    // Encontrar todas las filas relacionadas con esta tarjeta
+    const matchingRows: number[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][1] === cardId && rows[i][2] === userId) {
+        matchingRows.push(i + 2); // +2 porque empieza en fila 2 (después del header)
+      }
+    }
+    
+    if (matchingRows.length === 0) {
+      return; // No hay templates para eliminar
+    }
+    
+    // Eliminar las filas de abajo hacia arriba para evitar que cambien los índices
+    matchingRows.sort((a, b) => b - a);
+    
+    const sheetId = await getSheetId(SHEETS.PDF_IMPORT_TEMPLATES);
+    const deleteRequests = matchingRows.map(rowIndex => ({
+      deleteDimension: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'ROWS',
+          startIndex: rowIndex - 1,
+          endIndex: rowIndex,
+        },
+      },
+    }));
+    
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: deleteRequests,
+      },
+    });
+    
+    console.log(`✅ ${matchingRows.length} templates eliminados para tarjeta:`, cardId);
+  } catch (error) {
+    console.error('Error eliminando templates de tarjeta:', error);
+    // No lanzar el error, solo loguear
+  }
+}
+
+/**
+ * Elimina una tarjeta de crédito y todos sus datos relacionados
  */
 export async function deleteCreditCard(cardId: string, userId: string): Promise<void> {
   try {
-    // Verificar si la hoja existe
+    // Primero eliminar todos los datos relacionados
+    console.log(`🗑️ Iniciando eliminación de tarjeta ${cardId} y todos sus datos relacionados...`);
+    
+    await deleteCreditCardConsumptions(cardId, userId);
+    await deleteCreditCardPayments(cardId, userId);
+    await deleteCreditCardTemplates(cardId, userId);
+    
+    // Finalmente eliminar la tarjeta
     const exists = await sheetExists(SHEETS.CREDIT_CARDS);
     if (!exists) {
       throw new Error('La hoja CreditCards no existe.');
@@ -1873,7 +2051,7 @@ export async function deleteCreditCard(cardId: string, userId: string): Promise<
       },
     });
     
-    console.log('✅ Tarjeta de crédito eliminada:', cardId);
+    console.log('✅ Tarjeta de crédito eliminada completamente:', cardId);
   } catch (error) {
     console.error('Error eliminando tarjeta de crédito:', error);
     throw error;
@@ -2016,7 +2194,7 @@ export async function getCreditCardConsumptions(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.CREDIT_CARD_CONSUMPTIONS}!A2:M`,
+      range: `${SHEETS.CREDIT_CARD_CONSUMPTIONS}!A2:O`,
     });
     
     const rows = response.data.values || [];
@@ -2036,9 +2214,11 @@ export async function getCreditCardConsumptions(
         subcategoryId: row[10] || '',
         description: row[11] || '',
         createdAt: row[12],
+        montoPesos: row[13] ? parseFloat(row[13]) : undefined,
+        montoUSD: row[14] ? parseFloat(row[14]) : undefined,
       }));
-    
-    return consumptions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      return consumptions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   } catch (error) {
     console.error('Error obteniendo consumos de tarjeta:', error);
     throw error;
@@ -2062,6 +2242,8 @@ export async function createCreditCardConsumption(
     subcategoryId?: string;
     description?: string;
     createdAt?: string;
+    montoPesos?: number;
+    montoUSD?: number;
   }
 ): Promise<CreditCardConsumption> {
   try {
@@ -2082,6 +2264,8 @@ export async function createCreditCardConsumption(
         'subcategoryId',
         'description',
         'createdAt',
+        'montoPesos',
+        'montoUSD',
       ]);
     }
 
@@ -2121,6 +2305,8 @@ export async function createCreditCardConsumption(
           newConsumption.subcategoryId || '',
           newConsumption.description || '',
           newConsumption.createdAt,
+          consumptionData.montoPesos !== undefined ? consumptionData.montoPesos : consumptionData.amount,
+          consumptionData.montoUSD !== undefined ? consumptionData.montoUSD : 0,
         ]],
       },
     });
@@ -2129,6 +2315,141 @@ export async function createCreditCardConsumption(
     return newConsumption;
   } catch (error) {
     console.error('Error registrando consumo de tarjeta:', error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza un consumo existente de tarjeta de crédito
+ */
+export async function updateCreditCardConsumption(
+  consumptionId: string,
+  userId: string,
+  updates: Partial<{
+    merchant: string;
+    amount: number;
+    installments: number;
+    currentInstallment: number;
+    monthlyPayment: number;
+    date: string;
+    categoryId: string;
+    subcategoryId: string;
+    description: string;
+    montoPesos?: number;
+    montoUSD?: number;
+  }>
+): Promise<CreditCardConsumption> {
+  try {
+    const exists = await sheetExists(SHEETS.CREDIT_CARD_CONSUMPTIONS);
+    if (!exists) {
+      throw new Error('Consumo no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARD_CONSUMPTIONS}!A2:M`,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(r => r[0] === consumptionId && r[2] === userId);
+    
+    if (rowIndex === -1) {
+      throw new Error('Consumo no encontrado');
+    }
+    
+    const row = rows[rowIndex];
+    const current: CreditCardConsumption & { montoPesos?: number; montoUSD?: number } = {
+      id: row[0],
+      creditCardId: row[1],
+      userId: row[2],
+      merchant: row[3],
+      amount: parseFloat(row[4] || '0'),
+      installments: parseInt(row[5] || '1'),
+      currentInstallment: parseInt(row[6] || '1'),
+      monthlyPayment: parseFloat(row[7] || '0'),
+      date: row[8],
+      categoryId: row[9] || '',
+      subcategoryId: row[10] || '',
+      description: row[11] || '',
+      createdAt: row[12],
+      montoPesos: row[13] ? parseFloat(row[13]) : undefined,
+      montoUSD: row[14] ? parseFloat(row[14]) : undefined,
+    };
+    
+    // El amount ya es la cuota mensual, no el total
+    // Para calcular el total original: amount * installments
+    const newAmount = updates.amount !== undefined ? updates.amount : current.amount;
+    const newInstallments = updates.installments !== undefined ? updates.installments : current.installments;
+    // monthlyPayment es igual a amount (la cuota mensual)
+    const recalculatedMonthlyPayment = newAmount;
+    
+    const updated: CreditCardConsumption & { montoPesos?: number; montoUSD?: number } = {
+      ...current,
+      merchant: updates.merchant ?? current.merchant,
+      amount: updates.amount ?? current.amount,
+      installments: updates.installments ?? current.installments,
+      currentInstallment: updates.currentInstallment ?? current.currentInstallment,
+      monthlyPayment: updates.monthlyPayment ?? recalculatedMonthlyPayment,
+      date: updates.date ?? current.date,
+      categoryId: updates.categoryId !== undefined ? updates.categoryId : current.categoryId,
+      subcategoryId: updates.subcategoryId !== undefined ? updates.subcategoryId : current.subcategoryId,
+      description: updates.description !== undefined ? updates.description : current.description,
+      montoPesos: updates.montoPesos !== undefined ? updates.montoPesos : current.montoPesos,
+      montoUSD: updates.montoUSD !== undefined ? updates.montoUSD : current.montoUSD,
+    };
+    
+    // Asegurar que monthlyPayment esté recalculado si cambió amount
+    // monthlyPayment siempre es igual a amount (la cuota mensual)
+    if (updates.amount !== undefined || updates.installments !== undefined) {
+      updated.monthlyPayment = updated.amount;
+    }
+    
+    // Asegurar que montoPesos y montoUSD tengan valores por defecto si son undefined
+    const finalMontoPesos = updated.montoPesos !== undefined && updated.montoPesos !== null ? updated.montoPesos : updated.amount
+    const finalMontoUSD = updated.montoUSD !== undefined && updated.montoUSD !== null ? updated.montoUSD : 0
+    
+    const rangeRow = rowIndex + 2; // +2 porque empieza en fila 2 (después del header)
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.CREDIT_CARD_CONSUMPTIONS}!A${rangeRow}:O${rangeRow}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          updated.id,
+          updated.creditCardId,
+          updated.userId,
+          updated.merchant,
+          updated.amount,
+          updated.installments,
+          updated.currentInstallment,
+          updated.monthlyPayment,
+          updated.date,
+          updated.categoryId || '',
+          updated.subcategoryId || '',
+          updated.description || '',
+          updated.createdAt,
+          finalMontoPesos,
+          finalMontoUSD,
+        ]],
+      },
+    });
+    
+    console.log('✅ Consumo de tarjeta actualizado:', consumptionId);
+    console.log('[updateCreditCardConsumption] Valores guardados:', {
+      montoPesos: finalMontoPesos,
+      montoUSD: finalMontoUSD,
+      amount: updated.amount
+    });
+    
+    // Devolver el objeto con montoPesos y montoUSD explícitamente incluidos
+    return {
+      ...updated,
+      montoPesos: finalMontoPesos,
+      montoUSD: finalMontoUSD,
+    } as CreditCardConsumption & { montoPesos: number; montoUSD: number };
+  } catch (error) {
+    console.error('Error actualizando consumo de tarjeta:', error);
     throw error;
   }
 }
