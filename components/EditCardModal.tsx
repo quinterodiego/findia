@@ -85,14 +85,16 @@ export default function EditCardModal({ card, onClose, onSave }: EditCardModalPr
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="edit-card-bank-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Banco
                 </label>
                 <select
+                  id="edit-card-bank-select"
                   value={formData.bank}
                   onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                   required
+                  aria-label="Seleccionar banco"
                 >
                   <option value="">Selecciona un banco</option>
                   {argentineBanks.map(bank => (
@@ -115,13 +117,15 @@ export default function EditCardModal({ card, onClose, onSave }: EditCardModalPr
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="edit-card-status-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Estado
                 </label>
                 <select
+                  id="edit-card-status-select"
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'blocked' | 'expired' })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  aria-label="Seleccionar estado de la tarjeta"
                 >
                   <option value="active">Activa</option>
                   <option value="blocked">Bloqueada</option>

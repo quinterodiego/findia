@@ -697,6 +697,7 @@ export default function StatementCorrectionAssistant({
                         value={row.categoryId || ''}
                         onChange={e => updateRow(row.id, 'categoryId', e.target.value || undefined)}
                         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm"
+                        aria-label={`Seleccionar categoría para transacción ${row.id}`}
                         onBlur={(e) => {
                           const currentRowEl = (e.currentTarget as HTMLElement).closest('tr')
                           setTimeout(() => {
@@ -731,6 +732,7 @@ export default function StatementCorrectionAssistant({
                         value={row.type}
                         onChange={e => updateRow(row.id, 'type', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm"
+                        aria-label={`Seleccionar tipo para transacción ${row.id}`}
                         onBlur={(e) => {
                           const currentRowEl = (e.currentTarget as HTMLElement).closest('tr')
                           setTimeout(() => {

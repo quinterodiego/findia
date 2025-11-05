@@ -313,13 +313,15 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
 
             {/* Categoría */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="transaction-category-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Categoría {type === 'goal' ? '(opcional)' : '(opcional)'}
               </label>
               <select
+                id="transaction-category-select"
                 value={formData.category}
                 onChange={(e) => handleInputChange('category', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                aria-label="Seleccionar categoría"
               >
                 <option value="">Seleccionar categoría...</option>
                 {type === 'expense' && expenseCategories.map(cat => (
@@ -433,13 +435,15 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label htmlFor="transaction-priority-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Prioridad
                   </label>
                   <select
+                    id="transaction-priority-select"
                     value={formData.priority}
                     onChange={(e) => handleInputChange('priority', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    aria-label="Seleccionar prioridad"
                   >
                     <option value="low">Baja</option>
                     <option value="medium">Media</option>

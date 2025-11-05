@@ -1318,10 +1318,15 @@ export default function Dashboard() {
               {/* Ordenamiento */}
               <div className="flex items-center gap-2">
                 <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                <label htmlFor="sort-select" className="sr-only">
+                  Ordenar transacciones
+                </label>
                 <select
+                  id="sort-select"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer"
+                  aria-label="Ordenar transacciones"
                 >
                   <option value="date">Ordenar por fecha</option>
                   <option value="amount">Ordenar por monto</option>

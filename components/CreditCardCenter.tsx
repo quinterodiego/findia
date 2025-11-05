@@ -1042,13 +1042,15 @@ export default function CreditCardCenter({
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="strategy-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Estrategia
                         </label>
                         <select
+                          id="strategy-select"
                           value={calculatorData.strategy}
                           onChange={(e) => setCalculatorData({ ...calculatorData, strategy: e.target.value as 'snowball' | 'avalanche' })}
                           className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white cursor-pointer"
+                          aria-label="Estrategia de pago"
                         >
                           <option value="snowball">Bola de Nieve</option>
                           <option value="avalanche">Avalancha</option>
@@ -1629,11 +1631,13 @@ export default function CreditCardCenter({
                   </div>
 
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Banco *</label>
+                    <label htmlFor="quick-form-bank-select" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Banco *</label>
                     <select
+                      id="quick-form-bank-select"
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer"
                       value={quickForm.bank}
                       onChange={(e)=>setQuickForm({...quickForm,bank:e.target.value})}
+                      aria-label="Seleccionar banco"
                     >
                       <option value="">Selecciona un banco</option>
                       {argentineBanks.map(b=> (

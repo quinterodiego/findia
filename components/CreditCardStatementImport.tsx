@@ -2270,12 +2270,14 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
             <div className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Template (Opcional)</label>
+                  <label htmlFor="template-select" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Template (Opcional)</label>
                   <select 
+                    id="template-select"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" 
                     value={selectedTemplate} 
                     onChange={e=>setSelectedTemplate(e.target.value)}
                     disabled={loadingTemplates}
+                    aria-label="Seleccionar template"
                   >
                     <option value="">Sin template (usar por defecto)</option>
                     {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -2294,8 +2296,14 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
                   </button>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Banco</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" value={bank} onChange={e=>setBank(e.target.value)}>
+                  <label htmlFor="bank-select" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Banco</label>
+                  <select 
+                    id="bank-select"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" 
+                    value={bank} 
+                    onChange={e=>setBank(e.target.value)}
+                    aria-label="Seleccionar banco"
+                  >
                     <option value="">Selecciona</option>
                     {argentineBanks.map(b => <option key={b.code} value={b.name}>{b.name}</option>)}
                   </select>
