@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Edit, Trash2, Calendar, Target, Plus } from 'lucide-react';
+import { X, Edit, Trash2, Calendar, Target, Plus, Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatNumber';
 
 interface TransactionDetailModalProps {
@@ -11,6 +11,7 @@ interface TransactionDetailModalProps {
   onEdit: () => void;
   onDelete: () => void;
   onAddPayment?: () => void;
+  onShare?: () => void;
 }
 
 export default function TransactionDetailModal({ 
@@ -19,7 +20,8 @@ export default function TransactionDetailModal({
   transaction, 
   onEdit, 
   onDelete,
-  onAddPayment
+  onAddPayment,
+  onShare
 }: TransactionDetailModalProps) {
   if (!isOpen || !transaction) return null;
 
@@ -213,7 +215,7 @@ export default function TransactionDetailModal({
             )}
 
             {/* Actions */}
-            <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700 flex-wrap">
               {transaction.type === 'debt' && onAddPayment && (
                 <button
                   onClick={onAddPayment}
@@ -223,9 +225,19 @@ export default function TransactionDetailModal({
                   Registrar Pago
                 </button>
               )}
+              {transaction.type === 'expense' && (
+                <button
+                  onClick={onShare || (() => {})}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-400 hover:bg-purple-500 text-white rounded-xl transition-colors font-semibold"
+                  disabled={!onShare}
+                >
+                  <Users className="w-5 h-5" />
+                  Compartir
+                </button>
+              )}
               <button
                 onClick={onEdit}
-                className={`${transaction.type === 'debt' && onAddPayment ? 'flex-1' : 'flex-1'} flex items-center justify-center gap-2 px-4 py-3 bg-blue-400 hover:bg-blue-500 text-white rounded-xl transition-colors font-semibold`}
+                className={`${(transaction.type === 'debt' && onAddPayment) || (transaction.type === 'expense') ? 'flex-1' : 'flex-1'} flex items-center justify-center gap-2 px-4 py-3 bg-blue-400 hover:bg-blue-500 text-white rounded-xl transition-colors font-semibold`}
               >
                 <Edit className="w-5 h-5" />
                 Editar

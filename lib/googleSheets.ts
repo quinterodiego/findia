@@ -26,6 +26,7 @@ const SHEETS = {
   CREDIT_CARD_PAYMENTS: 'CreditCardPayments',
   CREDIT_CARD_CONSUMPTIONS: 'CreditCardConsumptions',
   PDF_IMPORT_TEMPLATES: 'PDFImportTemplates',
+  SHARED_EXPENSES: 'SharedExpenses',
 } as const;
 
 // ============================================================================
@@ -1170,6 +1171,419 @@ export async function deleteExpense(expenseId: string, userId: string): Promise<
     console.log('✅ Gasto eliminado exitosamente:', expenseId);
   } catch (error) {
     console.error('❌ Error en deleteExpense:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// OPERACIONES CRUD - SHARED EXPENSES
+// ============================================================================
+
+/**
+ * Crea un gasto compartido
+ */
+export async function createSharedExpense(
+  ownerUserId: string,
+  data: {
+    expenseId: string;
+    sharedWithEmail: string;
+    splitType: 'equal' | 'percentage' | 'amount';
+    ownerAmount?: number;
+    partnerAmount?: number;
+    ownerPercentage?: number;
+    partnerPercentage?: number;
+    notes?: string;
+  }
+): Promise<any> {
+  try {
+    // Verificar y crear la hoja si no existe
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      await createSheetIfNotExists(SHEETS.SHARED_EXPENSES, [
+        'id',
+        'expenseId',
+        'ownerUserId',
+        'sharedWithUserId',
+        'splitType',
+        'ownerAmount',
+        'partnerAmount',
+        'status',
+        'createdAt',
+        'acceptedAt',
+        'rejectedAt',
+        'notes',
+      ]);
+    }
+
+    // Buscar el usuario por email
+    const partnerUser = await getUserByEmail(data.sharedWithEmail);
+    if (!partnerUser) {
+      throw new Error('Usuario no encontrado. Asegúrate de que el email esté registrado en FindIA.');
+    }
+
+    // Obtener el gasto original
+    const expenses = await getExpensesByUser(ownerUserId);
+    const expense = expenses.find(e => e.id === data.expenseId);
+    if (!expense) {
+      throw new Error('Gasto no encontrado');
+    }
+
+    // Calcular montos según el tipo de división
+    let ownerAmount = 0;
+    let partnerAmount = 0;
+
+    if (data.splitType === 'equal') {
+      ownerAmount = expense.amount / 2;
+      partnerAmount = expense.amount / 2;
+    } else if (data.splitType === 'percentage') {
+      if (!data.ownerPercentage || !data.partnerPercentage || data.ownerPercentage + data.partnerPercentage !== 100) {
+        throw new Error('Los porcentajes deben sumar 100%');
+      }
+      ownerAmount = (expense.amount * data.ownerPercentage) / 100;
+      partnerAmount = (expense.amount * data.partnerPercentage) / 100;
+    } else if (data.splitType === 'amount') {
+      if (!data.ownerAmount || !data.partnerAmount || data.ownerAmount + data.partnerAmount !== expense.amount) {
+        throw new Error(`Los montos deben sumar ${expense.amount}`);
+      }
+      ownerAmount = data.ownerAmount;
+      partnerAmount = data.partnerAmount;
+    }
+
+    const now = new Date().toISOString();
+    const newSharedExpense = {
+      id: generateId(),
+      expenseId: data.expenseId,
+      ownerUserId,
+      sharedWithUserId: partnerUser.id,
+      splitType: data.splitType,
+      ownerAmount,
+      partnerAmount,
+      status: 'pending',
+      createdAt: now,
+      acceptedAt: null,
+      rejectedAt: null,
+      notes: data.notes || '',
+    };
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[
+          newSharedExpense.id,
+          newSharedExpense.expenseId,
+          newSharedExpense.ownerUserId,
+          newSharedExpense.sharedWithUserId,
+          newSharedExpense.splitType,
+          newSharedExpense.ownerAmount,
+          newSharedExpense.partnerAmount,
+          newSharedExpense.status,
+          newSharedExpense.createdAt,
+          newSharedExpense.acceptedAt || '',
+          newSharedExpense.rejectedAt || '',
+          newSharedExpense.notes,
+        ]],
+      },
+    });
+
+    // Marcar el gasto como compartido
+    try {
+      await updateExpense(data.expenseId, ownerUserId, {
+        ...expense,
+        name: expense.name,
+        amount: expense.amount,
+        date: expense.date,
+        category: expense.category,
+        expenseType: expense.expenseType,
+        notes: expense.notes,
+        isRecurring: expense.isRecurring,
+        frequency: expense.frequency,
+      });
+    } catch (err) {
+      console.log('No se pudo actualizar el gasto como compartido:', err);
+    }
+
+    console.log('✅ Gasto compartido creado:', newSharedExpense.id);
+    return newSharedExpense;
+  } catch (error) {
+    console.error('Error creando gasto compartido:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene todos los gastos compartidos de un usuario (recibidos y enviados)
+ */
+export async function getSharedExpensesByUser(
+  userId: string,
+  filters?: {
+    status?: 'pending' | 'accepted' | 'rejected';
+    type?: 'received' | 'sent' | 'all';
+  }
+): Promise<any[]> {
+  try {
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      return [];
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+    });
+
+    const rows = response.data.values || [];
+    let sharedExpenses = rows
+      .filter(row => {
+        const isOwner = row[2] === userId;
+        const isPartner = row[3] === userId;
+        return isOwner || isPartner;
+      })
+      .map(row => ({
+        id: row[0],
+        expenseId: row[1],
+        ownerUserId: row[2],
+        sharedWithUserId: row[3],
+        splitType: row[4] as 'equal' | 'percentage' | 'amount',
+        ownerAmount: parseFloat(row[5] || '0'),
+        partnerAmount: parseFloat(row[6] || '0'),
+        status: row[7] as 'pending' | 'accepted' | 'rejected',
+        createdAt: row[8] || new Date().toISOString(),
+        acceptedAt: row[9] || null,
+        rejectedAt: row[10] || null,
+        notes: row[11] || '',
+      }));
+
+    // Aplicar filtros
+    if (filters?.status) {
+      sharedExpenses = sharedExpenses.filter(se => se.status === filters.status);
+    }
+
+    if (filters?.type) {
+      if (filters.type === 'received') {
+        sharedExpenses = sharedExpenses.filter(se => se.sharedWithUserId === userId);
+      } else if (filters.type === 'sent') {
+        sharedExpenses = sharedExpenses.filter(se => se.ownerUserId === userId);
+      }
+      // 'all' no filtra
+    }
+
+    // Obtener información del gasto y usuarios
+    // Obtener todos los usuarios para buscar por ID
+    const allUsersResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.USERS}!A2:G`,
+    });
+    const allUsersRows = allUsersResponse.data.values || [];
+    const allUsers = allUsersRows.map(row => ({
+      id: row[0],
+      email: row[1],
+      name: row[3] || '',
+      image: row[4] || null,
+    }));
+
+    // Obtener gastos del usuario actual
+    const expenses = await getExpensesByUser(userId);
+    
+    // Obtener gastos de otros usuarios si es necesario
+    const allExpensesResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.EXPENSES}!A2:K`,
+    });
+    const allExpensesRows = allExpensesResponse.data.values || [];
+    const allExpensesData = allExpensesRows.map(row => ({
+      id: row[0],
+      userId: row[1],
+      name: row[2],
+      amount: parseFloat(row[3] || '0'),
+      date: row[4],
+      category: row[5] || 'other',
+      expenseType: row[6] || 'variable',
+      notes: row[7] || '',
+      isRecurring: row[8] === 'true',
+      frequency: row[9] || 'monthly',
+      createdAt: row[10] || new Date().toISOString(),
+    }));
+
+    const enrichedExpenses = sharedExpenses.map((se) => {
+      // Buscar el gasto (puede ser del usuario actual o de otro usuario)
+      const expense = allExpensesData.find(e => e.id === se.expenseId);
+      
+      // Buscar información de usuarios
+      const owner = allUsers.find(u => u.id === se.ownerUserId);
+      const partner = allUsers.find(u => u.id === se.sharedWithUserId);
+      
+      return {
+        ...se,
+        expense: expense || undefined,
+        owner: owner ? {
+          id: owner.id,
+          name: owner.name,
+          email: owner.email,
+          image: owner.image,
+        } : undefined,
+        partner: partner ? {
+          id: partner.id,
+          name: partner.name,
+          email: partner.email,
+          image: partner.image,
+        } : undefined,
+      };
+    });
+
+    return enrichedExpenses;
+  } catch (error) {
+    console.error('Error obteniendo gastos compartidos:', error);
+    throw error;
+  }
+}
+
+/**
+ * Acepta un gasto compartido
+ */
+export async function acceptSharedExpense(
+  sharedExpenseId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      throw new Error('La hoja SharedExpenses no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+    });
+
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === sharedExpenseId && row[3] === userId);
+
+    if (rowIndex === -1) {
+      throw new Error('Gasto compartido no encontrado o no tienes permisos para aceptarlo');
+    }
+
+    const actualRowIndex = rowIndex + 2;
+    const row = rows[rowIndex];
+
+    // Actualizar estado a 'accepted'
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!H${actualRowIndex}:J${actualRowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [['accepted', new Date().toISOString(), '']],
+      },
+    });
+
+    console.log('✅ Gasto compartido aceptado:', sharedExpenseId);
+  } catch (error) {
+    console.error('Error aceptando gasto compartido:', error);
+    throw error;
+  }
+}
+
+/**
+ * Rechaza un gasto compartido
+ */
+export async function rejectSharedExpense(
+  sharedExpenseId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      throw new Error('La hoja SharedExpenses no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+    });
+
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === sharedExpenseId && row[3] === userId);
+
+    if (rowIndex === -1) {
+      throw new Error('Gasto compartido no encontrado o no tienes permisos para rechazarlo');
+    }
+
+    const actualRowIndex = rowIndex + 2;
+
+    // Actualizar estado a 'rejected'
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!H${actualRowIndex}:J${actualRowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [['rejected', '', new Date().toISOString()]],
+      },
+    });
+
+    console.log('✅ Gasto compartido rechazado:', sharedExpenseId);
+  } catch (error) {
+    console.error('Error rechazando gasto compartido:', error);
+    throw error;
+  }
+}
+
+/**
+ * Calcula el balance de gastos compartidos de un usuario
+ */
+export async function calculateSharedExpenseBalance(userId: string): Promise<{
+  totalOwed: number;
+  totalReceived: number;
+  balance: number;
+}> {
+  try {
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      return { totalOwed: 0, totalReceived: 0, balance: 0 };
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+    });
+
+    const rows = response.data.values || [];
+    const sharedExpenses = rows
+      .filter(row => {
+        const isOwner = row[2] === userId;
+        const isPartner = row[3] === userId;
+        const isAccepted = row[7] === 'accepted';
+        return (isOwner || isPartner) && isAccepted;
+      })
+      .map(row => ({
+        ownerUserId: row[2],
+        sharedWithUserId: row[3],
+        ownerAmount: parseFloat(row[5] || '0'),
+        partnerAmount: parseFloat(row[6] || '0'),
+      }));
+
+    let totalOwed = 0; // Lo que te deben
+    let totalReceived = 0; // Lo que debes
+
+    sharedExpenses.forEach(se => {
+      if (se.ownerUserId === userId) {
+        // Tú creaste el gasto, te deben tu parte
+        totalOwed += se.ownerAmount;
+      } else if (se.sharedWithUserId === userId) {
+        // Te compartieron un gasto, debes tu parte
+        totalReceived += se.partnerAmount;
+      }
+    });
+
+    const balance = totalOwed - totalReceived;
+
+    return {
+      totalOwed,
+      totalReceived,
+      balance,
+    };
+  } catch (error) {
+    console.error('Error calculando balance de gastos compartidos:', error);
     throw error;
   }
 }

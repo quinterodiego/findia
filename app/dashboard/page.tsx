@@ -37,6 +37,8 @@ import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/componen
 import { useLoadingState } from '@/hooks/useLoadingState'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useToast, ToastContainer } from '@/components/Toast'
+import ShareExpenseModal from '@/components/ShareExpenseModal'
+import SharedExpensesSection from '@/components/SharedExpensesSection'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -108,6 +110,8 @@ export default function Dashboard() {
   const [selectedCreditCard, setSelectedCreditCard] = useState<any>(null)
   const [selectedConsumption, setSelectedConsumption] = useState<any>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [showShareExpenseModal, setShowShareExpenseModal] = useState(false)
+  const [selectedExpenseForShare, setSelectedExpenseForShare] = useState<Expense | null>(null)
 
   // Hook para manejar deudas
   const {
@@ -297,6 +301,38 @@ export default function Dashboard() {
     setSelectedConsumption(consumption)
     setShowCreditCardConsumptionModal(false)
     setShowCreditCardPaymentModal(true)
+  }
+
+  const handleShareExpense = async (data: {
+    expenseId: string;
+    sharedWithEmail: string;
+    splitType: 'equal' | 'percentage' | 'amount';
+    ownerAmount?: number;
+    partnerAmount?: number;
+    ownerPercentage?: number;
+    partnerPercentage?: number;
+    notes?: string;
+  }) => {
+    try {
+      const response = await fetch('/api/shared-expenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        info('Gasto compartido', 'El gasto se ha compartido exitosamente');
+      } else {
+        throw new Error(result.error || 'Error al compartir el gasto');
+      }
+    } catch (error: any) {
+      console.error('Error compartiendo gasto:', error);
+      info('Error', error.message || 'Error al compartir el gasto');
+    }
   }
 
   const handleTransactionAction = (type: TransactionType) => {
@@ -1177,6 +1213,31 @@ export default function Dashboard() {
             </motion.div>
           )}
 
+          {/* Sección de Gastos Compartidos */}
+          {session?.user?.id && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.8 }}
+              className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Gastos Compartidos
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Gestiona tus gastos compartidos con otros usuarios
+                  </p>
+                </div>
+              </div>
+              <SharedExpensesSection
+                currentUserId={session.user.id}
+                formatCurrency={formatCurrency}
+              />
+            </motion.div>
+          )}
+
           {/* Lista de Deudas */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
@@ -1603,6 +1664,13 @@ export default function Dashboard() {
                 setSelectedTransaction(null);
               }
             );
+          }
+        }}
+        onShare={() => {
+          if (selectedTransaction?.type === 'expense') {
+            setSelectedExpenseForShare(selectedTransaction);
+            setShowDetailModal(false);
+            setShowShareExpenseModal(true);
           }
         }}
       />
@@ -2154,6 +2222,17 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal de Compartir Gasto */}
+      <ShareExpenseModal
+        isOpen={showShareExpenseModal}
+        onClose={() => {
+          setShowShareExpenseModal(false);
+          setSelectedExpenseForShare(null);
+        }}
+        expense={selectedExpenseForShare}
+        onShare={handleShareExpense}
+      />
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />

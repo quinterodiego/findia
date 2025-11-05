@@ -692,7 +692,7 @@ export default function CreditCardConsumptionModal({
                       <select
                         value={formData.currency}
                         onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value as 'pesos' | 'usd' }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white cursor-pointer"
                       >
                         <option value="pesos">Pesos (ARS)</option>
                         <option value="usd">Dólares (USD)</option>
@@ -718,7 +718,7 @@ export default function CreditCardConsumptionModal({
                       <select
                         value={formData.installments}
                         onChange={(e) => setFormData(prev => ({ ...prev, installments: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white cursor-pointer"
                       >
                         {Array.from({ length: 24 }, (_, i) => i + 1).map(num => (
                           <option key={num} value={num}>
@@ -747,7 +747,7 @@ export default function CreditCardConsumptionModal({
                           <select
                             value={formData.category}
                             onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value, subcategory: '' }))}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white cursor-pointer"
                           >
                             <option value="">Seleccionar categoría</option>
                             <option value="Intereses">Intereses</option>
@@ -950,7 +950,7 @@ export default function CreditCardConsumptionModal({
                                     <select
                                       value={formData.installments}
                                       onChange={(e) => setFormData(prev => ({ ...prev, installments: e.target.value }))}
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-pointer"
                                     >
                                       {Array.from({ length: 24 }, (_, i) => i + 1).map(num => (
                                         <option key={num} value={num}>

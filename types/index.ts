@@ -18,6 +18,43 @@ export interface Expense {
   category?: string
   createdAt: string
   updatedAt: string
+  isShared?: boolean
+  sharedExpenseId?: string
+}
+
+export interface SharedExpense {
+  id: string
+  expenseId: string
+  ownerUserId: string
+  sharedWithUserId: string
+  splitType: 'equal' | 'percentage' | 'amount'
+  ownerAmount: number
+  partnerAmount: number
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: string
+  acceptedAt?: string
+  rejectedAt?: string
+  notes?: string
+  // Relaciones (populadas cuando se obtienen)
+  expense?: Expense
+  owner?: {
+    id: string
+    name: string
+    email: string
+    image?: string
+  }
+  partner?: {
+    id: string
+    name: string
+    email: string
+    image?: string
+  }
+}
+
+export interface SharedExpenseBalance {
+  totalOwed: number // Lo que te deben
+  totalReceived: number // Lo que debes
+  balance: number // Balance neto (positivo = te deben, negativo = debes)
 }
 
 export interface Goal {
