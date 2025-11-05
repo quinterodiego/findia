@@ -520,8 +520,25 @@ export default function Dashboard() {
     )
   }
 
-  // Calcular estadísticas financieras completas
-  const totalIncomes = incomes.reduce((sum, income) => sum + income.amount, 0);
+  // Filtrar ingresos y gastos por mes actual si el filtro está activo
+  const filteredIncomes = dateFilter === 'current-month' 
+    ? incomes.filter(income => {
+        const incomeDate = new Date(income.date);
+        return incomeDate >= currentMonthRange.startDate && 
+               incomeDate <= currentMonthRange.endDate;
+      })
+    : incomes;
+
+  const filteredExpenses = dateFilter === 'current-month'
+    ? expenses.filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate >= currentMonthRange.startDate && 
+               expenseDate <= currentMonthRange.endDate;
+      })
+    : expenses;
+
+  // Calcular estadísticas financieras completas (usando datos filtrados)
+  const totalIncomes = filteredIncomes.reduce((sum, income) => sum + income.amount, 0);
   
   // Crear un mapa de gastos compartidos por expenseId para acceso rápido
   const sharedExpensesMap = new Map<string, any>();
@@ -531,8 +548,8 @@ export default function Dashboard() {
     }
   });
 
-  // Calcular gastos totales considerando gastos compartidos
-  const totalExpenses = expenses.reduce((sum, expense) => {
+  // Calcular gastos totales considerando gastos compartidos (usando gastos filtrados)
+  const totalExpenses = filteredExpenses.reduce((sum, expense) => {
     const sharedExpense = sharedExpensesMap.get(expense.id);
     
     if (sharedExpense) {
@@ -563,8 +580,8 @@ export default function Dashboard() {
   const averageProgress = totalGoals > 0 ? 
     goals.reduce((sum, goal) => sum + Math.min((goal.currentAmount || 0) / goal.amount * 100, 100), 0) / totalGoals : 0;
   
-  // Calcular gastos fijos y variables considerando gastos compartidos
-  const totalFixedExpenses = expenses
+  // Calcular gastos fijos y variables considerando gastos compartidos (usando gastos filtrados)
+  const totalFixedExpenses = filteredExpenses
     .filter(expense => expense.expenseType === 'fixed')
     .reduce((sum, expense) => {
       const sharedExpense = sharedExpensesMap.get(expense.id);
@@ -581,7 +598,7 @@ export default function Dashboard() {
       return sum + expense.amount;
     }, 0);
     
-  const totalVariableExpenses = expenses
+  const totalVariableExpenses = filteredExpenses
     .filter(expense => expense.expenseType === 'variable')
     .reduce((sum, expense) => {
       const sharedExpense = sharedExpensesMap.get(expense.id);
@@ -968,6 +985,44 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6 py-6">
         <div className="space-y-6">
+          {/* Filtro Global del Dashboard */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border border-gray-200/50 dark:border-gray-700"
+          >
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Filtro Global
+                </h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Aplica a todo el dashboard
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <label htmlFor="global-date-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Período:
+                </label>
+                <select
+                  id="global-date-filter"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as 'current-month' | 'all')}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm font-medium"
+                  aria-label="Filtrar por período"
+                >
+                  <option value="current-month">
+                    {new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() + 
+                     new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).slice(1)}
+                  </option>
+                  <option value="all">Todos los períodos</option>
+                </select>
+              </div>
+            </div>
+          </motion.div>
+
           {/* Stats Cards - Diseño limpio y con impacto */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
             {(shouldShowSkeleton && (debtsLoading || incomesLoading || expensesLoading || goalsLoading)) ? (
@@ -993,7 +1048,7 @@ export default function Dashboard() {
 +{formatCurrency(displayStats.totalIncomes)}
                       </motion.p>
                       <p className="text-xs text-gray-500 dark:text-gray-500">
-                        {incomes.length} {incomes.length === 1 ? 'ingreso' : 'ingresos'} este mes
+                        {filteredIncomes.length} {filteredIncomes.length === 1 ? 'ingreso' : 'ingresos'} {dateFilter === 'current-month' ? 'este mes' : 'total'}
                       </p>
                     </div>
                     <div className="w-14 h-14 bg-green-200 rounded-xl flex items-center justify-center">
@@ -1023,7 +1078,7 @@ export default function Dashboard() {
 -{formatCurrency(displayStats.totalExpenses)}
                   </motion.p>
                   <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
-                    {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'} en total
+                    {filteredExpenses.length} {filteredExpenses.length === 1 ? 'gasto' : 'gastos'} {dateFilter === 'current-month' ? 'este mes' : 'total'}
                   </p>
                   {(displayStats.totalFixedExpenses > 0 || displayStats.totalVariableExpenses > 0) && (
                     <motion.button
@@ -1232,9 +1287,22 @@ export default function Dashboard() {
 
               {/* Gastos por Categoría */}
               {(() => {
-                const categoryExpenses = expenses.reduce((acc, expense) => {
+                // Usar gastos filtrados para la gráfica de categorías
+                const categoryExpenses = filteredExpenses.reduce((acc, expense) => {
                   const category = expense.category || 'Sin categoría';
-                  acc[category] = (acc[category] || 0) + expense.amount;
+                  // Considerar gastos compartidos para el cálculo
+                  const sharedExpense = sharedExpensesMap.get(expense.id);
+                  let amount = expense.amount;
+                  
+                  if (sharedExpense) {
+                    if (sharedExpense.ownerUserId === session?.user?.id) {
+                      amount = sharedExpense.ownerAmount;
+                    } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
+                      amount = sharedExpense.partnerAmount;
+                    }
+                  }
+                  
+                  acc[category] = (acc[category] || 0) + amount;
                   return acc;
                 }, {} as Record<string, number>);
 
@@ -1517,53 +1585,29 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              {/* Filtro de fecha y Ordenamiento */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Filtro de fecha */}
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-gray-400" />
-                  <label htmlFor="date-filter-select" className="sr-only">
-                    Filtrar por fecha
-                  </label>
-                  <select
-                    id="date-filter-select"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value as 'current-month' | 'all')}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm"
-                    aria-label="Filtrar por fecha"
-                  >
-                    <option value="current-month">
-                      {new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() + 
-                       new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).slice(1)}
-                    </option>
-                    <option value="all">Todos los períodos</option>
-                  </select>
-                </div>
-
-                {/* Ordenamiento */}
-                <div className="flex items-center gap-2">
-                  <ArrowUpDown className="w-4 h-4 text-gray-400" />
-                  <label htmlFor="sort-select" className="sr-only">
-                    Ordenar transacciones
-                  </label>
-                  <select
-                    id="sort-select"
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm"
-                    aria-label="Ordenar transacciones"
-                  >
-                    <option value="date">Ordenar por fecha</option>
-                    <option value="amount">Ordenar por monto</option>
-                    <option value="name">Ordenar por nombre</option>
-                  </select>
-                  <button
-                    onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-white cursor-pointer"
-                  >
-                    {sortOrder === 'desc' ? '⬇️' : '⬆️'}
-                  </button>
-                </div>
+              {/* Ordenamiento */}
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                <label htmlFor="sort-select" className="sr-only">
+                  Ordenar transacciones
+                </label>
+                <select
+                  id="sort-select"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm"
+                  aria-label="Ordenar transacciones"
+                >
+                  <option value="date">Ordenar por fecha</option>
+                  <option value="amount">Ordenar por monto</option>
+                  <option value="name">Ordenar por nombre</option>
+                </select>
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-white cursor-pointer"
+                >
+                  {sortOrder === 'desc' ? '⬇️' : '⬆️'}
+                </button>
               </div>
             </div>
 
