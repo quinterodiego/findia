@@ -30,7 +30,7 @@ export interface SharedExpense {
   splitType: 'equal' | 'percentage' | 'amount'
   ownerAmount: number
   partnerAmount: number
-  status: 'pending' | 'accepted' | 'rejected'
+  status: 'pending' | 'accepted' | 'rejected' | 'cancellation_requested'
   createdAt: string
   acceptedAt?: string
   rejectedAt?: string

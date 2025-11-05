@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, Bolt, Home, Plus, Menu } from 'lucide-react'
+import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Home, Plus, Menu, Users } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -87,9 +87,24 @@ export default function Dashboard() {
   const [filterType, setFilterType] = useState<'all' | 'debt' | 'income' | 'expense' | 'goal'>('all')
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'name'>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  
+  // Filtro de fecha por defecto: mes actual
+  const [dateFilter, setDateFilter] = useState<'current-month' | 'all'>('current-month')
+  
+  const getCurrentMonthRange = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    const startDate = new Date(year, month, 1)
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999)
+    return { startDate, endDate }
+  }
+  
+  const currentMonthRange = getCurrentMonthRange()
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedDebt, setSelectedDebt] = useState<any>(null)
   const [showExpenseBreakdown, setShowExpenseBreakdown] = useState(false)
+  const [expenseBreakdownView, setExpenseBreakdownView] = useState<'summary' | 'fixed' | 'variable'>('summary')
   const [showGoalsBreakdown, setShowGoalsBreakdown] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
@@ -112,6 +127,26 @@ export default function Dashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showShareExpenseModal, setShowShareExpenseModal] = useState(false)
   const [selectedExpenseForShare, setSelectedExpenseForShare] = useState<Expense | null>(null)
+  const [sharedExpenses, setSharedExpenses] = useState<any[]>([])
+  const [isSharedExpensesExpanded, setIsSharedExpensesExpanded] = useState(false)
+
+  // Cargar gastos compartidos aceptados
+  useEffect(() => {
+    if (session?.user?.id) {
+      const loadSharedExpenses = async () => {
+        try {
+          const response = await fetch('/api/shared-expenses?status=accepted');
+          const data = await response.json();
+          if (data.success) {
+            setSharedExpenses(data.sharedExpenses || []);
+          }
+        } catch (error) {
+          console.error('Error cargando gastos compartidos:', error);
+        }
+      };
+      loadSharedExpenses();
+    }
+  }, [session?.user?.id])
 
   // Hook para manejar deudas
   const {
@@ -487,7 +522,34 @@ export default function Dashboard() {
 
   // Calcular estadísticas financieras completas
   const totalIncomes = incomes.reduce((sum, income) => sum + income.amount, 0);
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  
+  // Crear un mapa de gastos compartidos por expenseId para acceso rápido
+  const sharedExpensesMap = new Map<string, any>();
+  sharedExpenses.forEach(se => {
+    if (se.expenseId && se.status === 'accepted') {
+      sharedExpensesMap.set(se.expenseId, se);
+    }
+  });
+
+  // Calcular gastos totales considerando gastos compartidos
+  const totalExpenses = expenses.reduce((sum, expense) => {
+    const sharedExpense = sharedExpensesMap.get(expense.id);
+    
+    if (sharedExpense) {
+      // Si el gasto está compartido y aceptado, usar solo la parte del usuario
+      if (sharedExpense.ownerUserId === session?.user?.id) {
+        // Soy el owner, uso mi parte (ownerAmount)
+        return sum + sharedExpense.ownerAmount;
+      } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
+        // Soy el partner, uso mi parte (partnerAmount)
+        return sum + sharedExpense.partnerAmount;
+      }
+    }
+    
+    // Si no está compartido o no está aceptado, usar el monto completo
+    return sum + expense.amount;
+  }, 0);
+  
   const netBalance = totalIncomes - totalExpenses;
   const completedGoals = goals.filter(goal => (goal.currentAmount || 0) >= goal.amount).length;
   const totalGoals = goals.length;
@@ -501,13 +563,40 @@ export default function Dashboard() {
   const averageProgress = totalGoals > 0 ? 
     goals.reduce((sum, goal) => sum + Math.min((goal.currentAmount || 0) / goal.amount * 100, 100), 0) / totalGoals : 0;
   
-  // Calcular gastos fijos y variables
+  // Calcular gastos fijos y variables considerando gastos compartidos
   const totalFixedExpenses = expenses
     .filter(expense => expense.expenseType === 'fixed')
-    .reduce((sum, expense) => sum + expense.amount, 0);
+    .reduce((sum, expense) => {
+      const sharedExpense = sharedExpensesMap.get(expense.id);
+      
+      if (sharedExpense) {
+        // Si el gasto está compartido y aceptado, usar solo la parte del usuario
+        if (sharedExpense.ownerUserId === session?.user?.id) {
+          return sum + sharedExpense.ownerAmount;
+        } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
+          return sum + sharedExpense.partnerAmount;
+        }
+      }
+      
+      return sum + expense.amount;
+    }, 0);
+    
   const totalVariableExpenses = expenses
     .filter(expense => expense.expenseType === 'variable')
-    .reduce((sum, expense) => sum + expense.amount, 0);
+    .reduce((sum, expense) => {
+      const sharedExpense = sharedExpensesMap.get(expense.id);
+      
+      if (sharedExpense) {
+        // Si el gasto está compartido y aceptado, usar solo la parte del usuario
+        if (sharedExpense.ownerUserId === session?.user?.id) {
+          return sum + sharedExpense.ownerAmount;
+        } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
+          return sum + sharedExpense.partnerAmount;
+        }
+      }
+      
+      return sum + expense.amount;
+    }, 0);
 
   const displayStats = {
     totalIncomes,
@@ -1213,7 +1302,7 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-          {/* Sección de Gastos Compartidos */}
+          {/* Sección de Gastos Compartidos (Acordeón) */}
           {session?.user?.id && (
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -1221,20 +1310,48 @@ export default function Dashboard() {
               transition={{ duration: 0.6, delay: 0.8 }}
               className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50 dark:border-gray-700"
             >
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Gastos Compartidos
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Gestiona tus gastos compartidos con otros usuarios
-                  </p>
+              <button
+                onClick={() => setIsSharedExpensesExpanded(!isSharedExpensesExpanded)}
+                className="w-full flex items-center justify-between mb-4 cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                    <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Gastos Compartidos
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Gestiona tus gastos compartidos con otros usuarios
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <SharedExpensesSection
-                currentUserId={session.user.id}
-                formatCurrency={formatCurrency}
-              />
+                <div className="flex items-center gap-2">
+                  {isSharedExpensesExpanded ? (
+                    <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  )}
+                </div>
+              </button>
+              
+              <AnimatePresence>
+                {isSharedExpensesExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <SharedExpensesSection
+                      currentUserId={session.user.id}
+                      formatCurrency={formatCurrency}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
@@ -1275,6 +1392,18 @@ export default function Dashboard() {
                     );
                   }
 
+                  // Aplicar filtro de fecha
+                  if (dateFilter === 'current-month') {
+                    filtered = filtered.filter(t => {
+                      if (t.type === 'expense') {
+                        const transactionDate = new Date(t.date);
+                        return transactionDate >= currentMonthRange.startDate && 
+                               transactionDate <= currentMonthRange.endDate;
+                      }
+                      return true;
+                    });
+                  }
+
                   return filtered.length;
                 })()} {(() => {
                   const count = (() => {
@@ -1300,11 +1429,23 @@ export default function Dashboard() {
                       );
                     }
 
+                    // Aplicar filtro de fecha
+                    if (dateFilter === 'current-month') {
+                      filtered = filtered.filter(t => {
+                        if (t.type === 'expense') {
+                          const transactionDate = new Date(t.date);
+                          return transactionDate >= currentMonthRange.startDate && 
+                                 transactionDate <= currentMonthRange.endDate;
+                        }
+                        return true;
+                      });
+                    }
+
                     return filtered.length;
                   })();
 
                   return count === 1 ? 'transacción' : 'transacciones';
-                })()} {filterType !== 'all' || searchQuery ? 'encontradas' : 'registradas'}
+                })()} {filterType !== 'all' || searchQuery || dateFilter === 'current-month' ? 'encontradas' : 'registradas'}
               </div>
             </div>
 
@@ -1376,29 +1517,53 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              {/* Ordenamiento */}
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="w-4 h-4 text-gray-400" />
-                <label htmlFor="sort-select" className="sr-only">
-                  Ordenar transacciones
-                </label>
-                <select
-                  id="sort-select"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer"
-                  aria-label="Ordenar transacciones"
-                >
-                  <option value="date">Ordenar por fecha</option>
-                  <option value="amount">Ordenar por monto</option>
-                  <option value="name">Ordenar por nombre</option>
-                </select>
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-white cursor-pointer"
-                >
-                  {sortOrder === 'desc' ? '⬇️' : '⬆️'}
-                </button>
+              {/* Filtro de fecha y Ordenamiento */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Filtro de fecha */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  <label htmlFor="date-filter-select" className="sr-only">
+                    Filtrar por fecha
+                  </label>
+                  <select
+                    id="date-filter-select"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value as 'current-month' | 'all')}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm"
+                    aria-label="Filtrar por fecha"
+                  >
+                    <option value="current-month">
+                      {new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() + 
+                       new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).slice(1)}
+                    </option>
+                    <option value="all">Todos los períodos</option>
+                  </select>
+                </div>
+
+                {/* Ordenamiento */}
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                  <label htmlFor="sort-select" className="sr-only">
+                    Ordenar transacciones
+                  </label>
+                  <select
+                    id="sort-select"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm"
+                    aria-label="Ordenar transacciones"
+                  >
+                    <option value="date">Ordenar por fecha</option>
+                    <option value="amount">Ordenar por monto</option>
+                    <option value="name">Ordenar por nombre</option>
+                  </select>
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-white cursor-pointer"
+                  >
+                    {sortOrder === 'desc' ? '⬇️' : '⬆️'}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1442,6 +1607,20 @@ export default function Dashboard() {
                       t.category?.toLowerCase().includes(query) ||
                       t.notes?.toLowerCase().includes(query)
                     );
+                  }
+
+                  // Filtrar por fecha (mes actual por defecto para gastos)
+                  if (dateFilter === 'current-month') {
+                    allTransactions = allTransactions.filter(t => {
+                      // Solo aplicar filtro de fecha a gastos
+                      if (t.type === 'expense') {
+                        const transactionDate = new Date(t.date);
+                        return transactionDate >= currentMonthRange.startDate && 
+                               transactionDate <= currentMonthRange.endDate;
+                      }
+                      // Para otros tipos, mostrar todos
+                      return true;
+                    });
                   }
 
                   // Ordenar
@@ -1722,61 +1901,174 @@ export default function Dashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div 
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowExpenseBreakdown(false)}
+            onClick={() => {
+              setShowExpenseBreakdown(false);
+              setExpenseBreakdownView('summary');
+            }}
           />
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md">
+          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Desglose de Gastos
-                </h3>
+                <div className="flex items-center gap-3">
+                  {expenseBreakdownView !== 'summary' && (
+                    <button
+                      onClick={() => setExpenseBreakdownView('summary')}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <ArrowUpDown className="w-5 h-5 text-gray-600 dark:text-gray-400 rotate-90" />
+                    </button>
+                  )}
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {expenseBreakdownView === 'fixed' ? 'Gastos Fijos' :
+                     expenseBreakdownView === 'variable' ? 'Gastos Variables' :
+                     'Desglose de Gastos'}
+                  </h3>
+                </div>
                 <button
-                  onClick={() => setShowExpenseBreakdown(false)}
+                  onClick={() => {
+                    setShowExpenseBreakdown(false);
+                    setExpenseBreakdownView('summary');
+                  }}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 </button>
               </div>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Fijos</p>
-                  <p className="text-2xl font-bold text-red-400 dark:text-red-300">
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {expenseBreakdownView === 'summary' ? (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => setExpenseBreakdownView('fixed')}
+                    className="w-full flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors cursor-pointer"
+                  >
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Fijos</p>
+                      <p className="text-2xl font-bold text-red-400 dark:text-red-300">
 -{formatCurrency(displayStats.totalFixedExpenses)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {expenses.filter((e: any) => e.expenseType === 'fixed').length} gastos fijos
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-red-200 rounded-xl flex items-center justify-center">
-                  <Target className="w-6 h-6 text-red-400" />
-                </div>
-              </div>
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {expenses.filter((e: any) => e.expenseType === 'fixed').length} gastos fijos
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-red-200 rounded-xl flex items-center justify-center">
+                      <Target className="w-6 h-6 text-red-400" />
+                    </div>
+                  </button>
 
-              <div className="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Variables</p>
-                  <p className="text-2xl font-bold text-purple-400 dark:text-purple-300">
+                  <button
+                    onClick={() => setExpenseBreakdownView('variable')}
+                    className="w-full flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors cursor-pointer"
+                  >
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Gastos Variables</p>
+                      <p className="text-2xl font-bold text-purple-400 dark:text-purple-300">
 -{formatCurrency(displayStats.totalVariableExpenses)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {expenses.filter((e: any) => e.expenseType === 'variable').length} gastos variables
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
-                  <Target className="w-6 h-6 text-purple-400" />
-                </div>
-              </div>
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {expenses.filter((e: any) => e.expenseType === 'variable').length} gastos variables
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
+                      <Target className="w-6 h-6 text-purple-400" />
+                    </div>
+                  </button>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
 {formatCurrency(displayStats.totalExpenses)}
-                  </p>
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  {(() => {
+                    const filteredExpenses = expenses.filter((e: any) => 
+                      expenseBreakdownView === 'fixed' ? e.expenseType === 'fixed' : e.expenseType === 'variable'
+                    );
+
+                    if (filteredExpenses.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                          <Target className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                          <p>No tienes {expenseBreakdownView === 'fixed' ? 'gastos fijos' : 'gastos variables'}</p>
+                        </div>
+                      );
+                    }
+
+                    return filteredExpenses.map((expense: any, index: number) => {
+                      const sharedExpense = sharedExpensesMap.get(expense.id);
+                      let displayAmount = expense.amount;
+                      
+                      if (sharedExpense) {
+                        if (sharedExpense.ownerUserId === session?.user?.id) {
+                          displayAmount = sharedExpense.ownerAmount;
+                        } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
+                          displayAmount = sharedExpense.partnerAmount;
+                        }
+                      }
+
+                      return (
+                        <motion.div
+                          key={expense.id || index}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: index * 0.05 }}
+                          onClick={() => {
+                            setSelectedTransaction({ ...expense, type: 'expense' });
+                            setShowDetailModal(true);
+                            setShowExpenseBreakdown(false);
+                            setExpenseBreakdownView('summary');
+                          }}
+                          className={`p-4 rounded-xl border transition-all duration-200 hover:shadow-md cursor-pointer ${
+                            expenseBreakdownView === 'fixed'
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                              : 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                                {expense.name}
+                              </h4>
+                              {expense.category && (
+                                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                  {expense.category}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-lg font-bold ${
+                                expenseBreakdownView === 'fixed'
+                                  ? 'text-red-400 dark:text-red-300'
+                                  : 'text-purple-400 dark:text-purple-300'
+                              }`}>
+                                -{formatCurrency(displayAmount)}
+                              </div>
+                              {sharedExpense && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  Compartido
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            {new Date(expense.date).toLocaleDateString('es-AR')}
+                          </div>
+                          {expense.notes && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
+                              {expense.notes}
+                            </p>
+                          )}
+                        </motion.div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         </div>

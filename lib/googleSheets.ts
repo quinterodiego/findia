@@ -1318,7 +1318,7 @@ export async function createSharedExpense(
 export async function getSharedExpensesByUser(
   userId: string,
   filters?: {
-    status?: 'pending' | 'accepted' | 'rejected';
+    status?: 'pending' | 'accepted' | 'rejected' | 'cancellation_requested';
     type?: 'received' | 'sent' | 'all';
   }
 ): Promise<any[]> {
@@ -1348,7 +1348,7 @@ export async function getSharedExpensesByUser(
         splitType: row[4] as 'equal' | 'percentage' | 'amount',
         ownerAmount: parseFloat(row[5] || '0'),
         partnerAmount: parseFloat(row[6] || '0'),
-        status: row[7] as 'pending' | 'accepted' | 'rejected',
+        status: row[7] as 'pending' | 'accepted' | 'rejected' | 'cancellation_requested',
         createdAt: row[8] || new Date().toISOString(),
         acceptedAt: row[9] || null,
         rejectedAt: row[10] || null,
@@ -1524,6 +1524,207 @@ export async function rejectSharedExpense(
     console.log('✅ Gasto compartido rechazado:', sharedExpenseId);
   } catch (error) {
     console.error('Error rechazando gasto compartido:', error);
+    throw error;
+  }
+}
+
+/**
+ * Solicita cancelar un gasto compartido (solo el owner puede solicitar)
+ * - Si está pendiente: lo cancela directamente
+ * - Si está aceptado: cambia el estado a 'cancellation_requested' para que el partner confirme
+ */
+export async function cancelSharedExpense(
+  sharedExpenseId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      throw new Error('La hoja SharedExpenses no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+    });
+
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === sharedExpenseId && row[2] === userId);
+
+    if (rowIndex === -1) {
+      throw new Error('Gasto compartido no encontrado o no tienes permisos para cancelarlo');
+    }
+
+    const row = rows[rowIndex];
+    const status = row[7] || 'pending';
+    
+    // Solo el owner puede cancelar
+    if (row[2] !== userId) {
+      throw new Error('Solo el dueño del gasto puede cancelarlo');
+    }
+
+    const actualRowIndex = rowIndex + 2;
+
+    // Si está pendiente, cancelar directamente
+    if (status === 'pending') {
+      // Eliminar físicamente el gasto compartido
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: {
+          requests: [
+            {
+              deleteDimension: {
+                range: {
+                  sheetId: await getSheetId(SHEETS.SHARED_EXPENSES),
+                  dimension: 'ROWS',
+                  startIndex: actualRowIndex - 1,
+                  endIndex: actualRowIndex,
+                },
+              },
+            },
+          ],
+        },
+      });
+      console.log('✅ Gasto compartido cancelado (estaba pendiente):', sharedExpenseId);
+    } else if (status === 'accepted') {
+      // Si está aceptado, cambiar el estado a 'cancellation_requested'
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEETS.SHARED_EXPENSES}!H${actualRowIndex}`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [['cancellation_requested']],
+        },
+      });
+      console.log('✅ Solicitud de cancelación enviada (estaba aceptado):', sharedExpenseId);
+    } else {
+      throw new Error('No se puede cancelar un gasto en este estado');
+    }
+  } catch (error) {
+    console.error('Error cancelando gasto compartido:', error);
+    throw error;
+  }
+}
+
+/**
+ * Confirma la cancelación de un gasto compartido (solo el partner puede confirmar)
+ */
+export async function confirmCancelSharedExpense(
+  sharedExpenseId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      throw new Error('La hoja SharedExpenses no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+    });
+
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === sharedExpenseId && row[3] === userId);
+
+    if (rowIndex === -1) {
+      throw new Error('Gasto compartido no encontrado o no tienes permisos para confirmar la cancelación');
+    }
+
+    const row = rows[rowIndex];
+    const status = row[7] || 'pending';
+    
+    // Solo el partner puede confirmar la cancelación
+    if (row[3] !== userId) {
+      throw new Error('Solo el partner puede confirmar la cancelación');
+    }
+
+    // Debe estar en estado 'cancellation_requested'
+    if (status !== 'cancellation_requested') {
+      throw new Error('El gasto no está en estado de cancelación solicitada');
+    }
+
+    const actualRowIndex = rowIndex + 2;
+
+    // Eliminar físicamente el gasto compartido
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: await getSheetId(SHEETS.SHARED_EXPENSES),
+                dimension: 'ROWS',
+                startIndex: actualRowIndex - 1,
+                endIndex: actualRowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    console.log('✅ Cancelación de gasto compartido confirmada:', sharedExpenseId);
+  } catch (error) {
+    console.error('Error confirmando cancelación de gasto compartido:', error);
+    throw error;
+  }
+}
+
+/**
+ * Rechaza la solicitud de cancelación y restaura el estado a 'accepted'
+ */
+export async function rejectCancelSharedExpense(
+  sharedExpenseId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      throw new Error('La hoja SharedExpenses no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+    });
+
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === sharedExpenseId && row[3] === userId);
+
+    if (rowIndex === -1) {
+      throw new Error('Gasto compartido no encontrado o no tienes permisos para rechazar la cancelación');
+    }
+
+    const row = rows[rowIndex];
+    const status = row[7] || 'pending';
+    
+    // Solo el partner puede rechazar la cancelación
+    if (row[3] !== userId) {
+      throw new Error('Solo el partner puede rechazar la cancelación');
+    }
+
+    // Debe estar en estado 'cancellation_requested'
+    if (status !== 'cancellation_requested') {
+      throw new Error('El gasto no está en estado de cancelación solicitada');
+    }
+
+    const actualRowIndex = rowIndex + 2;
+
+    // Restaurar el estado a 'accepted'
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!H${actualRowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [['accepted']],
+      },
+    });
+
+    console.log('✅ Cancelación de gasto compartido rechazada, restaurado a aceptado:', sharedExpenseId);
+  } catch (error) {
+    console.error('Error rechazando cancelación de gasto compartido:', error);
     throw error;
   }
 }

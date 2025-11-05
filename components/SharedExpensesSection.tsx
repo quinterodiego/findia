@@ -18,7 +18,7 @@ export default function SharedExpensesSection({
   const [sharedExpenses, setSharedExpenses] = useState<SharedExpense[]>([]);
   const [balance, setBalance] = useState<SharedExpenseBalance | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected' | 'cancellation_requested'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'received' | 'sent'>('all');
 
   useEffect(() => {
@@ -90,6 +90,79 @@ export default function SharedExpensesSection({
       }
     } catch (error) {
       console.error('Error rechazando gasto compartido:', error);
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    if (!confirm('¿Estás seguro de que quieres cancelar/solicitar cancelación de este gasto compartido?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/shared-expenses/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await loadSharedExpenses();
+        await loadBalance();
+        if (data.message) {
+          alert(data.message);
+        }
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Error al cancelar el gasto compartido');
+      }
+    } catch (error) {
+      console.error('Error cancelando gasto compartido:', error);
+      alert('Error al cancelar el gasto compartido');
+    }
+  };
+
+  const handleConfirmCancel = async (id: string) => {
+    if (!confirm('¿Estás seguro de que quieres confirmar la cancelación de este gasto compartido? El gasto será eliminado.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/shared-expenses/${id}/confirm-cancel`, {
+        method: 'PUT',
+      });
+
+      if (response.ok) {
+        await loadSharedExpenses();
+        await loadBalance();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Error al confirmar la cancelación');
+      }
+    } catch (error) {
+      console.error('Error confirmando cancelación:', error);
+      alert('Error al confirmar la cancelación');
+    }
+  };
+
+  const handleRejectCancel = async (id: string) => {
+    if (!confirm('¿Estás seguro de que quieres rechazar la solicitud de cancelación? El gasto se mantendrá activo.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/shared-expenses/${id}/reject-cancel`, {
+        method: 'PUT',
+      });
+
+      if (response.ok) {
+        await loadSharedExpenses();
+        await loadBalance();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Error al rechazar la cancelación');
+      }
+    } catch (error) {
+      console.error('Error rechazando cancelación:', error);
+      alert('Error al rechazar la cancelación');
     }
   };
 
@@ -175,7 +248,7 @@ export default function SharedExpensesSection({
           </span>
         </div>
         <div className="flex gap-2">
-          {(['all', 'pending', 'accepted', 'rejected'] as const).map((status) => (
+          {(['all', 'pending', 'accepted', 'rejected', 'cancellation_requested'] as const).map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
@@ -188,7 +261,8 @@ export default function SharedExpensesSection({
               {status === 'all' ? 'Todos' :
                status === 'pending' ? 'Pendientes' :
                status === 'accepted' ? 'Aceptados' :
-               'Rechazados'}
+               status === 'rejected' ? 'Rechazados' :
+               'Cancelación Solicitada'}
             </button>
           ))}
         </div>
@@ -257,6 +331,9 @@ export default function SharedExpensesSection({
               currentUserId={currentUserId}
               onAccept={handleAccept}
               onReject={handleReject}
+              onCancel={handleCancel}
+              onConfirmCancel={handleConfirmCancel}
+              onRejectCancel={handleRejectCancel}
               formatCurrency={formatCurrency}
             />
           ))}

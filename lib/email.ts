@@ -257,6 +257,67 @@ export async function sendSharedExpenseAcceptedNotification(
 }
 
 /**
+ * Envía email de notificación cuando se cancela un gasto compartido
+ */
+export async function sendSharedExpenseCancelledNotification(
+  toEmail: string,
+  ownerName: string,
+  expenseName: string,
+  wasAccepted: boolean
+): Promise<boolean> {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Gasto Cancelado - FindIA</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">🚫 Gasto Cancelado</h1>
+      </div>
+      
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
+        <h2 style="color: #333; margin-top: 0;">${wasAccepted ? 'Solicitud de Cancelación' : 'Notificación'}</h2>
+        <p style="color: #666; font-size: 16px;">
+          <strong>${ownerName}</strong> ${wasAccepted ? 'ha solicitado cancelar' : 'ha cancelado'} el gasto compartido <strong>"${expenseName}"</strong>.
+        </p>
+        
+        <div style="background: ${wasAccepted ? '#fff3cd' : '#fff3cd'}; border: 1px solid ${wasAccepted ? '#f59e0b' : '#f59e0b'}; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0; color: ${wasAccepted ? '#92400e' : '#92400e'}; font-size: 14px;">
+            ${wasAccepted 
+              ? '⚠️ El gasto había sido aceptado previamente. Debes confirmar o rechazar la cancelación. Si confirmas, el gasto será eliminado y el balance se actualizará.' 
+              : 'El gasto compartido ha sido cancelado y ya no está activo.'}
+          </p>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${getBaseUrl()}/dashboard" 
+             style="background: linear-gradient(135deg, #FF3A5F 0%, #FF007A 100%); 
+                    color: white; 
+                    padding: 12px 30px; 
+                    text-decoration: none; 
+                    border-radius: 6px; 
+                    display: inline-block; 
+                    font-weight: bold;
+                    font-size: 16px;">
+            Ver en FindIA
+          </a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail({
+    to: toEmail,
+    subject: `🚫 ${ownerName} canceló el gasto compartido: ${expenseName}`,
+    html,
+  });
+}
+
+/**
  * Envía email de notificación cuando se rechaza un gasto compartido
  */
 export async function sendSharedExpenseRejectedNotification(
