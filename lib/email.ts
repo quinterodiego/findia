@@ -1,5 +1,32 @@
 import nodemailer from 'nodemailer';
 
+/**
+ * Obtiene la URL base de la aplicación (producción o desarrollo)
+ */
+function getBaseUrl(): string {
+  // Prioridad 1: URL explícita desde variable de entorno
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  
+  // Prioridad 2: NEXTAUTH_URL (usado por NextAuth)
+  if (process.env.NEXTAUTH_URL) {
+    // Si NEXTAUTH_URL contiene localhost, usar el fallback
+    if (process.env.NEXTAUTH_URL.includes('localhost') || process.env.NEXTAUTH_URL.includes('127.0.0.1')) {
+      return process.env.NODE_ENV === 'production' ? 'https://findia.vercel.app' : process.env.NEXTAUTH_URL;
+    }
+    return process.env.NEXTAUTH_URL;
+  }
+  
+  // Prioridad 3: Detectar entorno
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://findia.vercel.app';
+  }
+  
+  // Fallback para desarrollo
+  return 'http://localhost:3000';
+}
+
 // Configuración del transportador de email
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -134,7 +161,7 @@ export async function sendSharedExpenseNotification(
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXTAUTH_URL || 'https://findia.app'}/dashboard" 
+          <a href="${getBaseUrl()}/dashboard" 
              style="background: linear-gradient(135deg, #FF3A5F 0%, #FF007A 100%); 
                     color: white; 
                     padding: 12px 30px; 
@@ -205,7 +232,7 @@ export async function sendSharedExpenseAcceptedNotification(
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXTAUTH_URL || 'https://findia.app'}/dashboard" 
+          <a href="${getBaseUrl()}/dashboard" 
              style="background: linear-gradient(135deg, #FF3A5F 0%, #FF007A 100%); 
                     color: white; 
                     padding: 12px 30px; 
@@ -263,7 +290,7 @@ export async function sendSharedExpenseRejectedNotification(
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXTAUTH_URL || 'https://findia.app'}/dashboard" 
+          <a href="${getBaseUrl()}/dashboard" 
              style="background: linear-gradient(135deg, #FF3A5F 0%, #FF007A 100%); 
                     color: white; 
                     padding: 12px 30px; 
