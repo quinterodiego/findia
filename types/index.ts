@@ -35,6 +35,8 @@ export interface SharedExpense {
   acceptedAt?: string
   rejectedAt?: string
   notes?: string
+  isSettled?: boolean // Indica si la parte del otro usuario está saldada
+  settledAt?: string // Fecha cuando se marcó como saldado
   // Relaciones (populadas cuando se obtienen)
   expense?: Expense
   owner?: {

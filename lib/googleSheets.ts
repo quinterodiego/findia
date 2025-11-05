@@ -1212,6 +1212,8 @@ export async function createSharedExpense(
         'acceptedAt',
         'rejectedAt',
         'notes',
+        'isSettled',
+        'settledAt',
       ]);
     }
 
@@ -1283,6 +1285,8 @@ export async function createSharedExpense(
           newSharedExpense.acceptedAt || '',
           newSharedExpense.rejectedAt || '',
           newSharedExpense.notes,
+          false, // isSettled
+          '', // settledAt
         ]],
       },
     });
@@ -1330,7 +1334,7 @@ export async function getSharedExpensesByUser(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:N`,
     });
 
     const rows = response.data.values || [];
@@ -1353,6 +1357,8 @@ export async function getSharedExpensesByUser(
         acceptedAt: row[9] || null,
         rejectedAt: row[10] || null,
         notes: row[11] || '',
+        isSettled: row[12] === 'true' || row[12] === true,
+        settledAt: row[13] || null,
       }));
 
     // Aplicar filtros
@@ -1454,7 +1460,7 @@ export async function acceptSharedExpense(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:N`,
     });
 
     const rows = response.data.values || [];
@@ -1499,7 +1505,7 @@ export async function rejectSharedExpense(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:N`,
     });
 
     const rows = response.data.values || [];
@@ -1545,7 +1551,7 @@ export async function cancelSharedExpense(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:N`,
     });
 
     const rows = response.data.values || [];
@@ -1621,7 +1627,7 @@ export async function confirmCancelSharedExpense(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:N`,
     });
 
     const rows = response.data.values || [];
@@ -1687,7 +1693,7 @@ export async function rejectCancelSharedExpense(
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:N`,
     });
 
     const rows = response.data.values || [];
@@ -1730,6 +1736,67 @@ export async function rejectCancelSharedExpense(
 }
 
 /**
+ * Marca un gasto compartido como saldado (cuando la parte del otro usuario ya está pagada)
+ * Solo el owner puede marcar como saldado cuando el partner pagó
+ * Solo el partner puede marcar como saldado cuando el owner pagó
+ */
+export async function markSharedExpenseAsSettled(
+  sharedExpenseId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const exists = await sheetExists(SHEETS.SHARED_EXPENSES);
+    if (!exists) {
+      throw new Error('La hoja SharedExpenses no existe');
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:N`,
+    });
+
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex(row => row[0] === sharedExpenseId);
+
+    if (rowIndex === -1) {
+      throw new Error('Gasto compartido no encontrado');
+    }
+
+    const row = rows[rowIndex];
+    const isOwner = row[2] === userId;
+    const isPartner = row[3] === userId;
+
+    if (!isOwner && !isPartner) {
+      throw new Error('No tienes permisos para marcar este gasto como saldado');
+    }
+
+    // Solo se puede marcar como saldado si está aceptado
+    const status = row[7] || 'pending';
+    if (status !== 'accepted') {
+      throw new Error('Solo se pueden marcar como saldados los gastos que están aceptados');
+    }
+
+    const actualRowIndex = rowIndex + 2;
+    const now = new Date().toISOString();
+
+    // Actualizar isSettled y settledAt
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.SHARED_EXPENSES}!M${actualRowIndex}:N${actualRowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [['true', now]],
+      },
+    });
+
+    console.log('✅ Gasto compartido marcado como saldado:', sharedExpenseId);
+  } catch (error) {
+    console.error('Error marcando gasto compartido como saldado:', error);
+    throw error;
+  }
+}
+
+/**
  * Calcula el balance de gastos compartidos de un usuario
  */
 export async function calculateSharedExpenseBalance(userId: string): Promise<{
@@ -1745,7 +1812,7 @@ export async function calculateSharedExpenseBalance(userId: string): Promise<{
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.SHARED_EXPENSES}!A2:L`,
+      range: `${SHEETS.SHARED_EXPENSES}!A2:N`,
     });
 
     const rows = response.data.values || [];
