@@ -33,24 +33,14 @@ export default function PaymentModal({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (isOpen && debt) {
-      setFormData({
-        amount: debt.minPayment || 0,
-        date: new Date().toISOString().split('T')[0],
-        type: 'regular',
-        notes: ''
-      });
-      setErrors({});
-    }
-  }, [isOpen, debt]);
+  // Estado para mantener el valor de entrada como string (permite comas mientras se escribe)
+  const [amountInput, setAmountInput] = useState<string>('');
 
   // Función para normalizar números con coma decimal
   const parseDecimalInput = (value: string): number => {
     if (!value || value.trim() === '') return 0;
-    // Reemplazar coma por punto para parsear
-    const normalized = value.replace(',', '.');
+    // Remover puntos (separador de miles) y convertir coma a punto (decimal)
+    const normalized = value.replace(/\./g, '').replace(',', '.');
     const parsed = parseFloat(normalized);
     return isNaN(parsed) ? 0 : parsed;
   };
@@ -62,6 +52,22 @@ export default function PaymentModal({
     return value.toString().replace('.', ',');
   };
 
+  useEffect(() => {
+    if (isOpen && debt) {
+      const initialAmount = debt.minPayment || 0;
+      setFormData({
+        amount: initialAmount,
+        date: new Date().toISOString().split('T')[0],
+        type: 'regular',
+        notes: ''
+      });
+      setAmountInput(initialAmount ? formatDecimalDisplay(initialAmount) : '');
+      setErrors({});
+    } else if (isOpen && !debt) {
+      setAmountInput('');
+    }
+  }, [isOpen, debt]);
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -69,10 +75,15 @@ export default function PaymentModal({
     }
   };
 
-  const handleNumberInputChange = (field: string, value: string) => {
-    // Permite entrada con coma o punto
-    const numericValue = parseDecimalInput(value);
-    handleInputChange(field, numericValue);
+  // Función para manejar cambios en campos numéricos manteniendo el string de entrada
+  const handleNumberInputChange = (field: string, inputValue: string, setInputState: (value: string) => void) => {
+    // Permitir solo números, punto, coma y espacios opcionales
+    if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+      setInputState(inputValue);
+      // Actualizar el valor numérico en formData
+      const numericValue = parseDecimalInput(inputValue);
+      handleInputChange(field, numericValue);
+    }
   };
 
   const validateForm = () => {
@@ -175,13 +186,9 @@ export default function PaymentModal({
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={formData.amount === 0 ? '' : formatDecimalDisplay(formData.amount)}
+                  value={amountInput}
                   onChange={(e) => {
-                    const inputValue = e.target.value;
-                    // Permitir solo números, punto, coma y espacios opcionales
-                    if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
-                      handleNumberInputChange('amount', inputValue);
-                    }
+                    handleNumberInputChange('amount', e.target.value, setAmountInput);
                   }}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   placeholder="0,00"

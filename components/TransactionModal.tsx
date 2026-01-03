@@ -106,8 +106,30 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Estados para mantener los valores de entrada como strings (permite comas mientras se escribe)
+  const [amountInput, setAmountInput] = useState<string>('');
+  const [balanceInput, setBalanceInput] = useState<string>('');
+  const [interestRateInput, setInterestRateInput] = useState<string>('');
+  const [minPaymentInput, setMinPaymentInput] = useState<string>('');
+  const [currentAmountInput, setCurrentAmountInput] = useState<string>('');
   const config = typeConfig[type];
   const Icon = config.icon;
+
+  // Función para normalizar números con coma decimal
+  const parseDecimalInput = (value: string): number => {
+    if (!value || value.trim() === '') return 0;
+    // Remover puntos (separador de miles) y convertir coma a punto (decimal)
+    const normalized = value.replace(/\./g, '').replace(',', '.');
+    const parsed = parseFloat(normalized);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  // Función para formatear número con coma decimal para mostrar
+  const formatDecimalDisplay = (value: number): string => {
+    if (value === 0) return '';
+    // Formatear con coma como separador decimal (formato argentino/español)
+    return value.toString().replace('.', ',');
+  };
 
   // Resetear formulario cuando cambia el tipo o poblar con datos de edición
   useEffect(() => {
@@ -132,6 +154,11 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           isRecurring: editingTransaction.isRecurring || false,
           frequency: editingTransaction.frequency || 'monthly'
         });
+        setAmountInput(editingTransaction.amount ? formatDecimalDisplay(editingTransaction.amount) : '');
+        setBalanceInput(editingTransaction.balance ? formatDecimalDisplay(editingTransaction.balance) : '');
+        setInterestRateInput(editingTransaction.interestRate ? formatDecimalDisplay(editingTransaction.interestRate) : '');
+        setMinPaymentInput(editingTransaction.minPayment ? formatDecimalDisplay(editingTransaction.minPayment) : '');
+        setCurrentAmountInput(editingTransaction.currentAmount ? formatDecimalDisplay(editingTransaction.currentAmount) : '');
       } else {
         console.log('🔄 Reseteando formulario para tipo:', type);
         setFormData({
@@ -151,6 +178,11 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           isRecurring: false,
           frequency: 'monthly'
         });
+        setAmountInput('');
+        setBalanceInput('');
+        setInterestRateInput('');
+        setMinPaymentInput('');
+        setCurrentAmountInput('');
       }
       setErrors({});
     }
@@ -196,22 +228,6 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
     }
   };
 
-  // Función para normalizar números con coma decimal
-  const parseDecimalInput = (value: string): number => {
-    if (!value || value.trim() === '') return 0;
-    // Reemplazar coma por punto para parsear
-    const normalized = value.replace(',', '.');
-    const parsed = parseFloat(normalized);
-    return isNaN(parsed) ? 0 : parsed;
-  };
-
-  // Función para formatear número con coma decimal para mostrar
-  const formatDecimalDisplay = (value: number): string => {
-    if (value === 0) return '';
-    // Formatear con coma como separador decimal (formato argentino/español)
-    return value.toString().replace('.', ',');
-  };
-
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -219,10 +235,15 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
     }
   };
 
-  const handleNumberInputChange = (field: string, value: string) => {
-    // Permite entrada con coma o punto
-    const numericValue = parseDecimalInput(value);
-    handleInputChange(field, numericValue);
+  // Función para manejar cambios en campos numéricos manteniendo el string de entrada
+  const handleNumberInputChange = (field: string, inputValue: string, setInputState: (value: string) => void) => {
+    // Permitir solo números, punto, coma y espacios opcionales
+    if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
+      setInputState(inputValue);
+      // Actualizar el valor numérico en formData
+      const numericValue = parseDecimalInput(inputValue);
+      handleInputChange(field, numericValue);
+    }
   };
 
   if (!isOpen) return null;
@@ -296,13 +317,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={formData.amount === 0 ? '' : formatDecimalDisplay(formData.amount)}
+                  value={amountInput}
                   onChange={(e) => {
-                    const inputValue = e.target.value;
-                    // Permitir solo números, punto, coma y espacios opcionales
-                    if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
-                      handleNumberInputChange('amount', inputValue);
-                    }
+                    handleNumberInputChange('amount', e.target.value, setAmountInput);
                   }}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   placeholder="0,00"
@@ -383,12 +400,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={formData.balance === 0 ? '' : formatDecimalDisplay(formData.balance)}
+                        value={balanceInput}
                         onChange={(e) => {
-                          const inputValue = e.target.value;
-                          if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
-                            handleNumberInputChange('balance', inputValue);
-                          }
+                          handleNumberInputChange('balance', e.target.value, setBalanceInput);
                         }}
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                         placeholder="0,00"
@@ -402,12 +416,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={formData.interestRate === 0 ? '' : formatDecimalDisplay(formData.interestRate)}
+                        value={interestRateInput}
                         onChange={(e) => {
-                          const inputValue = e.target.value;
-                          if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
-                            handleNumberInputChange('interestRate', inputValue);
-                          }
+                          handleNumberInputChange('interestRate', e.target.value, setInterestRateInput);
                         }}
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                         placeholder="0,00"
@@ -422,12 +433,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={formData.minPayment === 0 ? '' : formatDecimalDisplay(formData.minPayment)}
+                    value={minPaymentInput}
                     onChange={(e) => {
-                      const inputValue = e.target.value;
-                      if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
-                        handleNumberInputChange('minPayment', inputValue);
-                      }
+                      handleNumberInputChange('minPayment', e.target.value, setMinPaymentInput);
                     }}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     placeholder="0,00"
@@ -463,12 +471,9 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={formData.currentAmount === 0 ? '' : formatDecimalDisplay(formData.currentAmount)}
+                    value={currentAmountInput}
                     onChange={(e) => {
-                      const inputValue = e.target.value;
-                      if (inputValue === '' || /^[\d.,\s]*$/.test(inputValue)) {
-                        handleNumberInputChange('currentAmount', inputValue);
-                      }
+                      handleNumberInputChange('currentAmount', e.target.value, setCurrentAmountInput);
                     }}
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     placeholder="0,00"
