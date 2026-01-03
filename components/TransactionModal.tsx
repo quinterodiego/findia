@@ -207,6 +207,10 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
       newErrors.interestRate = 'La tasa de interés no puede ser negativa';
     }
 
+    if (type === 'debt' && !formData.dueDate) {
+      newErrors.dueDate = 'La fecha de vencimiento es requerida';
+    }
+
     if (type === 'goal' && formData.currentAmount < 0) {
       newErrors.currentAmount = 'El monto actual no puede ser negativo';
     }
@@ -440,6 +444,19 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     placeholder="0,00"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Fecha de Vencimiento *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => handleInputChange('dueDate', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                  {errors.dueDate && <p className="text-red-500 text-sm mt-1">{errors.dueDate}</p>}
                 </div>
 
                 <div>

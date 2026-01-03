@@ -1742,7 +1742,16 @@ export default function Dashboard() {
                               {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.amount)}
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {new Date(transaction.date).toLocaleDateString()}
+                              {(() => {
+                                // Para deudas, usar dueDate si existe, sino createdAt
+                                const dateToShow = transaction.type === 'debt' 
+                                  ? (transaction.dueDate || transaction.createdAt || transaction.date)
+                                  : transaction.date;
+                                if (!dateToShow) return 'Sin fecha';
+                                const dateObj = new Date(dateToShow);
+                                if (isNaN(dateObj.getTime())) return 'Fecha inválida';
+                                return dateObj.toLocaleDateString('es-AR');
+                              })()}
                             </div>
                           </div>
                         </div>
