@@ -50,13 +50,13 @@ export default function ShareExpenseModal({
       setError('');
       
       // Calcular montos por defecto (50/50)
-      if (splitType === 'equal' && expense.amount > 0) {
+      if (expense.amount > 0) {
         const half = expense.amount / 2;
         setOwnerAmount(half);
         setPartnerAmount(half);
       }
     }
-  }, [expense, isOpen, splitType]);
+  }, [expense, isOpen]);
 
   // Recalcular montos cuando cambia el tipo de división
   useEffect(() => {
@@ -139,27 +139,27 @@ export default function ShareExpenseModal({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-white" />
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-400 to-violet-500 text-white rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Users className="w-6 h-6" />
+                  <div>
+                    <h3 className="text-xl font-semibold">
+                      Compartir Gasto
+                    </h3>
+                    <p className="text-white/90 text-sm">
+                      {expense.name}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Compartir Gasto
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {expense.name}
-                  </p>
-                </div>
+                <button
+                  onClick={onClose}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Cerrar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
-                aria-label="Cerrar"
-              >
-                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              </button>
             </div>
 
             {/* Content */}
@@ -197,7 +197,7 @@ export default function ShareExpenseModal({
                     value={sharedWithEmail}
                     onChange={(e) => setSharedWithEmail(e.target.value)}
                     placeholder="usuario@ejemplo.com"
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     required
                   />
                 </div>
@@ -211,10 +211,14 @@ export default function ShareExpenseModal({
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => setSplitType('equal')}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSplitType('equal');
+                    }}
                     className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
                       splitType === 'equal'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                         : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
                     }`}
                   >
@@ -225,10 +229,14 @@ export default function ShareExpenseModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSplitType('percentage')}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSplitType('percentage');
+                    }}
                     className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
                       splitType === 'percentage'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                         : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
                     }`}
                   >
@@ -239,10 +247,14 @@ export default function ShareExpenseModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSplitType('amount')}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSplitType('amount');
+                    }}
                     className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
                       splitType === 'amount'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                         : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
                     }`}
                   >
@@ -272,7 +284,7 @@ export default function ShareExpenseModal({
                           setOwnerPercentage(val);
                           setPartnerPercentage(100 - val);
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                       />
                       <span className="text-gray-500 dark:text-gray-400">%</span>
                     </div>
@@ -292,7 +304,7 @@ export default function ShareExpenseModal({
                           setPartnerPercentage(val);
                           setOwnerPercentage(100 - val);
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                       />
                       <span className="text-gray-500 dark:text-gray-400">%</span>
                     </div>
@@ -318,7 +330,7 @@ export default function ShareExpenseModal({
                         setOwnerAmount(val);
                         setPartnerAmount(expense.amount - val);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     />
                   </div>
                   <div>
@@ -336,17 +348,17 @@ export default function ShareExpenseModal({
                         setPartnerAmount(val);
                         setOwnerAmount(expense.amount - val);
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                     />
                   </div>
                 </div>
               )}
 
               {/* Preview del cálculo */}
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
-                  <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                  <Calculator className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-sm font-medium text-indigo-900 dark:text-indigo-300">
                     Resumen de división:
                   </span>
                 </div>
@@ -363,9 +375,9 @@ export default function ShareExpenseModal({
                       {partnerAmount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
                     </span>
                   </div>
-                  <div className="flex justify-between pt-2 border-t border-blue-200 dark:border-blue-700">
-                    <span className="font-medium text-blue-900 dark:text-blue-300">Total:</span>
-                    <span className="font-bold text-blue-900 dark:text-blue-300">
+                  <div className="flex justify-between pt-2 border-t border-indigo-200 dark:border-indigo-700">
+                    <span className="font-medium text-indigo-900 dark:text-indigo-300">Total:</span>
+                    <span className="font-bold text-indigo-900 dark:text-indigo-300">
                       {(ownerAmount + partnerAmount).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
                     </span>
                   </div>
@@ -383,7 +395,7 @@ export default function ShareExpenseModal({
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
                   placeholder="Agregar notas sobre este gasto compartido..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
                 />
               </div>
 
@@ -399,7 +411,7 @@ export default function ShareExpenseModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Compartiendo...' : 'Compartir Gasto'}
                 </button>
