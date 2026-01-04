@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { verifyCredentials } from "@/lib/googleSheets"
+import { verifyCredentials, saveUser, getUserByEmail } from "@/lib/googleSheets"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -68,6 +68,50 @@ export const authOptions: NextAuthOptions = {
       //     return false; // Rechaza el login
       //   }
       // }
+      
+      // Guardar o actualizar usuario en Google Sheets cuando se registra con Google
+      if (account?.provider === 'google' && user.email) {
+        try {
+          // Verificar si el usuario ya existe por email
+          const existingUser = await getUserByEmail(user.email);
+          
+          // Usar el ID existente si el usuario ya está registrado, 
+          // o generar uno nuevo basado en el ID de NextAuth (user.id)
+          // Si user.id no existe, usar el sub del perfil de Google o generar uno
+          let userId: string;
+          if (existingUser) {
+            // Usuario ya existe, usar su ID existente
+            userId = existingUser.id;
+          } else if (user.id) {
+            // Usar el ID que NextAuth generó
+            userId = user.id;
+          } else if (profile?.sub) {
+            // Usar el sub del perfil de Google como ID
+            userId = `google_${profile.sub}`;
+          } else {
+            // Fallback: generar ID basado en email
+            userId = `google_${user.email.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+          }
+          
+          // Guardar o actualizar el usuario en Google Sheets
+          // saveUser retorna el ID final (puede ser el existente si se encontró por email)
+          const finalUserId = await saveUser({
+            id: userId,
+            email: user.email,
+            name: user.name || null,
+            image: user.image || null,
+            // No hay password para usuarios de Google
+          });
+          
+          // Actualizar el ID del usuario para que NextAuth lo use consistentemente
+          user.id = finalUserId;
+          
+          console.log('✅ Usuario de Google guardado/actualizado en Sheets:', user.email, 'ID:', finalUserId);
+        } catch (error) {
+          console.error('⚠️ Error guardando usuario de Google en Sheets (no crítico):', error);
+          // No bloquear el login si falla guardar en Sheets
+        }
+      }
       
       // Si llegaste aquí, permite el login
       return true;

@@ -848,7 +848,7 @@ export async function saveUser(user: {
   name?: string | null;
   image?: string | null;
   password?: string;
-}) {
+}): Promise<string> {
   try {
     // Primero verificar si la hoja tiene el formato correcto
     try {
@@ -873,17 +873,27 @@ export async function saveUser(user: {
     });
     
     const rows = response.data.values || [];
-    const existingUserIndex = rows.findIndex(row => row[0] === user.id);
+    // Buscar por ID primero, luego por email como fallback (para usuarios de Google)
+    let existingUserIndex = rows.findIndex(row => row[0] === user.id);
+    if (existingUserIndex === -1) {
+      // Si no se encuentra por ID, buscar por email (para casos donde el ID cambió)
+      existingUserIndex = rows.findIndex(row => row[1]?.toLowerCase() === user.email.toLowerCase());
+    }
+    
     const now = new Date().toISOString();
     
+    // Si se encontró por email pero con ID diferente, usar el ID existente
+    const finalUserId = existingUserIndex !== -1 ? rows[existingUserIndex][0] : user.id;
+    const createdAt = existingUserIndex !== -1 ? rows[existingUserIndex][5] : now;
+    
     const userData = [
-      user.id,
+      finalUserId,
       user.email,
-      user.password || '', // Password hasheado
+      user.password || '', // Password hasheado (vacío para usuarios de Google)
       user.name || '',
       user.image || '',
-      existingUserIndex === -1 ? now : rows[existingUserIndex][5], // createdAt
-      now, // lastLogin
+      createdAt, // Mantener createdAt original si existe
+      now, // lastLogin siempre se actualiza
     ];
     
     if (existingUserIndex === -1) {
@@ -896,7 +906,7 @@ export async function saveUser(user: {
           values: [userData],
         },
       });
-      console.log('✅ Usuario creado:', user.email);
+      console.log('✅ Usuario creado:', user.email, 'ID:', finalUserId);
     } else {
       // Actualizar usuario existente
       const actualRowNumber = existingUserIndex + 2;
@@ -908,8 +918,11 @@ export async function saveUser(user: {
           values: [userData],
         },
       });
-      console.log('✅ Usuario actualizado:', user.email);
+      console.log('✅ Usuario actualizado:', user.email, 'ID:', finalUserId);
     }
+    
+    // Retornar el ID final para que se use consistentemente
+    return finalUserId;
   } catch (error) {
     console.error('Error guardando usuario:', error);
     throw error;
