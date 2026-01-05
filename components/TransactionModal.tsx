@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CreditCard, DollarSign, TrendingUp, Target, Calendar, AlertTriangle } from 'lucide-react';
+import { formatCurrency } from '@/lib/formatNumber';
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal';
 
@@ -96,13 +97,21 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
     minPayment: 0,
     dueDate: '',
     priority: 'medium' as 'high' | 'medium' | 'low',
+    // Campos para préstamos con cuotas
+    totalInstallmentsDebt: 0,
+    remainingInstallmentsDebt: 0,
+    paymentMethodDebt: 'manual' as 'automatic' | 'manual' | 'transfer',
     // Campos específicos para metas
     targetDate: '',
     currentAmount: 0,
     // Campos específicos para gastos/ingresos
-    expenseType: 'variable' as 'fixed' | 'variable',
+    expenseType: 'variable' as 'fixed' | 'variable' | 'installments',
     isRecurring: false,
-    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly'
+    frequency: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+    // Campos para gastos en cuotas
+    totalInstallments: 0,
+    currentInstallment: 1,
+    paymentMethod: 'manual' as 'automatic' | 'manual' | 'transfer'
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -148,9 +157,15 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           minPayment: editingTransaction.minPayment || 0,
           dueDate: editingTransaction.dueDate || '',
           priority: editingTransaction.priority || 'medium',
+          totalInstallmentsDebt: editingTransaction.totalInstallments || 0,
+          remainingInstallmentsDebt: editingTransaction.remainingInstallments || 0,
+          paymentMethodDebt: editingTransaction.paymentMethod || 'manual',
           targetDate: editingTransaction.targetDate || '',
           currentAmount: editingTransaction.currentAmount || 0,
           expenseType: editingTransaction.expenseType || 'variable',
+          totalInstallments: editingTransaction.totalInstallments || 0,
+          currentInstallment: editingTransaction.currentInstallment || 1,
+          paymentMethod: editingTransaction.paymentMethod || 'manual',
           isRecurring: editingTransaction.isRecurring || false,
           frequency: editingTransaction.frequency || 'monthly'
         });
@@ -172,9 +187,15 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           minPayment: 0,
           dueDate: '',
           priority: 'medium',
+          totalInstallmentsDebt: 0,
+          remainingInstallmentsDebt: 0,
+          paymentMethodDebt: 'manual',
           targetDate: '',
           currentAmount: 0,
           expenseType: 'variable',
+          totalInstallments: 0,
+          currentInstallment: 1,
+          paymentMethod: 'manual',
           isRecurring: false,
           frequency: 'monthly'
         });
@@ -366,7 +387,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Tipo de gasto
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={() => handleInputChange('expenseType', 'fixed')}
@@ -389,8 +410,84 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   >
                     📊 Variable
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('expenseType', 'installments')}
+                    className={`px-4 py-3 rounded-xl border-2 transition-all cursor-pointer ${
+                      formData.expenseType === 'installments'
+                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    📅 Cuotas
+                  </button>
                 </div>
               </div>
+            )}
+
+            {/* Campos para gastos en cuotas */}
+            {type === 'expense' && formData.expenseType === 'installments' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Total de cuotas
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.totalInstallments || ''}
+                      onChange={(e) => handleInputChange('totalInstallments', parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Ej: 12"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Cuota actual
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.currentInstallment || ''}
+                      onChange={(e) => handleInputChange('currentInstallment', parseInt(e.target.value) || 1)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Ej: 1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Método de pago
+                  </label>
+                  <select
+                    value={formData.paymentMethod || 'manual'}
+                    onChange={(e) => handleInputChange('paymentMethod', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="automatic">Débito Automático</option>
+                    <option value="manual">Manual</option>
+                    <option value="transfer">Transferencia</option>
+                  </select>
+                </div>
+                {formData.totalInstallments && formData.currentInstallment && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Cuota {formData.currentInstallment} de {formData.totalInstallments} 
+                      {formData.totalInstallments > 0 && (
+                        <span className="ml-2">
+                          (Restan {formData.totalInstallments - formData.currentInstallment + 1})
+                        </span>
+                      )}
+                    </p>
+                    {formData.amount > 0 && formData.totalInstallments > 0 && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        Monto por cuota: {formatCurrency(formData.amount / formData.totalInstallments)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Campos específicos para deudas */}
@@ -474,6 +571,69 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     <option value="medium">Media</option>
                     <option value="high">Alta</option>
                   </select>
+                </div>
+
+                {/* Campos opcionales para préstamos con cuotas */}
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    📅 Cuotas (Opcional - para que aparezca en el presupuesto)
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Total de cuotas
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.totalInstallmentsDebt || ''}
+                        onChange={(e) => handleInputChange('totalInstallmentsDebt', parseInt(e.target.value) || 0)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="Ej: 12 (dejar en 0 si no tiene cuotas)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Cuotas restantes
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.remainingInstallmentsDebt || ''}
+                        onChange={(e) => handleInputChange('remainingInstallmentsDebt', parseInt(e.target.value) || 0)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="Ej: 8"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Método de pago
+                    </label>
+                    <select
+                      value={formData.paymentMethodDebt || 'manual'}
+                      onChange={(e) => handleInputChange('paymentMethodDebt', e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="automatic">Débito Automático</option>
+                      <option value="manual">Manual</option>
+                      <option value="transfer">Transferencia</option>
+                    </select>
+                  </div>
+                  {formData.totalInstallmentsDebt > 0 && formData.remainingInstallmentsDebt >= 0 && (
+                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        {formData.totalInstallmentsDebt - formData.remainingInstallmentsDebt > 0 
+                          ? `Cuota ${formData.totalInstallmentsDebt - formData.remainingInstallmentsDebt}/${formData.totalInstallmentsDebt} (Restan ${formData.remainingInstallmentsDebt})`
+                          : `Total: ${formData.totalInstallmentsDebt} cuotas (Restan ${formData.remainingInstallmentsDebt})`}
+                      </p>
+                      {formData.minPayment > 0 && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          Monto por cuota: {formatCurrency(formData.minPayment)}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             )}

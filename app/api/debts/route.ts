@@ -88,6 +88,9 @@ export async function POST(req: NextRequest) {
       categoryId: body.categoryId || '',
       subcategoryId: body.subcategoryId || '',
       notes: body.notes || '',
+      totalInstallments: body.totalInstallments ? parseInt(body.totalInstallments) : undefined,
+      remainingInstallments: body.remainingInstallments ? parseInt(body.remainingInstallments) : undefined,
+      paymentMethod: body.paymentMethod || undefined,
     });
     
     return NextResponse.json({

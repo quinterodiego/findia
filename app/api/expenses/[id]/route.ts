@@ -40,6 +40,9 @@ export async function PUT(
       notes: body.notes || '',
       isRecurring: body.isRecurring || false,
       frequency: body.frequency || 'monthly',
+      totalInstallments: body.totalInstallments ? parseInt(body.totalInstallments) : undefined,
+      currentInstallment: body.currentInstallment ? parseInt(body.currentInstallment) : undefined,
+      paymentMethod: body.paymentMethod || undefined,
     });
     
     return NextResponse.json({

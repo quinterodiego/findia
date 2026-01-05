@@ -112,6 +112,9 @@ export async function initializeSheets() {
       'notes',
       'createdAt',
       'updatedAt',
+      'paymentMethod',
+      'totalInstallments',
+      'remainingInstallments',
     ]);
     
     // Crear hoja de Payments
@@ -238,6 +241,9 @@ export async function initializeSheets() {
       'isRecurring',
       'frequency',
       'createdAt',
+      'totalInstallments',
+      'currentInstallment',
+      'paymentMethod',
     ]);
     
     // Crear hoja de Incomes
@@ -374,6 +380,9 @@ function rowToDebt(row: string[]): Debt {
     notes: row[12] || '',
     createdAt: row[13],
     updatedAt: row[14],
+    paymentMethod: row[15] as 'automatic' | 'manual' | 'transfer' || undefined,
+    totalInstallments: row[16] ? parseInt(row[16]) : undefined,
+    remainingInstallments: row[17] ? parseInt(row[17]) : undefined,
   };
 }
 
@@ -397,6 +406,9 @@ function debtToRow(debt: Debt): (string | number)[] {
     debt.notes,
     debt.createdAt,
     debt.updatedAt,
+    debt.paymentMethod || '',
+    debt.totalInstallments || '',
+    debt.remainingInstallments || '',
   ];
 }
 
@@ -443,7 +455,7 @@ export async function getDebtsByUser(userId: string): Promise<Debt[]> {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A2:O`,
+      range: `${SHEETS.DEBTS}!A2:R`,
     });
     
     const rows = response.data.values || [];
@@ -465,7 +477,7 @@ export async function getDebtById(debtId: string, userId: string): Promise<Debt 
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A2:O`,
+      range: `${SHEETS.DEBTS}!A2:R`,
     });
     
     const rows = response.data.values || [];
@@ -525,7 +537,7 @@ export async function updateDebt(
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A2:O`,
+      range: `${SHEETS.DEBTS}!A2:R`,
     });
     
     const rows = response.data.values || [];
@@ -548,7 +560,7 @@ export async function updateDebt(
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A${actualRowNumber}:O${actualRowNumber}`,
+      range: `${SHEETS.DEBTS}!A${actualRowNumber}:R${actualRowNumber}`,
       valueInputOption: 'RAW',
       requestBody: {
         values: [debtToRow(updatedDebt)],
@@ -570,7 +582,7 @@ export async function deleteDebt(debtId: string, userId: string): Promise<void> 
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEBTS}!A2:O`,
+      range: `${SHEETS.DEBTS}!A2:R`,
     });
     
     const rows = response.data.values || [];
@@ -992,7 +1004,7 @@ export async function getExpensesByUser(userId: string): Promise<any[]> {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:K`,
+      range: `${SHEETS.EXPENSES}!A2:N`,
     });
     
     const rows = response.data.values || [];
@@ -1010,6 +1022,9 @@ export async function getExpensesByUser(userId: string): Promise<any[]> {
         isRecurring: row[8] === 'true',
         frequency: row[9] || 'monthly',
         createdAt: row[10] || new Date().toISOString(),
+        totalInstallments: row[11] ? parseInt(row[11]) : undefined,
+        currentInstallment: row[12] ? parseInt(row[12]) : undefined,
+        paymentMethod: row[13] || undefined,
       }));
     
     return expenses;
@@ -1029,10 +1044,13 @@ export async function createExpense(
     amount: number;
     date: string;
     category?: string;
-    expenseType?: 'fixed' | 'variable';
+    expenseType?: 'fixed' | 'variable' | 'installments';
     notes?: string;
     isRecurring?: boolean;
     frequency?: string;
+    totalInstallments?: number;
+    currentInstallment?: number;
+    paymentMethod?: 'automatic' | 'manual' | 'transfer';
   }
 ): Promise<any> {
   try {
@@ -1061,6 +1079,9 @@ export async function createExpense(
           newExpense.isRecurring || false,
           newExpense.frequency || 'monthly',
           newExpense.createdAt,
+          newExpense.totalInstallments || '',
+          newExpense.currentInstallment || '',
+          newExpense.paymentMethod || '',
         ]],
       },
     });
@@ -1084,10 +1105,13 @@ export async function updateExpense(
     amount: number;
     date: string;
     category?: string;
-    expenseType?: 'fixed' | 'variable';
+    expenseType?: 'fixed' | 'variable' | 'installments';
     notes?: string;
     isRecurring?: boolean;
     frequency?: string;
+    totalInstallments?: number;
+    currentInstallment?: number;
+    paymentMethod?: 'automatic' | 'manual' | 'transfer';
   }
 ): Promise<any> {
   try {
@@ -1095,7 +1119,7 @@ export async function updateExpense(
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:K`,
+      range: `${SHEETS.EXPENSES}!A2:N`,
     });
     
     const rows = response.data.values || [];
@@ -1106,6 +1130,9 @@ export async function updateExpense(
     }
     
     const actualRowIndex = rowIndex + 2;
+    
+    // Obtener valores existentes para mantener los campos que no se actualizan
+    const existingRow = rows[rowIndex];
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
@@ -1123,7 +1150,10 @@ export async function updateExpense(
           expenseData.notes || '',
           expenseData.isRecurring || false,
           expenseData.frequency || 'monthly',
-          new Date().toISOString(),
+          existingRow[10] || new Date().toISOString(), // Mantener createdAt original
+          expenseData.totalInstallments || '',
+          expenseData.currentInstallment || '',
+          expenseData.paymentMethod || '',
         ]],
       },
     });
@@ -1151,7 +1181,7 @@ export async function deleteExpense(expenseId: string, userId: string): Promise<
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:K`,
+      range: `${SHEETS.EXPENSES}!A2:N`,
     });
     
     const rows = response.data.values || [];
@@ -1408,7 +1438,7 @@ export async function getSharedExpensesByUser(
     // Obtener gastos de otros usuarios si es necesario
     const allExpensesResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:K`,
+      range: `${SHEETS.EXPENSES}!A2:N`,
     });
     const allExpensesRows = allExpensesResponse.data.values || [];
     const allExpensesData = allExpensesRows.map(row => ({
@@ -1421,6 +1451,9 @@ export async function getSharedExpensesByUser(
       expenseType: row[6] || 'variable',
       notes: row[7] || '',
       isRecurring: row[8] === 'true',
+      totalInstallments: row[11] ? parseInt(row[11]) : undefined,
+      currentInstallment: row[12] ? parseInt(row[12]) : undefined,
+      paymentMethod: row[13] || undefined,
       frequency: row[9] || 'monthly',
       createdAt: row[10] || new Date().toISOString(),
     }));

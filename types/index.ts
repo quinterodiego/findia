@@ -14,12 +14,16 @@ export interface Expense {
   amount: number
   date: string
   userId: string
-  expenseType?: 'fixed' | 'variable'
+  expenseType?: 'fixed' | 'variable' | 'installments'
   category?: string
   createdAt: string
   updatedAt: string
   isShared?: boolean
   sharedExpenseId?: string
+  // Campos para gastos en cuotas
+  totalInstallments?: number // Total de cuotas
+  currentInstallment?: number // Cuota actual (1, 2, 3, etc.)
+  paymentMethod?: 'automatic' | 'manual' | 'transfer' // Método de pago
 }
 
 export interface SharedExpense {
@@ -70,6 +74,17 @@ export interface Goal {
   updatedAt: string
 }
 
+export interface Payment {
+  id: string
+  debtId: string
+  userId: string
+  amount: number
+  date: string
+  type?: 'regular' | 'extra' | 'minimum'
+  notes?: string
+  createdAt: string
+}
+
 export interface Debt {
   id: string
   name: string
@@ -86,6 +101,9 @@ export interface Debt {
   categoryId?: string
   subcategoryId?: string
   notes?: string
+  paymentMethod?: 'automatic' | 'manual' | 'transfer' // Método de pago (DbA/Man/Transf)
+  remainingInstallments?: number // Cuotas restantes
+  totalInstallments?: number // Total de cuotas originales
 }
 
 export interface CreditCard {

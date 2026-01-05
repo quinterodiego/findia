@@ -42,6 +42,9 @@ export async function PUT(
       priority: body.priority || 'medium',
       category: body.category || 'other',
       notes: body.notes || '',
+      totalInstallments: body.totalInstallments ? parseInt(body.totalInstallments) : undefined,
+      remainingInstallments: body.remainingInstallments ? parseInt(body.remainingInstallments) : undefined,
+      paymentMethod: body.paymentMethod || undefined,
     });
     
     return NextResponse.json({

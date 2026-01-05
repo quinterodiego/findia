@@ -39,6 +39,8 @@ import ThemeToggle from '@/components/ThemeToggle'
 import { useToast, ToastContainer } from '@/components/Toast'
 import ShareExpenseModal from '@/components/ShareExpenseModal'
 import SharedExpensesSection from '@/components/SharedExpensesSection'
+import FixedExpensesTable from '@/components/FixedExpensesTable'
+import { useFixedExpenses } from '@/hooks/useFixedExpenses'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -54,12 +56,23 @@ interface TransactionData {
   minPayment?: number
   dueDate?: string
   priority?: 'high' | 'medium' | 'low'
+  // Campos para préstamos con cuotas
+  totalInstallments?: number
+  remainingInstallments?: number
+  paymentMethod?: 'automatic' | 'manual' | 'transfer'
   // Campos específicos para metas
   targetDate?: string
   currentAmount?: number
   // Campos específicos para gastos/ingresos
+  expenseType?: 'fixed' | 'variable' | 'installments'
   isRecurring?: boolean
   frequency?: 'daily' | 'weekly' | 'monthly' | 'yearly'
+  // Campos para gastos en cuotas
+  currentInstallment?: number
+  // Campos específicos del formulario (no se envían directamente)
+  totalInstallmentsDebt?: number
+  remainingInstallmentsDebt?: number
+  paymentMethodDebt?: 'automatic' | 'manual' | 'transfer'
 }
 
 interface TransactionWithType {
@@ -111,6 +124,9 @@ export default function Dashboard() {
   const [showExpenseTemplateModal, setShowExpenseTemplateModal] = useState(false)
   const [showCreditCardModal, setShowCreditCardModal] = useState(false)
   const [showCreditCardCenter, setShowCreditCardCenter] = useState(false)
+  const [showFixedExpensesTable, setShowFixedExpensesTable] = useState(false)
+  const [debtPayments, setDebtPayments] = useState<any[]>([])
+  const [creditCardPayments, setCreditCardPayments] = useState<any[]>([])
   const [showCreditCardConsumptionModal, setShowCreditCardConsumptionModal] = useState(false)
   const [showCreditCardPaymentModal, setShowCreditCardPaymentModal] = useState(false)
   const [showInterestCalculatorModal, setShowInterestCalculatorModal] = useState(false)
@@ -119,6 +135,7 @@ export default function Dashboard() {
   const [showCreditCardRecommendationsModal, setShowCreditCardRecommendationsModal] = useState(false)
   const [showCreditCardReportsModal, setShowCreditCardReportsModal] = useState(false)
   const [showCreditCardDropdown, setShowCreditCardDropdown] = useState(false)
+  const [showFixedExpensesDropdown, setShowFixedExpensesDropdown] = useState(false)
   const [showAnalysisDropdown, setShowAnalysisDropdown] = useState(false)
   const [showToolsDropdown, setShowToolsDropdown] = useState(false)
   const [showBottomNav, setShowBottomNav] = useState(false)
@@ -209,6 +226,55 @@ export default function Dashboard() {
 
   // Hook para manejar tarjetas de crédito
   const { cards: creditCards, loading: cardsLoading, fetchCards } = useCreditCards()
+
+  // Cargar pagos de deudas y tarjetas
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    
+    const loadPayments = async () => {
+      try {
+        // Cargar pagos de deudas
+        const debtPaymentsResponse = await fetch('/api/payments');
+        if (debtPaymentsResponse.ok) {
+          const debtPaymentsData = await debtPaymentsResponse.json();
+          setDebtPayments(debtPaymentsData.payments || []);
+        }
+
+        // Cargar pagos de tarjetas (para cada tarjeta)
+        const allCreditCardPayments: any[] = [];
+        for (const card of creditCards) {
+          try {
+            const response = await fetch(`/api/credit-cards/${card.id}/payments`);
+            if (response.ok) {
+              const data = await response.json();
+              const payments = (data.payments || []).map((p: any) => ({
+                ...p,
+                creditCardId: card.id,
+              }));
+              allCreditCardPayments.push(...payments);
+            }
+          } catch (error) {
+            console.error(`Error cargando pagos de tarjeta ${card.id}:`, error);
+          }
+        }
+        setCreditCardPayments(allCreditCardPayments);
+      } catch (error) {
+        console.error('Error cargando pagos:', error);
+      }
+    };
+
+    if (creditCards.length > 0 || debts.length > 0) {
+      loadPayments();
+    }
+  }, [session?.user?.id, creditCards.length, debts.length]);
+
+  // Hook para gastos fijos
+  const {
+    fixedExpenses,
+    loading: fixedExpensesLoading,
+    totalAmount: totalFixedAmount,
+    totalPaid: totalFixedPaid,
+  } = useFixedExpenses(expenses, debts, debtPayments);
 
   // Evitar dobles cargas (StrictMode/dev y re-hidratación de sesión)
   const hasLoadedRef = useRef(false)
@@ -416,9 +482,19 @@ export default function Dashboard() {
           }
         } else if (editingIncome.type === 'debt') {
           console.log('✏️ Editando deuda:', editingIncome.id);
+          const totalInstallments = (data as any).totalInstallmentsDebt ? parseInt((data as any).totalInstallmentsDebt) : undefined;
+          const remainingInstallments = (data as any).remainingInstallmentsDebt ? parseInt((data as any).remainingInstallmentsDebt) : undefined;
+          // Si hay cuotas configuradas, siempre guardar el método de pago (incluso si es 'manual')
+          const paymentMethod = (totalInstallments || remainingInstallments) 
+            ? ((data as any).paymentMethodDebt || 'manual')
+            : undefined;
+          
           const debtData = {
             ...data,
             dueDate: data.dueDate || data.date,
+            totalInstallments,
+            remainingInstallments,
+            paymentMethod,
           };
           await updateDebt(editingIncome.id, debtData);
           console.log('✅ Deuda actualizada exitosamente');
@@ -432,9 +508,19 @@ export default function Dashboard() {
     switch (transactionType) {
       case 'debt':
         // Asegurar que dueDate esté presente para deudas
+        const totalInstallments = (data as any).totalInstallmentsDebt ? parseInt((data as any).totalInstallmentsDebt) : undefined;
+        const remainingInstallments = (data as any).remainingInstallmentsDebt ? parseInt((data as any).remainingInstallmentsDebt) : undefined;
+        // Si hay cuotas configuradas, siempre guardar el método de pago (incluso si es 'manual')
+        const paymentMethod = (totalInstallments || remainingInstallments) 
+          ? ((data as any).paymentMethodDebt || 'manual')
+          : undefined;
+        
         const debtData = {
           ...data,
           dueDate: data.dueDate || data.date, // Usar date como fallback
+          totalInstallments,
+          remainingInstallments,
+          paymentMethod,
         }
         console.log('💳 Datos de deuda preparados:', debtData);
         
@@ -690,6 +776,20 @@ export default function Dashboard() {
                 <ThemeToggle />
               </div>
 
+              {/* Botón de Presupuesto - Solo Desktop */}
+              <div className="relative dropdown-container hidden md:block">
+                <button
+                  onClick={() => {
+                    setShowFixedExpensesTable(true)
+                  }}
+                  className="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                  title="Presupuesto"
+                >
+                  <TrendingUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Presupuesto</span>
+                </button>
+              </div>
+
               {/* Dropdown de Tarjetas de Crédito - Solo Desktop */}
               <div className="relative dropdown-container hidden md:block">
                 <button
@@ -698,6 +798,7 @@ export default function Dashboard() {
                     // Cerrar otros dropdowns
                     setShowAnalysisDropdown(false)
                     setShowToolsDropdown(false)
+                    setShowFixedExpensesDropdown(false)
                   }}
                   className="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                   title="Tarjetas de crédito"
@@ -1422,6 +1523,132 @@ export default function Dashboard() {
               </AnimatePresence>
             </motion.div>
           )}
+
+          {/* Sección de Presupuesto - Destacada */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg">
+                  <TrendingUp className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    Presupuesto
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Vista consolidada de tus gastos fijos recurrentes
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFixedExpensesTable(true)}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-lg hover:from-indigo-600 hover:to-violet-600 transition-all font-medium text-sm flex items-center gap-2"
+              >
+                <TrendingUp className="w-4 h-4" />
+                Ver Tabla Completa
+              </button>
+            </div>
+            
+            {/* Resumen rápido */}
+            {fixedExpensesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">
+                    Total a Pagar
+                  </div>
+                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                    {formatCurrency(totalFixedAmount)}
+                  </div>
+                </div>
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="text-sm text-green-600 dark:text-green-400 font-medium mb-1">
+                    Total Pagado
+                  </div>
+                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+                    {formatCurrency(totalFixedPaid)}
+                  </div>
+                </div>
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <div className="text-sm text-orange-600 dark:text-orange-400 font-medium mb-1">
+                    Pendiente
+                  </div>
+                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                    {formatCurrency(totalFixedAmount - totalFixedPaid)}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Lista de próximos vencimientos (top 5) */}
+            {!fixedExpensesLoading && fixedExpenses.length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  Próximos Vencimientos
+                </h4>
+                <div className="space-y-2">
+                  {fixedExpenses.slice(0, 5).map((item) => {
+                    const isOverdue = item.isOverdue;
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            item.type === 'debt'
+                              ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                              : 'expenseType' in item.originalData && item.originalData.expenseType === 'installments'
+                              ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400'
+                              : 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                          }`}>
+                            {item.type === 'debt' 
+                              ? 'Préstamo' 
+                              : 'expenseType' in item.originalData && item.originalData.expenseType === 'installments' 
+                              ? 'Cuotas' 
+                              : 'Gasto Fijo'}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {item.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {formatCurrency(item.amount)}
+                          </span>
+                          {item.dueDate && (
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              isOverdue
+                                ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 font-semibold'
+                                : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                            }`}>
+                              {new Date(item.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {fixedExpenses.length > 5 && (
+                  <button
+                    onClick={() => setShowFixedExpensesTable(true)}
+                    className="mt-3 w-full text-center text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+                  >
+                    Ver todos los {fixedExpenses.length} pagos programados →
+                  </button>
+                )}
+              </div>
+            )}
+          </motion.div>
 
           {/* Lista de Deudas */}
           <motion.div 
@@ -2326,6 +2553,60 @@ export default function Dashboard() {
         subcategories={subcategories}
       />
 
+      {/* Modal de Gastos Fijos */}
+      {showFixedExpensesTable && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowFixedExpensesTable(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
+          >
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <TrendingUp className="w-6 h-6 text-indigo-600" />
+                {(() => {
+                  const now = new Date();
+                  const monthNames = [
+                    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                  ];
+                  const month = monthNames[now.getMonth()];
+                  const year = now.getFullYear();
+                  return `Presupuesto ${month} ${year}`;
+                })()}
+              </h2>
+              <button
+                onClick={() => setShowFixedExpensesTable(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              <FixedExpensesTable
+                fixedExpenses={fixedExpenses}
+                loading={fixedExpensesLoading}
+                totalAmount={totalFixedAmount}
+                totalPaid={totalFixedPaid}
+                formatCurrency={formatCurrency}
+                onItemClick={(item) => {
+                  // Aquí puedes agregar lógica para abrir el detalle del item
+                  console.log('Item clicked:', item);
+                }}
+              />
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
       {/* Modal de Consumos de Tarjeta */}
       <CreditCardConsumptionModal
         isOpen={showCreditCardConsumptionModal}
@@ -2406,6 +2687,12 @@ export default function Dashboard() {
         onSave={async (paymentData) => {
           if (selectedDebt) {
             await makePayment(selectedDebt.id, paymentData);
+            // Recargar pagos para actualizar el presupuesto
+            const debtPaymentsResponse = await fetch('/api/payments');
+            if (debtPaymentsResponse.ok) {
+              const debtPaymentsData = await debtPaymentsResponse.json();
+              setDebtPayments(debtPaymentsData.payments || []);
+            }
           }
         }}
         debt={selectedDebt}
