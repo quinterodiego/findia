@@ -111,16 +111,17 @@ export async function GET() {
       )
     }
 
-    // 4. Obtener TODAS las subcategorías (sin filtrar por userId)
+    // 4. Obtener TODAS las subcategorías (ignorando userId - las subcategorías son globales)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: 'Subcategories!A2:G',
     })
 
     const rows = response.data.values || []
+    // Mapear subcategorías ignorando userId (columna B) - las subcategorías son globales
     const allSubcategories = rows.map((row: string[]) => ({
       id: row[0],
-      userId: row[1],
+      userId: row[1] || '', // Mantener por compatibilidad pero no usarlo para filtrar
       categoryId: row[2],
       name: row[3],
       icon: row[4],
@@ -134,13 +135,11 @@ export async function GET() {
       categoryIdToType.set(row[0], row[5]) // row[0] = id, row[5] = type
     })
 
-    // 6. Agrupar subcategorías únicas por tipo de categoría (COMPLETAMENTE IGNORANDO userId)
-    // Las subcategorías son completamente globales: cualquier usuario con una categoría del mismo tipo verá las mismas subcategorías
+    // 6. Agrupar subcategorías únicas por tipo de categoría (no por categoryId específico)
+    // Esto hace que las subcategorías sean globales: cualquier usuario con una categoría del mismo tipo verá las mismas subcategorías
     const userCategoryTypes = new Set(userCategories.map(cat => cat.type))
-    const userCategoryIds = new Set(userCategories.map(cat => cat.id))
     
-    // Agrupar TODAS las subcategorías por tipo de categoría, eliminando duplicados por nombre
-    // NO importa de qué usuario venga la subcategoría, solo importa el tipo de categoría
+    // Agrupar todas las subcategorías por tipo de categoría, eliminando duplicados por nombre
     const subcategoriesByType = new Map<string, Map<string, Subcategory>>()
     
     for (const subcat of allSubcategories) {
@@ -152,7 +151,6 @@ export async function GET() {
       }
       
       // Usar el nombre como clave para evitar duplicados dentro del mismo tipo
-      // Si ya existe una subcategoría con el mismo nombre y tipo, la ignoramos (son globales)
       const typeMap = subcategoriesByType.get(categoryType)!
       if (!typeMap.has(subcat.name)) {
         typeMap.set(subcat.name, subcat)
@@ -164,18 +162,19 @@ export async function GET() {
     const userSubcategories: Subcategory[] = []
     const processedKeys = new Set<string>() // Para evitar duplicados
 
-    console.log('🔍 Procesando subcategorías globales (IGNORANDO userId completamente)...')
+    console.log('🔍 Procesando subcategorías globales (SIN filtrar por userId)...')
+    console.log(`   - Total subcategorías en sistema: ${allSubcategories.length}`)
     console.log(`   - Tipos de categorías del usuario: ${Array.from(userCategoryTypes).join(', ')}`)
     console.log(`   - Subcategorías agrupadas por tipo: ${Array.from(subcategoriesByType.keys()).join(', ')}`)
-    console.log(`   - Total subcategorías en la hoja: ${allSubcategories.length}`)
 
     for (const [categoryType, uniqueSubcats] of subcategoriesByType.entries()) {
       // Obtener todas las categorías del usuario de este tipo
       const userCategoriesOfType = userCategories.filter(cat => cat.type === categoryType)
       
-      console.log(`   - Tipo "${categoryType}": ${uniqueSubcats.size} subcategorías únicas globales, ${userCategoriesOfType.length} categorías del usuario`)
+      console.log(`   - Tipo "${categoryType}": ${uniqueSubcats.size} subcategorías únicas, ${userCategoriesOfType.length} categorías del usuario`)
+      console.log(`     Subcategorías únicas: ${Array.from(uniqueSubcats.keys()).join(', ')}`)
       
-      // Para cada subcategoría única de este tipo (sin importar de qué usuario venga)
+      // Para cada subcategoría única de este tipo
       for (const globalSubcat of uniqueSubcats.values()) {
         // Crear una copia para cada categoría del usuario del mismo tipo
         for (const userCategory of userCategoriesOfType) {
@@ -186,31 +185,36 @@ export async function GET() {
             userSubcategories.push({
               ...globalSubcat,
               categoryId: userCategory.id, // Asociar a la categoría específica del usuario
-              id: crypto.randomUUID(), // Generar un ID único para esta combinación
-              // userId se mantiene del original pero NO se usa para filtrar
+              id: `${globalSubcat.id}-${userCategory.id}`, // ID único pero determinístico
             })
             processedKeys.add(uniqueKey)
-            console.log(`     ✓ Mapeada "${globalSubcat.name}" (originalmente de ${globalSubcat.userId}) a categoría ${userCategory.id} del usuario actual`)
+            console.log(`     ✓ Mapeada "${globalSubcat.name}" (${globalSubcat.icon}) a categoría ${userCategory.id}`)
           }
         }
       }
     }
 
     console.log(`✅ Total subcategorías mapeadas para el usuario: ${userSubcategories.length}`)
+    console.log(`   Subcategorías por categoría:`)
+    userCategories.forEach(cat => {
+      const count = userSubcategories.filter(sub => sub.categoryId === cat.id).length
+      console.log(`     - ${cat.id}: ${count} subcategorías`)
+    })
 
     // 8. Si el usuario no tiene subcategorías, crear las por defecto
     if (userSubcategories.length === 0) {
       console.log('Usuario sin subcategorías, creando defaults...')
 
       const defaultSubcategories = createDefaultSubcategories(
-        'global', // Usar 'global' en lugar del email del usuario para hacer las subcategorías completamente globales
+        session.user.email, // Mantener por compatibilidad con la función, pero no se usará para filtrar
         userCategories
       )
 
-      // Insertar subcategorías por defecto como globales
+      // Insertar subcategorías por defecto
+      // IMPORTANTE: userId se guarda pero NO se usa para filtrar - las subcategorías son globales
       const newRows = defaultSubcategories.map(subcat => [
         crypto.randomUUID(),
-        'global', // Marcar como global
+        '', // userId vacío o el email del usuario que las crea (no se usa para filtrar)
         subcat.categoryId,
         subcat.name,
         subcat.icon,
@@ -283,15 +287,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Crear subcategoría global (userId se mantiene para compatibilidad con la estructura de la hoja, pero no se usa para filtrar)
     const newSubcategory: Subcategory = {
       id: crypto.randomUUID(),
-      userId: 'global', // Marcar como global en lugar de asociar a un usuario específico
+      userId: '', // userId vacío - las subcategorías son globales, no se filtran por usuario
       categoryId,
       name,
       icon: icon || '📌',
       isDefault: false,
       createdAt: new Date().toISOString(),
+    }
+
+    // Verificar si ya existe una subcategoría con el mismo nombre para esta categoría
+    // (para evitar duplicados globales)
+    const existingResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Subcategories!A2:G',
+    })
+    
+    const existingRows = existingResponse.data.values || []
+    const alreadyExists = existingRows.some((row: string[]) => 
+      row[2] === categoryId && row[3] === name
+    )
+    
+    if (alreadyExists) {
+      return NextResponse.json(
+        { error: 'Ya existe una subcategoría con este nombre para esta categoría' },
+        { status: 400 }
+      )
     }
 
     await sheets.spreadsheets.values.append({
@@ -301,7 +323,7 @@ export async function POST(request: NextRequest) {
       requestBody: {
         values: [[
           newSubcategory.id,
-          newSubcategory.userId,
+          '', // userId vacío - las subcategorías son globales
           newSubcategory.categoryId,
           newSubcategory.name,
           newSubcategory.icon,
