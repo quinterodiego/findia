@@ -381,8 +381,17 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     const userCategoryIds = new Set(userCategoriesOfType.map(cat => cat.id))
                     
                     // Filtrar subcategorías que pertenecen a categorías del tipo correcto
+                    // y deduplicar por nombre (ya que el backend puede devolver múltiples instancias
+                    // de la misma subcategoría para diferentes categorías del mismo tipo)
+                    const seenNames = new Set<string>()
                     return subcategories
-                      .filter(sub => userCategoryIds.has(sub.categoryId))
+                      .filter(sub => {
+                        if (!userCategoryIds.has(sub.categoryId)) return false
+                        // Solo incluir la primera ocurrencia de cada nombre
+                        if (seenNames.has(sub.name)) return false
+                        seenNames.add(sub.name)
+                        return true
+                      })
                       .map(sub => (
                         <option key={sub.id} value={sub.id}>
                           {sub.icon} {sub.name}
