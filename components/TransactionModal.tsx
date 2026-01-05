@@ -406,29 +406,37 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
             </div>
 
             {/* Subcategoría (solo si hay categorías del sistema y subcategorías disponibles) */}
-            {categories.length > 0 && subcategories.length > 0 && formData.category && (
-              <div>
-                <label htmlFor="transaction-subcategory-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Subcategoría (opcional)
-                </label>
-                <select
-                  id="transaction-subcategory-select"
-                  value={formData.subcategory || ''}
-                  onChange={(e) => handleInputChange('subcategory', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  aria-label="Seleccionar subcategoría"
-                >
-                  <option value="">Seleccionar subcategoría...</option>
-                  {subcategories
-                    .filter(sub => sub.categoryId === formData.category)
-                    .map(sub => (
+            {categories.length > 0 && subcategories.length > 0 && formData.category && (() => {
+              const filteredSubcategories = subcategories.filter(sub => sub.categoryId === formData.category)
+              console.log('🔍 TransactionModal - Subcategorías filtradas:', {
+                categorySelected: formData.category,
+                totalSubcategories: subcategories.length,
+                filteredCount: filteredSubcategories.length,
+                filtered: filteredSubcategories.map(s => ({ id: s.id, name: s.name, categoryId: s.categoryId }))
+              })
+              
+              return filteredSubcategories.length > 0 ? (
+                <div>
+                  <label htmlFor="transaction-subcategory-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Subcategoría (opcional)
+                  </label>
+                  <select
+                    id="transaction-subcategory-select"
+                    value={formData.subcategory || ''}
+                    onChange={(e) => handleInputChange('subcategory', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    aria-label="Seleccionar subcategoría"
+                  >
+                    <option value="">Seleccionar subcategoría...</option>
+                    {filteredSubcategories.map(sub => (
                       <option key={sub.id} value={sub.id}>
                         {sub.icon} {sub.name}
                       </option>
                     ))}
-                </select>
-              </div>
-            )}
+                  </select>
+                </div>
+              ) : null
+            })()}
 
             {/* Tipo de gasto (solo para gastos) */}
             {type === 'expense' && (
