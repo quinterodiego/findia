@@ -1829,6 +1829,8 @@ export async function calculateSharedExpenseBalance(userId: string): Promise<{
     });
 
     const rows = response.data.values || [];
+    // Incluir todos los gastos aceptados (tanto saldados como no saldados)
+    // para calcular correctamente el balance
     const sharedExpenses = rows
       .filter(row => {
         const isOwner = row[2] === userId;
@@ -1841,18 +1843,29 @@ export async function calculateSharedExpenseBalance(userId: string): Promise<{
         sharedWithUserId: row[3],
         ownerAmount: parseFloat(row[5] || '0'),
         partnerAmount: parseFloat(row[6] || '0'),
+        isSettled: row[12] === 'true' || row[12] === true, // Columna 12 es isSettled
       }));
 
-    let totalOwed = 0; // Lo que te deben
-    let totalReceived = 0; // Lo que debes
+    let totalOwed = 0; // Lo que te deben (gastos donde eres owner y el partner aún no pagó)
+    let totalReceived = 0; // Lo que debes (gastos donde eres partner y tú aún no pagaste)
 
     sharedExpenses.forEach(se => {
       if (se.ownerUserId === userId) {
-        // Tú creaste el gasto, te deben tu parte
-        totalOwed += se.ownerAmount;
+        // Tú creaste el gasto
+        // Te deben tu parte SOLO si el partner aún NO pagó (no está saldado)
+        // Si está saldado, significa que el partner ya pagó, entonces no te deben nada
+        if (!se.isSettled) {
+          totalOwed += se.ownerAmount;
+        }
       } else if (se.sharedWithUserId === userId) {
-        // Te compartieron un gasto, debes tu parte
-        totalReceived += se.partnerAmount;
+        // Te compartieron un gasto
+        // Debes tu parte SOLO si tú aún NO pagaste
+        // Nota: isSettled indica que la parte del otro usuario está saldada
+        // Si eres partner y isSettled=true, significa que el owner marcó como saldado porque tú pagaste
+        // Por lo tanto, si isSettled=true y eres partner, NO debes nada
+        if (!se.isSettled) {
+          totalReceived += se.partnerAmount;
+        }
       }
     });
 
