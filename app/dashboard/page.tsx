@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Sparkles, Trophy, DollarSign, LogOut, Wallet, Sun, Moon, Search, Filter, ArrowUpDown, BarChart3, PieChart, TrendingDown, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Home, Plus, Menu, Users } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell, LineChart, Line } from 'recharts'
+import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, PieChart, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Menu, Users } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -14,8 +14,8 @@ import { useGoals } from '@/hooks/useGoals'
 import { useCategories } from '@/hooks/useCategories'
 import { useSubcategories } from '@/hooks/useSubcategories'
 import { useCreditCards } from '@/hooks/useCreditCards'
-import type { Income, Expense, Goal } from '@/types'
-import { formatNumber, formatCurrency } from '@/lib/formatNumber'
+import type { Income, Expense, Goal, Debt, Payment, SharedExpense } from '@/types'
+import { formatCurrency } from '@/lib/formatNumber'
 import FloatingActionButton from '@/components/FloatingActionButton'
 import TransactionModal from '@/components/TransactionModal'
 import TransactionDetailModal from '@/components/TransactionDetailModal'
@@ -33,7 +33,7 @@ import CreditCardProjectionModal from '@/components/CreditCardProjectionModal'
 import CreditCardAlertsModal from '@/components/CreditCardAlertsModal'
 import CreditCardRecommendationsModal from '@/components/CreditCardRecommendationsModal'
 import CreditCardReportsModal from '@/components/CreditCardReportsModal'
-import { Skeleton, SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
+import { SkeletonStats, SkeletonCard, SkeletonTable } from '@/components/Skeleton'
 import { useLoadingState } from '@/hooks/useLoadingState'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useToast, ToastContainer } from '@/components/Toast'
@@ -43,6 +43,12 @@ import FixedExpensesTable from '@/components/FixedExpensesTable'
 import { useFixedExpenses } from '@/hooks/useFixedExpenses'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
+
+interface ExtendedTransactionData extends TransactionData {
+  totalInstallmentsDebt?: number
+  remainingInstallmentsDebt?: number
+  paymentMethodDebt?: 'automatic' | 'manual' | 'transfer'
+}
 
 interface TransactionData {
   name: string
@@ -76,8 +82,18 @@ interface TransactionData {
 }
 
 interface TransactionWithType {
-  [key: string]: any
+  id: string
+  name: string
+  amount: number
+  date?: string
   type: TransactionType
+  category?: string
+  notes?: string
+  balance?: number
+  dueDate?: string
+  createdAt?: string
+  currentAmount?: number
+  [key: string]: unknown
 }
 
 export default function Dashboard() {
@@ -87,8 +103,8 @@ export default function Dashboard() {
   const [welcomeShown, setWelcomeShown] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionType, setTransactionType] = useState<TransactionType>('debt')
-  const [editingIncome, setEditingIncome] = useState<any>(null)
-  const [selectedTransaction, setSelectedTransaction] = useState<any>(null)
+  const [editingIncome, setEditingIncome] = useState<TransactionWithType | null>(null)
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionWithType | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -115,7 +131,7 @@ export default function Dashboard() {
   
   const currentMonthRange = getCurrentMonthRange()
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [selectedDebt, setSelectedDebt] = useState<any>(null)
+  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null)
   const [showExpenseBreakdown, setShowExpenseBreakdown] = useState(false)
   const [expenseBreakdownView, setExpenseBreakdownView] = useState<'summary' | 'fixed' | 'variable'>('summary')
   const [showGoalsBreakdown, setShowGoalsBreakdown] = useState(false)
@@ -125,8 +141,7 @@ export default function Dashboard() {
   const [showCreditCardModal, setShowCreditCardModal] = useState(false)
   const [showCreditCardCenter, setShowCreditCardCenter] = useState(false)
   const [showFixedExpensesTable, setShowFixedExpensesTable] = useState(false)
-  const [debtPayments, setDebtPayments] = useState<any[]>([])
-  const [creditCardPayments, setCreditCardPayments] = useState<any[]>([])
+  const [debtPayments, setDebtPayments] = useState<Payment[]>([])
   const [showCreditCardConsumptionModal, setShowCreditCardConsumptionModal] = useState(false)
   const [showCreditCardPaymentModal, setShowCreditCardPaymentModal] = useState(false)
   const [showInterestCalculatorModal, setShowInterestCalculatorModal] = useState(false)
@@ -135,16 +150,15 @@ export default function Dashboard() {
   const [showCreditCardRecommendationsModal, setShowCreditCardRecommendationsModal] = useState(false)
   const [showCreditCardReportsModal, setShowCreditCardReportsModal] = useState(false)
   const [showCreditCardDropdown, setShowCreditCardDropdown] = useState(false)
-  const [showFixedExpensesDropdown, setShowFixedExpensesDropdown] = useState(false)
   const [showAnalysisDropdown, setShowAnalysisDropdown] = useState(false)
   const [showToolsDropdown, setShowToolsDropdown] = useState(false)
   const [showBottomNav, setShowBottomNav] = useState(false)
-  const [selectedCreditCard, setSelectedCreditCard] = useState<any>(null)
-  const [selectedConsumption, setSelectedConsumption] = useState<any>(null)
+  const [selectedCreditCard, setSelectedCreditCard] = useState<{ id: string; name: string } | null>(null)
+  const [selectedConsumption, setSelectedConsumption] = useState<{ id: string; merchant: string } | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showShareExpenseModal, setShowShareExpenseModal] = useState(false)
   const [selectedExpenseForShare, setSelectedExpenseForShare] = useState<Expense | null>(null)
-  const [sharedExpenses, setSharedExpenses] = useState<any[]>([])
+  const [sharedExpenses, setSharedExpenses] = useState<Array<Record<string, unknown>>>([])
   const [isSharedExpensesExpanded, setIsSharedExpensesExpanded] = useState(false)
 
   // Cargar gastos compartidos aceptados
@@ -194,7 +208,6 @@ export default function Dashboard() {
   const {
     incomes = [],
     loading: incomesLoading,
-    error: incomesError,
     createIncome,
     updateIncome,
     deleteIncome,
@@ -203,7 +216,6 @@ export default function Dashboard() {
   const {
     expenses = [],
     loading: expensesLoading,
-    error: expensesError,
     createExpense,
     updateExpense,
     deleteExpense,
@@ -212,7 +224,6 @@ export default function Dashboard() {
   const {
     goals = [],
     loading: goalsLoading,
-    error: goalsError,
     createGoal,
     updateGoal,
     deleteGoal,
@@ -240,24 +251,6 @@ export default function Dashboard() {
           setDebtPayments(debtPaymentsData.payments || []);
         }
 
-        // Cargar pagos de tarjetas (para cada tarjeta)
-        const allCreditCardPayments: any[] = [];
-        for (const card of creditCards) {
-          try {
-            const response = await fetch(`/api/credit-cards/${card.id}/payments`);
-            if (response.ok) {
-              const data = await response.json();
-              const payments = (data.payments || []).map((p: any) => ({
-                ...p,
-                creditCardId: card.id,
-              }));
-              allCreditCardPayments.push(...payments);
-            }
-          } catch (error) {
-            console.error(`Error cargando pagos de tarjeta ${card.id}:`, error);
-          }
-        }
-        setCreditCardPayments(allCreditCardPayments);
       } catch (error) {
         console.error('Error cargando pagos:', error);
       }
@@ -266,7 +259,7 @@ export default function Dashboard() {
     if (creditCards.length > 0 || debts.length > 0) {
       loadPayments();
     }
-  }, [session?.user?.id, creditCards.length, debts.length]);
+  }, [session?.user?.id, creditCards, debts.length]);
 
   // Hook para gastos fijos
   const {
@@ -299,7 +292,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user) return
 
-    const userId = (session.user as any).id || session.user.email || 'current'
+    const userId = (session.user as { id?: string }).id || session.user.email || 'current'
     const storageKey = `welcome-toast-shown:${userId}`
 
     // Si ya se mostró en esta sesión de pestaña, no volver a mostrar
@@ -355,16 +348,11 @@ export default function Dashboard() {
     }
   }, [showBottomNav])
 
-
-  const handleSignOut = () => {
-    setShowLogoutModal(true)
-  }
-
   const confirmLogout = async () => {
     try {
       // Limpiar el flag del toast de bienvenida para mostrarlo en el próximo login
       if (session?.user) {
-        const userId = (session.user as any).id || session.user.email || 'current'
+        const userId = (session.user as { id?: string }).id || session.user.email || 'current'
         const storageKey = `welcome-toast-shown:${userId}`
         sessionStorage.removeItem(storageKey)
       }
@@ -374,35 +362,41 @@ export default function Dashboard() {
     await signOut({ callbackUrl: '/' })
   }
 
-  const handleApplyTemplate = (template: any) => {
+  const handleApplyTemplate = (template: {
+    id: string
+    name: string
+    amount: number
+    category: string
+    subcategory: string
+    expenseType: 'fixed' | 'variable'
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
+    description?: string
+    createdAt: string
+  }) => {
     // Cerrar el modal de plantillas
     setShowExpenseTemplateModal(false)
     
     // Abrir el modal de transacciones con los datos de la plantilla
     setTransactionType('expense')
     setEditingIncome({
-      name: template.name,
-      amount: template.amount,
+      id: template.id || '',
+      name: template.name || '',
+      amount: template.amount || 0,
       date: new Date().toISOString().split('T')[0],
+      type: 'expense',
       category: template.category,
-      subcategory: template.subcategory,
+      notes: template.description,
       expenseType: template.expenseType,
-      description: template.description || ''
-    })
+    } as TransactionWithType)
     setShowTransactionModal(true)
   }
 
-  const handleSelectCreditCard = (card: any) => {
+  const handleSelectCreditCard = (card: { id: string; name: string }) => {
     setSelectedCreditCard(card)
     setShowCreditCardModal(false)
     setShowCreditCardConsumptionModal(true)
   }
 
-  const handleSelectConsumption = (consumption: any) => {
-    setSelectedConsumption(consumption)
-    setShowCreditCardConsumptionModal(false)
-    setShowCreditCardPaymentModal(true)
-  }
 
   const handleShareExpense = async (data: {
     expenseId: string;
@@ -430,9 +424,10 @@ export default function Dashboard() {
       } else {
         throw new Error(result.error || 'Error al compartir el gasto');
       }
-    } catch (error: any) {
-      console.error('Error compartiendo gasto:', error);
-      info('Error', error.message || 'Error al compartir el gasto');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error al compartir el gasto';
+      console.error('Error compartiendo gasto:', errorMessage);
+      info('Error', errorMessage);
     }
   }
 
@@ -482,11 +477,12 @@ export default function Dashboard() {
           }
         } else if (editingIncome.type === 'debt') {
           console.log('✏️ Editando deuda:', editingIncome.id);
-          const totalInstallments = (data as any).totalInstallmentsDebt ? parseInt((data as any).totalInstallmentsDebt) : undefined;
-          const remainingInstallments = (data as any).remainingInstallmentsDebt ? parseInt((data as any).remainingInstallmentsDebt) : undefined;
+          const extendedData = data as ExtendedTransactionData;
+          const totalInstallments = extendedData.totalInstallmentsDebt ? parseInt(String(extendedData.totalInstallmentsDebt)) : undefined;
+          const remainingInstallments = extendedData.remainingInstallmentsDebt ? parseInt(String(extendedData.remainingInstallmentsDebt)) : undefined;
           // Si hay cuotas configuradas, siempre guardar el método de pago (incluso si es 'manual')
           const paymentMethod = (totalInstallments || remainingInstallments) 
-            ? ((data as any).paymentMethodDebt || 'manual')
+            ? (extendedData.paymentMethodDebt || 'manual')
             : undefined;
           
           const debtData = {
@@ -508,11 +504,12 @@ export default function Dashboard() {
     switch (transactionType) {
       case 'debt':
         // Asegurar que dueDate esté presente para deudas
-        const totalInstallments = (data as any).totalInstallmentsDebt ? parseInt((data as any).totalInstallmentsDebt) : undefined;
-        const remainingInstallments = (data as any).remainingInstallmentsDebt ? parseInt((data as any).remainingInstallmentsDebt) : undefined;
+        const extendedData = data as ExtendedTransactionData;
+        const totalInstallments = extendedData.totalInstallmentsDebt ? parseInt(String(extendedData.totalInstallmentsDebt)) : undefined;
+        const remainingInstallments = extendedData.remainingInstallmentsDebt ? parseInt(String(extendedData.remainingInstallmentsDebt)) : undefined;
         // Si hay cuotas configuradas, siempre guardar el método de pago (incluso si es 'manual')
         const paymentMethod = (totalInstallments || remainingInstallments) 
-          ? ((data as any).paymentMethodDebt || 'manual')
+          ? (extendedData.paymentMethodDebt || 'manual')
           : undefined;
         
         const debtData = {
@@ -574,7 +571,7 @@ export default function Dashboard() {
   }
 
   // Estado de carga optimizado
-  const { isDataLoading, shouldShowSkeleton } = useLoadingState({
+  const { shouldShowSkeleton } = useLoadingState({
     debtsLoading,
     incomesLoading,
     expensesLoading,
@@ -627,10 +624,12 @@ export default function Dashboard() {
   const totalIncomes = filteredIncomes.reduce((sum, income) => sum + income.amount, 0);
   
   // Crear un mapa de gastos compartidos por expenseId para acceso rápido
-  const sharedExpensesMap = new Map<string, any>();
+  const sharedExpensesMap = new Map<string, SharedExpense>();
   sharedExpenses.forEach(se => {
-    if (se.expenseId && se.status === 'accepted') {
-      sharedExpensesMap.set(se.expenseId, se);
+    const expenseId = typeof se === 'object' && se !== null && 'expenseId' in se ? String(se.expenseId) : '';
+    const status = typeof se === 'object' && se !== null && 'status' in se ? String(se.status) : '';
+    if (expenseId && status === 'accepted') {
+      sharedExpensesMap.set(expenseId, se as unknown as SharedExpense);
     }
   });
 
@@ -642,10 +641,12 @@ export default function Dashboard() {
       // Si el gasto está compartido y aceptado, usar solo la parte del usuario
       if (sharedExpense.ownerUserId === session?.user?.id) {
         // Soy el owner, uso mi parte (ownerAmount)
-        return sum + sharedExpense.ownerAmount;
+        const ownerAmount = typeof sharedExpense.ownerAmount === 'number' ? sharedExpense.ownerAmount : 0;
+        return sum + ownerAmount;
       } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
         // Soy el partner, uso mi parte (partnerAmount)
-        return sum + sharedExpense.partnerAmount;
+        const partnerAmount = typeof sharedExpense.partnerAmount === 'number' ? sharedExpense.partnerAmount : 0;
+        return sum + partnerAmount;
       }
     }
     
@@ -798,7 +799,6 @@ export default function Dashboard() {
                     // Cerrar otros dropdowns
                     setShowAnalysisDropdown(false)
                     setShowToolsDropdown(false)
-                    setShowFixedExpensesDropdown(false)
                   }}
                   className="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
                   title="Tarjetas de crédito"
@@ -1397,9 +1397,9 @@ export default function Dashboard() {
                   
                   if (sharedExpense) {
                     if (sharedExpense.ownerUserId === session?.user?.id) {
-                      amount = sharedExpense.ownerAmount;
+                      amount = typeof sharedExpense.ownerAmount === 'number' ? sharedExpense.ownerAmount : 0;
                     } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
-                      amount = sharedExpense.partnerAmount;
+                      amount = typeof sharedExpense.partnerAmount === 'number' ? sharedExpense.partnerAmount : 0;
                     }
                   }
                   
@@ -1437,10 +1437,10 @@ export default function Dashboard() {
                           cx="50%"
                           cy="50%"
                           labelLine={true}
-                          label={function(entry: any) {
-                            const percent = entry.percent;
+                          label={(entry: { percent?: number; name?: string }) => {
+                            const percent = entry.percent || 0;
                             if (percent < 0.05) return '';
-                            return `${entry.name}: ${(percent * 100).toFixed(0)}%`;
+                            return `${entry.name || ''}: ${(percent * 100).toFixed(0)}%`;
                           }}
                           outerRadius={100}
                           innerRadius={40}
@@ -1666,10 +1666,10 @@ export default function Dashboard() {
                   <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-4 w-20 rounded"></div>
                 ) : (() => {
                   const allTransactions: TransactionWithType[] = [
-                    ...debts.map((debt: any) => ({ ...debt, type: 'debt' } as TransactionWithType)),
-                    ...incomes.map((income: any) => ({ ...income, type: 'income' } as TransactionWithType)),
-                    ...expenses.map((expense: any) => ({ ...expense, type: 'expense' } as TransactionWithType)),
-                    ...goals.map((goal: any) => ({ ...goal, type: 'goal' } as TransactionWithType))
+                    ...debts.map((debt: Debt) => ({ ...debt, type: 'debt' } as TransactionWithType)),
+                    ...incomes.map((income: Income) => ({ ...income, type: 'income' } as TransactionWithType)),
+                    ...expenses.map((expense: Expense) => ({ ...expense, type: 'expense' } as TransactionWithType)),
+                    ...goals.map((goal: Goal) => ({ ...goal, type: 'goal' } as TransactionWithType))
                   ];
 
                   let filtered = allTransactions;
@@ -1680,18 +1680,21 @@ export default function Dashboard() {
 
                   if (searchQuery) {
                     const query = searchQuery.toLowerCase();
-                    filtered = filtered.filter(t =>
-                      t.name.toLowerCase().includes(query) ||
-                      t.category?.toLowerCase().includes(query) ||
-                      t.notes?.toLowerCase().includes(query)
-                    );
+                    filtered = filtered.filter(t => {
+                      const name = String(t.name || '').toLowerCase();
+                      const category = String(t.category || '').toLowerCase();
+                      const notes = String(t.notes || '').toLowerCase();
+                      return name.includes(query) || category.includes(query) || notes.includes(query);
+                    });
                   }
 
                   // Aplicar filtro de fecha
                   if (dateFilter === 'current-month') {
                     filtered = filtered.filter(t => {
                       if (t.type === 'expense') {
-                        const transactionDate = new Date(t.date);
+                        const dateStr = String(t.date || '');
+                        if (!dateStr) return false;
+                        const transactionDate = new Date(dateStr);
                         return transactionDate >= currentMonthRange.startDate && 
                                transactionDate <= currentMonthRange.endDate;
                       }
@@ -1703,10 +1706,10 @@ export default function Dashboard() {
                 })()} {(() => {
                   const count = (() => {
                     const allTransactions: TransactionWithType[] = [
-                      ...debts.map((debt: any) => ({ ...debt, type: 'debt' } as TransactionWithType)),
-                      ...incomes.map((income: any) => ({ ...income, type: 'income' } as TransactionWithType)),
-                      ...expenses.map((expense: any) => ({ ...expense, type: 'expense' } as TransactionWithType)),
-                      ...goals.map((goal: any) => ({ ...goal, type: 'goal' } as TransactionWithType))
+                      ...debts.map((debt: Debt) => ({ ...debt, type: 'debt' } as TransactionWithType)),
+                      ...incomes.map((income: Income) => ({ ...income, type: 'income' } as TransactionWithType)),
+                      ...expenses.map((expense: Expense) => ({ ...expense, type: 'expense' } as TransactionWithType)),
+                      ...goals.map((goal: Goal) => ({ ...goal, type: 'goal' } as TransactionWithType))
                     ];
 
                     let filtered = allTransactions;
@@ -1717,18 +1720,21 @@ export default function Dashboard() {
 
                     if (searchQuery) {
                       const query = searchQuery.toLowerCase();
-                      filtered = filtered.filter(t =>
-                        t.name.toLowerCase().includes(query) ||
-                        t.category?.toLowerCase().includes(query) ||
-                        t.notes?.toLowerCase().includes(query)
-                      );
+                      filtered = filtered.filter(t => {
+                        const name = String(t.name || '').toLowerCase();
+                        const category = String(t.category || '').toLowerCase();
+                        const notes = String(t.notes || '').toLowerCase();
+                        return name.includes(query) || category.includes(query) || notes.includes(query);
+                      });
                     }
 
                     // Aplicar filtro de fecha
                     if (dateFilter === 'current-month') {
                       filtered = filtered.filter(t => {
                         if (t.type === 'expense') {
-                          const transactionDate = new Date(t.date);
+                          const dateStr = t.date || t.createdAt || '';
+                          if (!dateStr) return false;
+                          const transactionDate = new Date(dateStr);
                           return transactionDate >= currentMonthRange.startDate && 
                                  transactionDate <= currentMonthRange.endDate;
                         }
@@ -1859,10 +1865,10 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {(() => {
                   let allTransactions: TransactionWithType[] = [
-                    ...debts.map((debt: any) => ({ ...debt, type: 'debt' } as TransactionWithType)),
-                    ...incomes.map((income: any) => ({ ...income, type: 'income' } as TransactionWithType)),
-                    ...expenses.map((expense: any) => ({ ...expense, type: 'expense' } as TransactionWithType)),
-                    ...goals.map((goal: any) => ({ ...goal, type: 'goal' } as TransactionWithType))
+                    ...debts.map((debt: Debt) => ({ ...debt, type: 'debt' } as TransactionWithType)),
+                    ...incomes.map((income: Income) => ({ ...income, type: 'income' } as TransactionWithType)),
+                    ...expenses.map((expense: Expense) => ({ ...expense, type: 'expense' } as TransactionWithType)),
+                    ...goals.map((goal: Goal) => ({ ...goal, type: 'goal' } as TransactionWithType))
                   ];
 
                   // Filtrar por tipo
@@ -1885,7 +1891,9 @@ export default function Dashboard() {
                     allTransactions = allTransactions.filter(t => {
                       // Solo aplicar filtro de fecha a gastos
                       if (t.type === 'expense') {
-                        const transactionDate = new Date(t.date);
+                        const dateStr = String(t.date || '');
+                        if (!dateStr) return false;
+                        const transactionDate = new Date(dateStr);
                         return transactionDate >= currentMonthRange.startDate && 
                                transactionDate <= currentMonthRange.endDate;
                       }
@@ -1897,8 +1905,8 @@ export default function Dashboard() {
                   // Ordenar
                   allTransactions.sort((a, b) => {
                     if (sortBy === 'date') {
-                      const dateA = new Date(a.date).getTime();
-                      const dateB = new Date(b.date).getTime();
+                      const dateA = new Date(a.date || a.createdAt || '').getTime();
+                      const dateB = new Date(b.date || b.createdAt || '').getTime();
                       return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
                     } else if (sortBy === 'amount') {
                       return sortOrder === 'desc' ? b.amount - a.amount : a.amount - b.amount;
@@ -1966,14 +1974,14 @@ export default function Dashboard() {
                           </div>
                           <div className="text-right">
                             <div className={`text-lg font-semibold ${getTransactionColor()}`}>
-                              {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                              {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}{formatCurrency(typeof transaction.amount === 'number' ? transaction.amount : 0)}
                             </div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
                               {(() => {
                                 // Para deudas, usar dueDate si existe, sino createdAt
                                 const dateToShow = transaction.type === 'debt' 
-                                  ? (transaction.dueDate || transaction.createdAt || transaction.date)
-                                  : transaction.date;
+                                  ? (String(transaction.dueDate || transaction.createdAt || transaction.date || ''))
+                                  : String(transaction.date || '');
                                 if (!dateToShow) return 'Sin fecha';
                                 const dateObj = new Date(dateToShow);
                                 if (isNaN(dateObj.getTime())) return 'Fecha inválida';
@@ -1989,7 +1997,7 @@ export default function Dashboard() {
                           </p>
                         )}
 
-                        {transaction.type === 'debt' && (
+                        {transaction.type === 'debt' && typeof transaction.amount === 'number' && typeof transaction.balance === 'number' && (
                           <div className="mt-3">
                             <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
                               <span>Progreso de pago</span>
@@ -2077,7 +2085,7 @@ export default function Dashboard() {
         }}
         onAddPayment={() => {
           if (selectedTransaction?.type === 'debt') {
-            setSelectedDebt(selectedTransaction);
+            setSelectedDebt(selectedTransaction as unknown as Debt);
             setShowDetailModal(false);
             setShowPaymentModal(true);
           }
@@ -2127,7 +2135,7 @@ export default function Dashboard() {
         }}
         onShare={() => {
           if (selectedTransaction?.type === 'expense') {
-            setSelectedExpenseForShare(selectedTransaction);
+            setSelectedExpenseForShare(selectedTransaction as unknown as Expense);
             setShowDetailModal(false);
             setShowShareExpenseModal(true);
           }
@@ -2228,7 +2236,7 @@ export default function Dashboard() {
 -{formatCurrency(displayStats.totalFixedExpenses)}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {expenses.filter((e: any) => e.expenseType === 'fixed').length} gastos fijos
+                        {expenses.filter((e: Expense) => e.expenseType === 'fixed').length} gastos fijos
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-red-200 rounded-xl flex items-center justify-center">
@@ -2246,7 +2254,7 @@ export default function Dashboard() {
 -{formatCurrency(displayStats.totalVariableExpenses)}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {expenses.filter((e: any) => e.expenseType === 'variable').length} gastos variables
+                        {expenses.filter((e: Expense) => e.expenseType === 'variable').length} gastos variables
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
@@ -2266,7 +2274,7 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-3">
                   {(() => {
-                    const filteredExpenses = expenses.filter((e: any) => 
+                    const filteredExpenses = expenses.filter((e: Expense) => 
                       expenseBreakdownView === 'fixed' ? e.expenseType === 'fixed' : e.expenseType === 'variable'
                     );
 
@@ -2279,15 +2287,15 @@ export default function Dashboard() {
                       );
                     }
 
-                    return filteredExpenses.map((expense: any, index: number) => {
+                    return filteredExpenses.map((expense: Expense, index: number) => {
                       const sharedExpense = sharedExpensesMap.get(expense.id);
                       let displayAmount = expense.amount;
                       
                       if (sharedExpense) {
                         if (sharedExpense.ownerUserId === session?.user?.id) {
-                          displayAmount = sharedExpense.ownerAmount;
+                          displayAmount = typeof sharedExpense.ownerAmount === 'number' ? sharedExpense.ownerAmount : 0;
                         } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
-                          displayAmount = sharedExpense.partnerAmount;
+                          displayAmount = typeof sharedExpense.partnerAmount === 'number' ? sharedExpense.partnerAmount : 0;
                         }
                       }
 
@@ -2338,9 +2346,9 @@ export default function Dashboard() {
                           <div className="text-sm text-gray-600 dark:text-gray-400">
                             {new Date(expense.date).toLocaleDateString('es-AR')}
                           </div>
-                          {expense.notes && (
+                          {(expense as Expense & { notes?: string }).notes && (
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
-                              {expense.notes}
+                              {(expense as Expense & { notes?: string }).notes}
                             </p>
                           )}
                         </motion.div>
@@ -2385,7 +2393,7 @@ export default function Dashboard() {
                       {displayStats.completedGoals}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {goals.filter((g: any) => (g.currentAmount || 0) >= g.amount).length} metas alcanzadas
+                      {goals.filter((g: Goal) => (g.currentAmount || 0) >= g.amount).length} metas alcanzadas
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-green-200 rounded-xl flex items-center justify-center">
@@ -2400,7 +2408,7 @@ export default function Dashboard() {
                       {displayStats.totalGoals - displayStats.completedGoals}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {goals.filter((g: any) => (g.currentAmount || 0) < g.amount).length} metas pendientes
+                      {goals.filter((g: Goal) => (g.currentAmount || 0) < g.amount).length} metas pendientes
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-yellow-200 rounded-xl flex items-center justify-center">
@@ -2436,7 +2444,7 @@ export default function Dashboard() {
                     <p className="text-sm">¡Crea tu primera meta para comenzar!</p>
                   </div>
                 ) : (
-                  goals.map((goal: any, index: number) => {
+                  goals.map((goal: Goal, index: number) => {
                     const progress = goal.amount > 0 ? Math.min(((goal.currentAmount || 0) / goal.amount) * 100, 100) : 0;
                     const isCompleted = (goal.currentAmount || 0) >= goal.amount;
                     const remaining = Math.max(goal.amount - (goal.currentAmount || 0), 0);
@@ -2514,11 +2522,6 @@ export default function Dashboard() {
                         </div>
                         
                         {/* Información adicional */}
-                        {goal.description && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
-                            {goal.description}
-                          </p>
-                        )}
                       </motion.div>
                     );
                   })
