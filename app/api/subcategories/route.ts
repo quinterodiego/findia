@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { google } from 'googleapis'
-import { createDefaultSubcategories } from '@/lib/defaultSubcategories'
+import { createDefaultSubcategories, DEFAULT_SUBCATEGORIES_BY_TYPE } from '@/lib/defaultSubcategories'
 import type { Subcategory } from '@/types'
 
 // Configuración de autenticación con Service Account
@@ -90,49 +90,91 @@ export async function GET() {
       }
     }
 
-    // 3. Obtener subcategorías del usuario
+    // 3. Obtener todas las categorías del usuario para filtrar subcategorías
+    const categoriesResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Categories!A2:H',
+    })
+
+    const categoryRows = categoriesResponse.data.values || []
+    const userCategories = categoryRows
+      .filter((row: string[]) => row[1] === session.user.email)
+      .map((row: string[]) => ({
+        id: row[0],
+        type: row[5], // Type column is at index 5
+      }))
+
+    if (userCategories.length === 0) {
+      return NextResponse.json(
+        { error: 'Usuario no tiene categorías. Crea categorías primero.' },
+        { status: 400 }
+      )
+    }
+
+    // 4. Obtener TODAS las subcategorías (sin filtrar por userId)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: 'Subcategories!A2:G',
     })
 
     const rows = response.data.values || []
-    const userSubcategories = rows
-      .filter((row: string[]) => row[1] === session.user.email)
-      .map((row: string[]) => ({
-        id: row[0],
-        userId: row[1],
-        categoryId: row[2],
-        name: row[3],
-        icon: row[4],
-        isDefault: row[5] === 'true',
-        createdAt: row[6],
-      }))
+    const allSubcategories = rows.map((row: string[]) => ({
+      id: row[0],
+      userId: row[1],
+      categoryId: row[2],
+      name: row[3],
+      icon: row[4],
+      isDefault: row[5] === 'true',
+      createdAt: row[6],
+    }))
 
-    // 4. Si el usuario no tiene subcategorías, crear las por defecto
+    // 5. Crear mapa de categoryId -> categoryType para todas las categorías
+    const categoryIdToType = new Map<string, string>()
+    categoryRows.forEach((row: string[]) => {
+      categoryIdToType.set(row[0], row[5]) // row[0] = id, row[5] = type
+    })
+
+    // 6. Filtrar subcategorías por tipo de categoría (no por categoryId específico)
+    // Esto hace que las subcategorías sean globales: cualquier usuario con una categoría del mismo tipo verá las mismas subcategorías
+    const userCategoryTypes = new Set(userCategories.map(cat => cat.type))
+    const userCategoryIds = new Set(userCategories.map(cat => cat.id))
+    
+    // Obtener todas las subcategorías que corresponden a tipos de categorías del usuario
+    const globalSubcategories = allSubcategories.filter(subcat => {
+      const categoryType = categoryIdToType.get(subcat.categoryId)
+      return categoryType && userCategoryTypes.has(categoryType)
+    })
+
+    // Mapear las subcategorías globales a las categorías del usuario
+    // Para cada subcategoría global, crear una copia para cada categoría del usuario del mismo tipo
+    const userSubcategories: Subcategory[] = []
+    const processedSubcategories = new Set<string>() // Para evitar duplicados
+
+    for (const globalSubcat of globalSubcategories) {
+      const categoryType = categoryIdToType.get(globalSubcat.categoryId)
+      if (!categoryType) continue
+
+      // Para cada categoría del usuario del mismo tipo, crear una entrada de subcategoría
+      for (const userCategory of userCategories) {
+        if (userCategory.type === categoryType) {
+          // Crear una clave única basada en nombre + categoryId del usuario
+          const uniqueKey = `${globalSubcat.name}-${userCategory.id}`
+          
+          if (!processedSubcategories.has(uniqueKey)) {
+            userSubcategories.push({
+              ...globalSubcat,
+              categoryId: userCategory.id, // Asociar a la categoría del usuario
+              id: `${globalSubcat.id}-${userCategory.id}`, // ID único para esta combinación
+            })
+            processedSubcategories.add(uniqueKey)
+          }
+        }
+      }
+    }
+
+    // 7. Si el usuario no tiene subcategorías, crear las por defecto
     if (userSubcategories.length === 0) {
       console.log('Usuario sin subcategorías, creando defaults...')
-
-      // Primero necesitamos obtener las categorías del usuario
-      const categoriesResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: 'Categories!A2:H',
-      })
-
-      const categoryRows = categoriesResponse.data.values || []
-      const userCategories = categoryRows
-        .filter((row: string[]) => row[1] === session.user.email)
-        .map((row: string[]) => ({
-          id: row[0],
-          type: row[5], // Type column is at index 5 (A=0, B=1, C=2, D=3, E=4, F=5)
-        }))
-
-      if (userCategories.length === 0) {
-        return NextResponse.json(
-          { error: 'Usuario no tiene categorías. Crea categorías primero.' },
-          { status: 400 }
-        )
-      }
 
       const defaultSubcategories = createDefaultSubcategories(
         session.user.email,
