@@ -231,10 +231,18 @@ export default function Dashboard() {
   } = useGoals()
 
   // Hook para manejar categorías
-  const { categories = [] } = useCategories()
+  const { categories = [], fetchCategories } = useCategories()
   
   // Hook para manejar subcategorías
-  const { subcategories = [] } = useSubcategories()
+  const { subcategories = [], fetchSubcategories } = useSubcategories()
+  
+  // Cargar categorías y subcategorías cuando el usuario esté autenticado
+  useEffect(() => {
+    if (session?.user?.email) {
+      fetchCategories()
+      fetchSubcategories()
+    }
+  }, [session?.user?.email, fetchCategories, fetchSubcategories])
 
   // Hook para manejar tarjetas de crédito
   const { cards: creditCards, loading: cardsLoading, fetchCards } = useCreditCards()

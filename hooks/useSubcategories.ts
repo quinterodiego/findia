@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { Subcategory } from '@/types'
 
 export function useSubcategories() {
@@ -60,6 +60,11 @@ export function useSubcategories() {
     },
     []
   )
+
+  // Cargar subcategorías automáticamente al montar el componente
+  useEffect(() => {
+    fetchSubcategories()
+  }, [fetchSubcategories])
 
   return {
     subcategories,
