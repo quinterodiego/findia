@@ -35,7 +35,8 @@ interface PaymentData {
 export function useFixedExpenses(
   expenses: Expense[] = [],
   debts: Debt[] = [],
-  payments: Payment[] = []
+  payments: Payment[] = [],
+  monthOffset: number = 0 // 0 = mes actual, 1 = próximo mes
 ): UseFixedExpensesReturn {
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpenseItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,9 +48,10 @@ export function useFixedExpenses(
 
     try {
       const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-      const currentDate = new Date(currentYear, currentMonth, now.getDate());
+      const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, now.getDate());
+      const targetMonth = targetDate.getMonth();
+      const targetYear = targetDate.getFullYear();
+      const currentDate = new Date(targetYear, targetMonth, targetDate.getDate());
 
       const items: FixedExpenseItem[] = [];
 
@@ -62,35 +64,37 @@ export function useFixedExpenses(
           const originalDate = new Date(expense.date);
           const dayOfMonth = originalDate.getDate(); // Día del mes (1-31)
           
-          // Crear fecha de vencimiento para el mes actual con el mismo día
-          let dueDateForCurrentMonth = new Date(currentYear, currentMonth, dayOfMonth);
+          // Crear fecha de vencimiento para el mes objetivo con el mismo día
+          let dueDateForTargetMonth = new Date(targetYear, targetMonth, dayOfMonth);
           
-          // Si el día del mes original es mayor que los días del mes actual (ej: 31 en febrero)
-          // usar el último día del mes actual
-          const lastDayOfCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-          if (dayOfMonth > lastDayOfCurrentMonth) {
-            dueDateForCurrentMonth = new Date(currentYear, currentMonth, lastDayOfCurrentMonth);
+          // Si el día del mes original es mayor que los días del mes objetivo (ej: 31 en febrero)
+          // usar el último día del mes objetivo
+          const lastDayOfTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+          if (dayOfMonth > lastDayOfTargetMonth) {
+            dueDateForTargetMonth = new Date(targetYear, targetMonth, lastDayOfTargetMonth);
           }
           
-          // Si la fecha calculada ya pasó este mes, usar la del próximo mes
-          if (dueDateForCurrentMonth < currentDate) {
-            dueDateForCurrentMonth = new Date(currentYear, currentMonth + 1, Math.min(dayOfMonth, new Date(currentYear, currentMonth + 2, 0).getDate()));
+          // Si estamos viendo el mes actual y la fecha ya pasó, usar la del próximo mes
+          // Si estamos viendo el próximo mes, siempre usar la fecha del mes objetivo
+          if (monthOffset === 0 && dueDateForTargetMonth < currentDate) {
+            dueDateForTargetMonth = new Date(targetYear, targetMonth + 1, Math.min(dayOfMonth, new Date(targetYear, targetMonth + 2, 0).getDate()));
           }
           
-          const isOverdue = dueDateForCurrentMonth < currentDate;
-          const daysUntilDue = Math.ceil((dueDateForCurrentMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+          const isOverdue = monthOffset === 0 && dueDateForTargetMonth < currentDate;
+          const daysUntilDue = Math.ceil((dueDateForTargetMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
           
-          // Verificar si hay un pago registrado para este gasto en el mes actual
-          // Por ahora, si el gasto está en expenses, asumimos que está pagado
+          // Verificar si hay un pago registrado para este gasto en el mes objetivo
+          // Si estamos viendo el próximo mes, no hay pagos aún (paidAmount = 0)
+          // Si estamos viendo el mes actual, asumimos que está pagado si está en expenses
           // TODO: En el futuro, podríamos tener un sistema de pagos separado para gastos fijos
-          const paidAmount = expense.amount; // Si está en expenses, ya está "pagado"
+          const paidAmount = monthOffset === 0 ? expense.amount : 0;
           
           items.push({
             id: expense.id,
             name: expense.name,
             type: 'expense',
             amount: expense.amount,
-            dueDate: dueDateForCurrentMonth.toISOString(),
+            dueDate: dueDateForTargetMonth.toISOString(),
             paidAmount,
             originalData: expense,
             isOverdue,
@@ -108,34 +112,36 @@ export function useFixedExpenses(
             return; // Ya está completamente pagado
           }
 
-          // Calcular la fecha de vencimiento para el mes actual
+          // Calcular la fecha de vencimiento para el mes objetivo
           const originalDate = new Date(expense.date);
           const dayOfMonth = originalDate.getDate();
           
-          // Crear fecha de vencimiento para el mes actual con el mismo día
-          let dueDateForCurrentMonth = new Date(currentYear, currentMonth, dayOfMonth);
+          // Crear fecha de vencimiento para el mes objetivo con el mismo día
+          let dueDateForTargetMonth = new Date(targetYear, targetMonth, dayOfMonth);
           
-          // Si el día del mes original es mayor que los días del mes actual
-          const lastDayOfCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-          if (dayOfMonth > lastDayOfCurrentMonth) {
-            dueDateForCurrentMonth = new Date(currentYear, currentMonth, lastDayOfCurrentMonth);
+          // Si el día del mes original es mayor que los días del mes objetivo
+          const lastDayOfTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+          if (dayOfMonth > lastDayOfTargetMonth) {
+            dueDateForTargetMonth = new Date(targetYear, targetMonth, lastDayOfTargetMonth);
           }
           
-          // Si la fecha calculada ya pasó este mes, usar la del próximo mes
-          if (dueDateForCurrentMonth < currentDate) {
-            dueDateForCurrentMonth = new Date(currentYear, currentMonth + 1, Math.min(dayOfMonth, new Date(currentYear, currentMonth + 2, 0).getDate()));
+          // Si estamos viendo el mes actual y la fecha ya pasó, usar la del próximo mes
+          // Si estamos viendo el próximo mes, siempre usar la fecha del mes objetivo
+          if (monthOffset === 0 && dueDateForTargetMonth < currentDate) {
+            dueDateForTargetMonth = new Date(targetYear, targetMonth + 1, Math.min(dayOfMonth, new Date(targetYear, targetMonth + 2, 0).getDate()));
           }
           
-          const isOverdue = dueDateForCurrentMonth < currentDate;
-          const daysUntilDue = Math.ceil((dueDateForCurrentMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+          const isOverdue = monthOffset === 0 && dueDateForTargetMonth < currentDate;
+          const daysUntilDue = Math.ceil((dueDateForTargetMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
           
           // Calcular monto por cuota
           const amountPerInstallment = expense.amount / expense.totalInstallments!;
           const remainingInstallments = expense.totalInstallments! - expense.currentInstallment! + 1;
           
-          // Por ahora, asumimos que si está en expenses, la cuota actual ya está pagada
+          // Si estamos viendo el próximo mes, no hay pagos aún (paidAmount = 0)
+          // Si estamos viendo el mes actual, asumimos que la cuota actual ya está pagada
           // TODO: En el futuro, podríamos tener un sistema de pagos separado para gastos en cuotas
-          const paidAmount = amountPerInstallment; // Solo la cuota actual
+          const paidAmount = monthOffset === 0 ? amountPerInstallment : 0;
           
           items.push({
             id: expense.id,
@@ -144,7 +150,7 @@ export function useFixedExpenses(
             installments: `Restan ${remainingInstallments}`,
             paymentMethod: expense.paymentMethod,
             amount: amountPerInstallment, // Monto de la cuota actual
-            dueDate: dueDateForCurrentMonth.toISOString(),
+            dueDate: dueDateForTargetMonth.toISOString(),
             paidAmount,
             originalData: expense,
             isOverdue,
@@ -167,26 +173,27 @@ export function useFixedExpenses(
       console.log('✅ Deudas con cuotas válidas:', debtsWithInstallments.length);
       
       debtsWithInstallments.forEach(debt => {
-          // Calcular la fecha de vencimiento para el mes actual
+          // Calcular la fecha de vencimiento para el mes objetivo
           const originalDate = new Date(debt.dueDate);
           const dayOfMonth = originalDate.getDate();
           
-          // Crear fecha de vencimiento para el mes actual con el mismo día
-          let dueDateForCurrentMonth = new Date(currentYear, currentMonth, dayOfMonth);
+          // Crear fecha de vencimiento para el mes objetivo con el mismo día
+          let dueDateForTargetMonth = new Date(targetYear, targetMonth, dayOfMonth);
           
-          // Si el día del mes original es mayor que los días del mes actual
-          const lastDayOfCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-          if (dayOfMonth > lastDayOfCurrentMonth) {
-            dueDateForCurrentMonth = new Date(currentYear, currentMonth, lastDayOfCurrentMonth);
+          // Si el día del mes original es mayor que los días del mes objetivo
+          const lastDayOfTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+          if (dayOfMonth > lastDayOfTargetMonth) {
+            dueDateForTargetMonth = new Date(targetYear, targetMonth, lastDayOfTargetMonth);
           }
           
-          // Si la fecha calculada ya pasó este mes, usar la del próximo mes
-          if (dueDateForCurrentMonth < currentDate) {
-            dueDateForCurrentMonth = new Date(currentYear, currentMonth + 1, Math.min(dayOfMonth, new Date(currentYear, currentMonth + 2, 0).getDate()));
+          // Si estamos viendo el mes actual y la fecha ya pasó, usar la del próximo mes
+          // Si estamos viendo el próximo mes, siempre usar la fecha del mes objetivo
+          if (monthOffset === 0 && dueDateForTargetMonth < currentDate) {
+            dueDateForTargetMonth = new Date(targetYear, targetMonth + 1, Math.min(dayOfMonth, new Date(targetYear, targetMonth + 2, 0).getDate()));
           }
           
-          const isOverdue = dueDateForCurrentMonth < currentDate;
-          const daysUntilDue = Math.ceil((dueDateForCurrentMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+          const isOverdue = monthOffset === 0 && dueDateForTargetMonth < currentDate;
+          const daysUntilDue = Math.ceil((dueDateForTargetMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
           
           // Calcular cuota actual y restantes
           const currentInstallment = debt.totalInstallments! - debt.remainingInstallments! + 1;
@@ -195,16 +202,18 @@ export function useFixedExpenses(
           // Usar minPayment como monto de la cuota (es el pago mensual)
           const amountPerInstallment = debt.minPayment || 0;
           
-          // Calcular el monto pagado en el mes actual para esta deuda
-          const paymentsForThisDebt = payments.filter(payment => {
-            if (payment.debtId !== debt.id) return false;
-            
-            const paymentDate = new Date(payment.date);
-            return (
-              paymentDate.getMonth() === currentMonth &&
-              paymentDate.getFullYear() === currentYear
-            );
-          });
+          // Calcular el monto pagado en el mes objetivo para esta deuda
+          // Si estamos viendo el próximo mes, no hay pagos aún (paidAmount = 0)
+          const paymentsForThisDebt = monthOffset === 0 
+            ? payments.filter(payment => {
+                if (payment.debtId !== debt.id) return false;
+                const paymentDate = new Date(payment.date);
+                return (
+                  paymentDate.getMonth() === targetMonth &&
+                  paymentDate.getFullYear() === targetYear
+                );
+              })
+            : [];
           
           const paidAmount = paymentsForThisDebt.reduce((sum, payment) => sum + payment.amount, 0);
           
@@ -215,7 +224,7 @@ export function useFixedExpenses(
             installments: `Cuota ${currentInstallment}/${debt.totalInstallments} (Restan ${remainingInstallments})`,
             paymentMethod: debt.paymentMethod,
             amount: amountPerInstallment, // Monto de la cuota mensual
-            dueDate: dueDateForCurrentMonth.toISOString(),
+            dueDate: dueDateForTargetMonth.toISOString(),
             paidAmount,
             originalData: debt,
             isOverdue,
@@ -239,7 +248,7 @@ export function useFixedExpenses(
     } finally {
       setLoading(false);
     }
-  }, [expenses, debts, payments]);
+  }, [expenses, debts, payments, monthOffset]);
 
   useEffect(() => {
     calculateFixedExpenses();

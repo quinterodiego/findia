@@ -203,3 +203,24 @@ export interface SmartTemplate extends PDFImportTemplate {
   accuracy?: number // Precisión del template (0-1)
   lastUsed?: string // Última vez que se usó
 }
+
+export interface Category {
+  id: string
+  userId: string
+  name: string
+  icon?: string
+  type: 'expense' | 'income' | 'saving'
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface Subcategory {
+  id: string
+  userId: string
+  categoryId: string
+  name: string
+  icon?: string
+  isDefault: boolean
+  createdAt: string
+  type?: 'expense' | 'income' | 'saving' // Tipo opcional para cuando las subcategorías son categorías principales
+}

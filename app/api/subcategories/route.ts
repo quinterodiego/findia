@@ -135,11 +135,11 @@ export async function GET() {
       categoryIdToType.set(row[0], row[5]) // row[0] = id, row[5] = type
     })
 
-    // 6. Agrupar subcategorías únicas por tipo de categoría (no por categoryId específico)
-    // Esto hace que las subcategorías sean globales: cualquier usuario con una categoría del mismo tipo verá las mismas subcategorías
+    // 6. Agrupar subcategorías únicas por tipo (expense, income, saving)
+    // Las subcategorías ahora son categorías principales, independientes de categoryId específico
     const userCategoryTypes = new Set(userCategories.map(cat => cat.type))
     
-    // Agrupar todas las subcategorías por tipo de categoría, eliminando duplicados por nombre
+    // Agrupar todas las subcategorías por tipo, eliminando duplicados por nombre
     const subcategoriesByType = new Map<string, Map<string, Subcategory>>()
     
     for (const subcat of allSubcategories) {
@@ -157,49 +157,31 @@ export async function GET() {
       }
     }
 
-    // 7. Mapear las subcategorías globales a TODAS las categorías del usuario del mismo tipo
-    // Para cada subcategoría global única, crear una copia para cada categoría del usuario del mismo tipo
+    // 7. Devolver subcategorías únicas por tipo, sin depender de categoryId específico
+    // Las subcategorías ahora son categorías principales independientes
     const userSubcategories: Subcategory[] = []
-    const processedKeys = new Set<string>() // Para evitar duplicados
 
-    console.log('🔍 Procesando subcategorías globales (SIN filtrar por userId)...')
+    console.log('🔍 Procesando subcategorías como categorías principales (sin depender de categoryId)...')
     console.log(`   - Total subcategorías en sistema: ${allSubcategories.length}`)
     console.log(`   - Tipos de categorías del usuario: ${Array.from(userCategoryTypes).join(', ')}`)
     console.log(`   - Subcategorías agrupadas por tipo: ${Array.from(subcategoriesByType.keys()).join(', ')}`)
 
     for (const [categoryType, uniqueSubcats] of subcategoriesByType.entries()) {
-      // Obtener todas las categorías del usuario de este tipo
-      const userCategoriesOfType = userCategories.filter(cat => cat.type === categoryType)
-      
-      console.log(`   - Tipo "${categoryType}": ${uniqueSubcats.size} subcategorías únicas, ${userCategoriesOfType.length} categorías del usuario`)
+      console.log(`   - Tipo "${categoryType}": ${uniqueSubcats.size} subcategorías únicas`)
       console.log(`     Subcategorías únicas: ${Array.from(uniqueSubcats.keys()).join(', ')}`)
       
-      // Para cada subcategoría única de este tipo
+      // Agregar cada subcategoría única como categoría principal (sin categoryId específico)
       for (const globalSubcat of uniqueSubcats.values()) {
-        // Crear una copia para cada categoría del usuario del mismo tipo
-        for (const userCategory of userCategoriesOfType) {
-          // Crear una clave única basada en nombre + categoryId del usuario
-          const uniqueKey = `${globalSubcat.name}-${userCategory.id}`
-          
-          if (!processedKeys.has(uniqueKey)) {
-            userSubcategories.push({
-              ...globalSubcat,
-              categoryId: userCategory.id, // Asociar a la categoría específica del usuario
-              id: `${globalSubcat.id}-${userCategory.id}`, // ID único pero determinístico
-            })
-            processedKeys.add(uniqueKey)
-            console.log(`     ✓ Mapeada "${globalSubcat.name}" (${globalSubcat.icon}) a categoría ${userCategory.id}`)
-          }
-        }
+        userSubcategories.push({
+          ...globalSubcat,
+          categoryId: '', // Ya no dependemos de categoryId específico
+          id: globalSubcat.id, // Usar el ID original sin sufijos
+        })
+        console.log(`     ✓ Agregada "${globalSubcat.name}" (${globalSubcat.icon}) como categoría principal`)
       }
     }
 
-    console.log(`✅ Total subcategorías mapeadas para el usuario: ${userSubcategories.length}`)
-    console.log(`   Subcategorías por categoría:`)
-    userCategories.forEach(cat => {
-      const count = userSubcategories.filter(sub => sub.categoryId === cat.id).length
-      console.log(`     - ${cat.id}: ${count} subcategorías`)
-    })
+    console.log(`✅ Total categorías (subcategorías) para el usuario: ${userSubcategories.length}`)
 
     // 8. Si el usuario no tiene subcategorías, crear las por defecto
     if (userSubcategories.length === 0) {
@@ -233,16 +215,39 @@ export async function GET() {
 
       console.log(`${newRows.length} subcategorías por defecto creadas`)
 
-      // Retornar las subcategorías recién creadas
-      const createdSubcategories: Subcategory[] = newRows.map(row => ({
-        id: row[0],
-        userId: row[1],
-        categoryId: row[2],
-        name: row[3],
-        icon: row[4],
-        isDefault: row[5] === 'true',
-        createdAt: row[6],
-      }))
+      // Retornar las subcategorías recién creadas como categorías principales (sin categoryId específico)
+      // Agrupar por tipo y deduplicar por nombre
+      const createdByType = new Map<string, Map<string, Subcategory>>()
+      for (const row of newRows) {
+        const categoryId = row[2]
+        const categoryType = categoryIdToType.get(categoryId)
+        if (!categoryType) continue
+        
+        if (!createdByType.has(categoryType)) {
+          createdByType.set(categoryType, new Map())
+        }
+        const typeMap = createdByType.get(categoryType)!
+        if (!typeMap.has(row[3])) {
+          typeMap.set(row[3], {
+            id: row[0],
+            userId: row[1],
+            categoryId: '', // Ya no dependemos de categoryId específico
+            name: row[3],
+            icon: row[4],
+            isDefault: row[5] === 'true',
+            createdAt: row[6],
+            type: categoryType, // Agregar el tipo
+          } as Subcategory & { type: string })
+        }
+      }
+      
+      // Aplanar a un array único
+      const createdSubcategories: Subcategory[] = []
+      for (const typeMap of createdByType.values()) {
+        for (const subcat of typeMap.values()) {
+          createdSubcategories.push(subcat)
+        }
+      }
 
       return NextResponse.json(createdSubcategories)
     }

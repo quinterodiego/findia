@@ -355,20 +355,20 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
               {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount}</p>}
             </div>
 
-            {/* Subcategoría (filtrada por tipo de transacción) */}
+            {/* Categoría (las subcategorías ahora son categorías principales) */}
             {subcategories.length > 0 && (
               <div>
-                <label htmlFor="transaction-subcategory-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Subcategoría (opcional)
+                <label htmlFor="transaction-category-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Categoría (opcional)
                 </label>
                 <select
-                  id="transaction-subcategory-select"
+                  id="transaction-category-select"
                   value={formData.subcategory || ''}
                   onChange={(e) => handleInputChange('subcategory', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  aria-label="Seleccionar subcategoría"
+                  aria-label="Seleccionar categoría"
                 >
-                  <option value="">Seleccionar subcategoría...</option>
+                  <option value="">Seleccionar categoría...</option>
                   {(() => {
                     // Determinar el tipo de categoría según el tipo de transacción
                     let categoryType: 'expense' | 'income' | 'saving' = 'expense'
@@ -376,22 +376,10 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     else if (type === 'goal') categoryType = 'saving'
                     else if (type === 'expense' || type === 'debt') categoryType = 'expense'
                     
-                    // Obtener las categorías del usuario del tipo correspondiente
-                    const userCategoriesOfType = categories.filter(cat => cat.type === categoryType)
-                    const userCategoryIds = new Set(userCategoriesOfType.map(cat => cat.id))
-                    
-                    // Filtrar subcategorías que pertenecen a categorías del tipo correcto
-                    // y deduplicar por nombre (ya que el backend puede devolver múltiples instancias
-                    // de la misma subcategoría para diferentes categorías del mismo tipo)
-                    const seenNames = new Set<string>()
+                    // Filtrar categorías (subcategorías) por tipo
+                    // Las subcategorías ahora son categorías principales independientes de categoryId
                     return subcategories
-                      .filter(sub => {
-                        if (!userCategoryIds.has(sub.categoryId)) return false
-                        // Solo incluir la primera ocurrencia de cada nombre
-                        if (seenNames.has(sub.name)) return false
-                        seenNames.add(sub.name)
-                        return true
-                      })
+                      .filter(sub => sub.type === categoryType)
                       .map(sub => (
                         <option key={sub.id} value={sub.id}>
                           {sub.icon} {sub.name}

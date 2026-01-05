@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "patch-package",
-    "migrate:subcategories": "tsx scripts/migrate-subcategories.ts",
-    "migrate:subcategories-to-global": "tsx scripts/migrate-subcategories-to-global.ts"
+    "migrate:subcategories": "tsx scripts/migrate-subcategories.ts"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.3",
