@@ -355,10 +355,10 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
               {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount}</p>}
             </div>
 
-            {/* Subcategoría (filtrada por tipo de transacción) */}
+            {/* Categoría (filtrada por tipo de transacción) */}
             <div>
               <label htmlFor="transaction-subcategory-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Subcategoría (opcional)
+                Categoría (opcional)
               </label>
               <select
                 id="transaction-subcategory-select"
