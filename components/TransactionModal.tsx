@@ -367,7 +367,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                 aria-label="Seleccionar subcategoría"
               >
-                <option value="">Seleccionar subcategoría...</option>
+                <option value="">Seleccionar categoría...</option>
                 {(() => {
                   // Determinar el tipo de categoría según el tipo de transacción
                   let categoryType: 'expense' | 'income' | 'saving' = 'expense'
