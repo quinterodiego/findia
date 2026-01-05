@@ -17,23 +17,43 @@ const sheets = google.sheets({ version: 'v4', auth })
 
 export async function GET() {
   try {
+    console.log('[GET /api/subcategories] Iniciando...')
     const session = await getServerSession()
     
     if (!session?.user?.email) {
+      console.error('[GET /api/subcategories] No autorizado - sin sesión')
       return NextResponse.json(
         { error: 'No autorizado' },
         { status: 401 }
       )
     }
 
+    console.log('[GET /api/subcategories] Usuario autenticado:', session.user.email)
+
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID
+    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+    const privateKey = process.env.GOOGLE_PRIVATE_KEY
 
     if (!spreadsheetId) {
+      console.error('[GET /api/subcategories] GOOGLE_SHEETS_ID no configurado')
       return NextResponse.json(
         { error: 'GOOGLE_SHEETS_ID no configurado' },
         { status: 500 }
       )
     }
+
+    if (!serviceAccountEmail || !privateKey) {
+      console.error('[GET /api/subcategories] Variables de Google Auth no configuradas:', {
+        hasServiceAccountEmail: !!serviceAccountEmail,
+        hasPrivateKey: !!privateKey
+      })
+      return NextResponse.json(
+        { error: 'Variables de Google Auth no configuradas' },
+        { status: 500 }
+      )
+    }
+
+    console.log('[GET /api/subcategories] Variables de entorno OK')
 
     // 1. Verificar si existe la hoja "Subcategories"
     let sheetExists = false
@@ -135,11 +155,11 @@ export async function GET() {
       categoryIdToType.set(row[0], row[5]) // row[0] = id, row[5] = type
     })
 
-    // 6. Agrupar subcategorías únicas por tipo (expense, income, saving)
-    // Las subcategorías ahora son categorías principales, independientes de categoryId específico
+    // 6. Agrupar subcategorías únicas por tipo de categoría (no por categoryId específico)
+    // Esto hace que las subcategorías sean globales: cualquier usuario con una categoría del mismo tipo verá las mismas subcategorías
     const userCategoryTypes = new Set(userCategories.map(cat => cat.type))
     
-    // Agrupar todas las subcategorías por tipo, eliminando duplicados por nombre
+    // Agrupar todas las subcategorías por tipo de categoría, eliminando duplicados por nombre
     const subcategoriesByType = new Map<string, Map<string, Subcategory>>()
     
     for (const subcat of allSubcategories) {
@@ -157,31 +177,49 @@ export async function GET() {
       }
     }
 
-    // 7. Devolver subcategorías únicas por tipo, sin depender de categoryId específico
-    // Las subcategorías ahora son categorías principales independientes
+    // 7. Mapear las subcategorías globales a TODAS las categorías del usuario del mismo tipo
+    // Para cada subcategoría global única, crear una copia para cada categoría del usuario del mismo tipo
     const userSubcategories: Subcategory[] = []
+    const processedKeys = new Set<string>() // Para evitar duplicados
 
-    console.log('🔍 Procesando subcategorías como categorías principales (sin depender de categoryId)...')
+    console.log('🔍 Procesando subcategorías globales (SIN filtrar por userId)...')
     console.log(`   - Total subcategorías en sistema: ${allSubcategories.length}`)
     console.log(`   - Tipos de categorías del usuario: ${Array.from(userCategoryTypes).join(', ')}`)
     console.log(`   - Subcategorías agrupadas por tipo: ${Array.from(subcategoriesByType.keys()).join(', ')}`)
 
     for (const [categoryType, uniqueSubcats] of subcategoriesByType.entries()) {
-      console.log(`   - Tipo "${categoryType}": ${uniqueSubcats.size} subcategorías únicas`)
+      // Obtener todas las categorías del usuario de este tipo
+      const userCategoriesOfType = userCategories.filter(cat => cat.type === categoryType)
+      
+      console.log(`   - Tipo "${categoryType}": ${uniqueSubcats.size} subcategorías únicas, ${userCategoriesOfType.length} categorías del usuario`)
       console.log(`     Subcategorías únicas: ${Array.from(uniqueSubcats.keys()).join(', ')}`)
       
-      // Agregar cada subcategoría única como categoría principal (sin categoryId específico)
+      // Para cada subcategoría única de este tipo
       for (const globalSubcat of uniqueSubcats.values()) {
-        userSubcategories.push({
-          ...globalSubcat,
-          categoryId: '', // Ya no dependemos de categoryId específico
-          id: globalSubcat.id, // Usar el ID original sin sufijos
-        })
-        console.log(`     ✓ Agregada "${globalSubcat.name}" (${globalSubcat.icon}) como categoría principal`)
+        // Crear una copia para cada categoría del usuario del mismo tipo
+        for (const userCategory of userCategoriesOfType) {
+          // Crear una clave única basada en nombre + categoryId del usuario
+          const uniqueKey = `${globalSubcat.name}-${userCategory.id}`
+          
+          if (!processedKeys.has(uniqueKey)) {
+            userSubcategories.push({
+              ...globalSubcat,
+              categoryId: userCategory.id, // Asociar a la categoría específica del usuario
+              id: `${globalSubcat.id}-${userCategory.id}`, // ID único pero determinístico
+            })
+            processedKeys.add(uniqueKey)
+            console.log(`     ✓ Mapeada "${globalSubcat.name}" (${globalSubcat.icon}) a categoría ${userCategory.id}`)
+          }
+        }
       }
     }
 
-    console.log(`✅ Total categorías (subcategorías) para el usuario: ${userSubcategories.length}`)
+    console.log(`✅ Total subcategorías mapeadas para el usuario: ${userSubcategories.length}`)
+    console.log(`   Subcategorías por categoría:`)
+    userCategories.forEach(cat => {
+      const count = userSubcategories.filter(sub => sub.categoryId === cat.id).length
+      console.log(`     - ${cat.id}: ${count} subcategorías`)
+    })
 
     // 8. Si el usuario no tiene subcategorías, crear las por defecto
     if (userSubcategories.length === 0) {
@@ -215,48 +253,37 @@ export async function GET() {
 
       console.log(`${newRows.length} subcategorías por defecto creadas`)
 
-      // Retornar las subcategorías recién creadas como categorías principales (sin categoryId específico)
-      // Agrupar por tipo y deduplicar por nombre
-      const createdByType = new Map<string, Map<string, Subcategory>>()
-      for (const row of newRows) {
-        const categoryId = row[2]
-        const categoryType = categoryIdToType.get(categoryId)
-        if (!categoryType) continue
-        
-        if (!createdByType.has(categoryType)) {
-          createdByType.set(categoryType, new Map())
-        }
-        const typeMap = createdByType.get(categoryType)!
-        if (!typeMap.has(row[3])) {
-          typeMap.set(row[3], {
-            id: row[0],
-            userId: row[1],
-            categoryId: '', // Ya no dependemos de categoryId específico
-            name: row[3],
-            icon: row[4],
-            isDefault: row[5] === 'true',
-            createdAt: row[6],
-            type: categoryType, // Agregar el tipo
-          } as Subcategory & { type: string })
-        }
-      }
-      
-      // Aplanar a un array único
-      const createdSubcategories: Subcategory[] = []
-      for (const typeMap of createdByType.values()) {
-        for (const subcat of typeMap.values()) {
-          createdSubcategories.push(subcat)
-        }
-      }
+      // Retornar las subcategorías recién creadas
+      const createdSubcategories: Subcategory[] = newRows.map(row => ({
+        id: row[0],
+        userId: row[1],
+        categoryId: row[2],
+        name: row[3],
+        icon: row[4],
+        isDefault: row[5] === 'true',
+        createdAt: row[6],
+      }))
 
       return NextResponse.json(createdSubcategories)
     }
 
+    console.log('[GET /api/subcategories] ✅ Retornando subcategorías:', {
+      total: userSubcategories.length,
+      sample: userSubcategories.slice(0, 3).map(s => ({ name: s.name, categoryId: s.categoryId }))
+    })
+    
     return NextResponse.json(userSubcategories)
   } catch (error) {
-    console.error('Error en GET /api/subcategories:', error)
+    console.error('[GET /api/subcategories] ❌ Error completo:', {
+      message: error instanceof Error ? error.message : 'Error desconocido',
+      stack: error instanceof Error ? error.stack : undefined,
+      error
+    })
     return NextResponse.json(
-      { error: 'Error obteniendo subcategorías' },
+      { 
+        error: 'Error obteniendo subcategorías',
+        details: error instanceof Error ? error.message : 'Error desconocido'
+      },
       { status: 500 }
     )
   }
