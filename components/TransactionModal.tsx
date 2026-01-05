@@ -356,53 +356,80 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
             </div>
 
             {/* Subcategoría (filtrada por tipo de transacción) */}
-            {subcategories.length > 0 && (
-              <div>
-                <label htmlFor="transaction-subcategory-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Subcategoría (opcional)
-                </label>
-                <select
-                  id="transaction-subcategory-select"
-                  value={formData.subcategory || ''}
-                  onChange={(e) => handleInputChange('subcategory', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  aria-label="Seleccionar subcategoría"
-                >
-                  <option value="">Seleccionar subcategoría...</option>
-                  {(() => {
-                    // Determinar el tipo de categoría según el tipo de transacción
-                    let categoryType: 'expense' | 'income' | 'saving' = 'expense'
-                    if (type === 'income') categoryType = 'income'
-                    else if (type === 'goal') categoryType = 'saving'
-                    else if (type === 'expense' || type === 'debt') categoryType = 'expense'
-                    
-                    // Obtener las categorías del usuario del tipo correspondiente
-                    const userCategoriesOfType = categories.filter(cat => cat.type === categoryType)
-                    const userCategoryIds = new Set(userCategoriesOfType.map(cat => cat.id))
-                    
-                    // Para gastos, mostrar TODAS las subcategorías de tipo expense
-                    // Para otros tipos, mantener el filtrado por categorías del usuario
-                    // Deduplicar por nombre (el backend puede devolver múltiples instancias
-                    // de la misma subcategoría para diferentes categorías del mismo tipo)
-                    const seenNames = new Set<string>()
-                    return subcategories
-                      .filter(sub => {
-                        // Verificar que la subcategoría pertenece a una categoría del tipo correcto
-                        if (!userCategoryIds.has(sub.categoryId)) return false
-                        // Solo incluir la primera ocurrencia de cada nombre (deduplicar)
-                        if (seenNames.has(sub.name)) return false
-                        seenNames.add(sub.name)
-                        return true
-                      })
-                      .map(sub => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.icon} {sub.name}
-                        </option>
-                      ))
-                  })()}
-                </select>
-              </div>
-            )}
+            <div>
+              <label htmlFor="transaction-subcategory-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Subcategoría (opcional)
+              </label>
+              <select
+                id="transaction-subcategory-select"
+                value={formData.subcategory || ''}
+                onChange={(e) => handleInputChange('subcategory', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                aria-label="Seleccionar subcategoría"
+              >
+                <option value="">Seleccionar subcategoría...</option>
+                {(() => {
+                  // Determinar el tipo de categoría según el tipo de transacción
+                  let categoryType: 'expense' | 'income' | 'saving' = 'expense'
+                  if (type === 'income') categoryType = 'income'
+                  else if (type === 'goal') categoryType = 'saving'
+                  else if (type === 'expense' || type === 'debt') categoryType = 'expense'
+                  
+                  // Debug logs
+                  console.log('[TransactionModal] Filtrado de subcategorías:', {
+                    type,
+                    categoryType,
+                    totalSubcategories: subcategories.length,
+                    totalCategories: categories.length,
+                    categoriesOfType: categories.filter(cat => cat.type === categoryType).length
+                  })
+                  
+                  // Obtener las categorías del usuario del tipo correspondiente
+                  const userCategoriesOfType = categories.filter(cat => cat.type === categoryType)
+                  const userCategoryIds = new Set(userCategoriesOfType.map(cat => cat.id))
+                  
+                  console.log('[TransactionModal] Categorías del usuario:', {
+                    categoryType,
+                    userCategoryIds: Array.from(userCategoryIds),
+                    userCategoriesOfType: userCategoriesOfType.map(c => ({ id: c.id, name: c.name, type: c.type }))
+                  })
+                  
+                  // Para gastos, mostrar TODAS las subcategorías de tipo expense
+                  // Para otros tipos, mantener el filtrado por categorías del usuario
+                  // Deduplicar por nombre (el backend puede devolver múltiples instancias
+                  // de la misma subcategoría para diferentes categorías del mismo tipo)
+                  const seenNames = new Set<string>()
+                  const filtered = subcategories.filter(sub => {
+                    // Verificar que la subcategoría pertenece a una categoría del tipo correcto
+                    const belongsToType = userCategoryIds.has(sub.categoryId)
+                    if (!belongsToType) return false
+                    // Solo incluir la primera ocurrencia de cada nombre (deduplicar)
+                    if (seenNames.has(sub.name)) return false
+                    seenNames.add(sub.name)
+                    return true
+                  })
+                  
+                  console.log('[TransactionModal] Subcategorías filtradas:', {
+                    total: subcategories.length,
+                    filtered: filtered.length,
+                    filteredNames: filtered.map(s => s.name)
+                  })
+                  
+                  if (filtered.length === 0 && subcategories.length > 0) {
+                    console.warn('[TransactionModal] ⚠️ No hay subcategorías después del filtrado, pero hay subcategorías disponibles:', {
+                      allSubcategories: subcategories.map(s => ({ name: s.name, categoryId: s.categoryId })),
+                      userCategoryIds: Array.from(userCategoryIds)
+                    })
+                  }
+                  
+                  return filtered.map(sub => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.icon} {sub.name}
+                    </option>
+                  ))
+                })()}
+              </select>
+            </div>
 
             {/* Tipo de gasto (solo para gastos) */}
             {type === 'expense' && (
