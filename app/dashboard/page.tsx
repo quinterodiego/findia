@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, PieChart, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Menu, Users } from 'lucide-react'
+import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, PieChart, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Menu, Users, Calendar } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartPieChart, Pie, Cell } from 'recharts'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
@@ -63,7 +63,7 @@ interface TransactionData {
   dueDate?: string
   priority?: 'high' | 'medium' | 'low'
   // Campos para préstamos con cuotas
-  totalInstallments?: number
+totalInstallments?: number
   remainingInstallments?: number
   paymentMethod?: 'automatic' | 'manual' | 'transfer'
   // Campos específicos para metas
@@ -141,6 +141,7 @@ export default function Dashboard() {
   const [showCreditCardModal, setShowCreditCardModal] = useState(false)
   const [showCreditCardCenter, setShowCreditCardCenter] = useState(false)
   const [showFixedExpensesTable, setShowFixedExpensesTable] = useState(false)
+  const [budgetMonthOffset, setBudgetMonthOffset] = useState(0) // 0 = mes actual, 1 = próximo mes
   const [debtPayments, setDebtPayments] = useState<Payment[]>([])
   const [showCreditCardConsumptionModal, setShowCreditCardConsumptionModal] = useState(false)
   const [showCreditCardPaymentModal, setShowCreditCardPaymentModal] = useState(false)
@@ -267,7 +268,7 @@ export default function Dashboard() {
     loading: fixedExpensesLoading,
     totalAmount: totalFixedAmount,
     totalPaid: totalFixedPaid,
-  } = useFixedExpenses(expenses, debts, debtPayments);
+  } = useFixedExpenses(expenses, debts, debtPayments, budgetMonthOffset);
 
   // Evitar dobles cargas (StrictMode/dev y re-hidratación de sesión)
   const hasLoadedRef = useRef(false)
@@ -1538,20 +1539,52 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Presupuesto
+                    Presupuesto {budgetMonthOffset === 0 
+                      ? new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() + 
+                        new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).slice(1)
+                      : (() => {
+                          const nextMonth = new Date();
+                          nextMonth.setMonth(nextMonth.getMonth() + 1);
+                          return nextMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() + 
+                                 nextMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).slice(1);
+                        })()}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Vista consolidada de tus gastos fijos recurrentes
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowFixedExpensesTable(true)}
-                className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-lg hover:from-indigo-600 hover:to-violet-600 transition-all font-medium text-sm flex items-center gap-2"
-              >
-                <TrendingUp className="w-4 h-4" />
-                Ver Tabla Completa
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <select
+                    value={budgetMonthOffset}
+                    onChange={(e) => setBudgetMonthOffset(Number(e.target.value))}
+                    className="bg-transparent border-0 focus:ring-0 focus:outline-none text-sm font-medium cursor-pointer text-indigo-700 dark:text-indigo-300"
+                    aria-label="Seleccionar mes del presupuesto"
+                  >
+                    <option value={0}>
+                      {new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() + 
+                       new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).slice(1)}
+                    </option>
+                    <option value={1}>
+                      {(() => {
+                        const nextMonth = new Date();
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        return nextMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() + 
+                               nextMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).slice(1);
+                      })()}
+                    </option>
+                  </select>
+                </div>
+                <button
+                  onClick={() => setShowFixedExpensesTable(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-lg hover:from-indigo-600 hover:to-violet-600 transition-all font-medium text-sm flex items-center gap-2"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  Ver Tabla Completa
+                </button>
+              </div>
             </div>
             
             {/* Resumen rápido */}
@@ -2050,6 +2083,8 @@ export default function Dashboard() {
         onSave={handleSaveTransaction}
         loading={debtsLoading}
         editingTransaction={editingIncome}
+        categories={categories}
+        subcategories={subcategories}
       />
 
       {/* Modal de Detalles de Transacción */}
@@ -2575,16 +2610,28 @@ export default function Dashboard() {
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <TrendingUp className="w-6 h-6 text-indigo-600" />
-                {(() => {
-                  const now = new Date();
-                  const monthNames = [
-                    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-                  ];
-                  const month = monthNames[now.getMonth()];
-                  const year = now.getFullYear();
-                  return `Presupuesto ${month} ${year}`;
-                })()}
+                {budgetMonthOffset === 0 
+                  ? (() => {
+                      const now = new Date();
+                      const monthNames = [
+                        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                      ];
+                      const month = monthNames[now.getMonth()];
+                      const year = now.getFullYear();
+                      return `Presupuesto ${month} ${year}`;
+                    })()
+                  : (() => {
+                      const nextMonth = new Date();
+                      nextMonth.setMonth(nextMonth.getMonth() + 1);
+                      const monthNames = [
+                        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+                      ];
+                      const month = monthNames[nextMonth.getMonth()];
+                      const year = nextMonth.getFullYear();
+                      return `Presupuesto ${month} ${year}`;
+                    })()}
               </h2>
               <button
                 onClick={() => setShowFixedExpensesTable(false)}

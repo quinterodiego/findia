@@ -14,6 +14,8 @@ interface TransactionModalProps {
   onSave: (data: any) => Promise<void>;
   loading?: boolean;
   editingTransaction?: any; // Datos de la transacción a editar
+  categories?: Array<{ id: string; name: string; type: string; icon?: string }>;
+  subcategories?: Array<{ id: string; categoryId: string; name: string; icon?: string }>;
 }
 
 const typeConfig = {
@@ -84,12 +86,13 @@ const debtCategories = [
   'Otros'
 ];
 
-export default function TransactionModal({ isOpen, onClose, type, onSave, loading = false, editingTransaction }: TransactionModalProps) {
+export default function TransactionModal({ isOpen, onClose, type, onSave, loading = false, editingTransaction, categories = [], subcategories = [] }: TransactionModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     amount: 0,
     date: new Date().toISOString().split('T')[0],
     category: '',
+    subcategory: '',
     notes: '',
     // Campos específicos para deudas
     balance: 0,
@@ -150,7 +153,8 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           name: editingTransaction.name || '',
           amount: editingTransaction.amount || 0,
           date: editingTransaction.date || new Date().toISOString().split('T')[0],
-          category: editingTransaction.category || '',
+          category: editingTransaction.category || editingTransaction.categoryId || '',
+          subcategory: editingTransaction.subcategory || editingTransaction.subcategoryId || '',
           notes: editingTransaction.notes || '',
           balance: editingTransaction.balance || 0,
           interestRate: editingTransaction.interestRate || 0,
@@ -181,6 +185,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           amount: 0,
           date: new Date().toISOString().split('T')[0],
           category: '',
+          subcategory: '',
           notes: '',
           balance: 0,
           interestRate: 0,
@@ -366,20 +371,64 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 aria-label="Seleccionar categoría"
               >
                 <option value="">Seleccionar categoría...</option>
-                {type === 'expense' && expenseCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                {type === 'income' && incomeCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                {type === 'goal' && goalCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                {type === 'debt' && debtCategories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
+                {/* Usar categorías del sistema si están disponibles, sino usar las hardcodeadas */}
+                {categories.length > 0 ? (
+                  categories
+                    .filter(cat => {
+                      if (type === 'expense') return cat.type === 'expense'
+                      if (type === 'income') return cat.type === 'income'
+                      if (type === 'goal') return cat.type === 'saving'
+                      if (type === 'debt') return cat.type === 'expense' // Las deudas usan categorías de expense
+                      return false
+                    })
+                    .map(cat => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.name}
+                      </option>
+                    ))
+                ) : (
+                  <>
+                    {type === 'expense' && expenseCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    {type === 'income' && incomeCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    {type === 'goal' && goalCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    {type === 'debt' && debtCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
+
+            {/* Subcategoría (solo si hay categorías del sistema y subcategorías disponibles) */}
+            {categories.length > 0 && subcategories.length > 0 && formData.category && (
+              <div>
+                <label htmlFor="transaction-subcategory-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Subcategoría (opcional)
+                </label>
+                <select
+                  id="transaction-subcategory-select"
+                  value={formData.subcategory || ''}
+                  onChange={(e) => handleInputChange('subcategory', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  aria-label="Seleccionar subcategoría"
+                >
+                  <option value="">Seleccionar subcategoría...</option>
+                  {subcategories
+                    .filter(sub => sub.categoryId === formData.category)
+                    .map(sub => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.icon} {sub.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
 
             {/* Tipo de gasto (solo para gastos) */}
             {type === 'expense' && (
