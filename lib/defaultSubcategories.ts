@@ -24,6 +24,9 @@ export const DEFAULT_SUBCATEGORIES_BY_TYPE = {
     { name: 'Compras', icon: '🛍️' },
     { name: 'Reparaciones', icon: '🔧' },
     { name: 'Eventos', icon: '🎉' },
+    { name: 'Farmacia', icon: '💊' },
+    { name: 'Viáticos Laborales', icon: '💼' },
+    { name: 'Refrigerios', icon: '☕' },
   ],
   saving: [
     { name: 'Fondo de Emergencia', icon: '🏦' },
