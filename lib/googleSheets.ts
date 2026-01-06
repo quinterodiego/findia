@@ -236,6 +236,7 @@ export async function initializeSheets() {
       'amount',
       'date',
       'category',
+      'subcategoryId',
       'expenseType',
       'notes',
       'isRecurring',
@@ -1004,7 +1005,7 @@ export async function getExpensesByUser(userId: string): Promise<any[]> {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:N`,
+      range: `${SHEETS.EXPENSES}!A2:O`,
     });
     
     const rows = response.data.values || [];
@@ -1017,14 +1018,15 @@ export async function getExpensesByUser(userId: string): Promise<any[]> {
         amount: parseFloat(row[3] || '0'),
         date: row[4],
         category: row[5] || 'other',
-        expenseType: row[6] || 'variable',
-        notes: row[7] || '',
-        isRecurring: row[8] === 'true',
-        frequency: row[9] || 'monthly',
-        createdAt: row[10] || new Date().toISOString(),
-        totalInstallments: row[11] ? parseInt(row[11]) : undefined,
-        currentInstallment: row[12] ? parseInt(row[12]) : undefined,
-        paymentMethod: row[13] || undefined,
+        subcategoryId: row[6] || '',
+        expenseType: row[7] || 'variable',
+        notes: row[8] || '',
+        isRecurring: row[9] === 'true',
+        frequency: row[10] || 'monthly',
+        createdAt: row[11] || new Date().toISOString(),
+        totalInstallments: row[12] ? parseInt(row[12]) : undefined,
+        currentInstallment: row[13] ? parseInt(row[13]) : undefined,
+        paymentMethod: row[14] || undefined,
       }));
     
     return expenses;
@@ -1044,6 +1046,7 @@ export async function createExpense(
     amount: number;
     date: string;
     category?: string;
+    subcategoryId?: string;
     expenseType?: 'fixed' | 'variable' | 'installments';
     notes?: string;
     isRecurring?: boolean;
@@ -1074,6 +1077,7 @@ export async function createExpense(
           newExpense.amount,
           newExpense.date,
           newExpense.category || 'other',
+          newExpense.subcategoryId || '',
           newExpense.expenseType || 'variable',
           newExpense.notes || '',
           newExpense.isRecurring || false,
@@ -1105,6 +1109,7 @@ export async function updateExpense(
     amount: number;
     date: string;
     category?: string;
+    subcategoryId?: string;
     expenseType?: 'fixed' | 'variable' | 'installments';
     notes?: string;
     isRecurring?: boolean;
@@ -1119,7 +1124,7 @@ export async function updateExpense(
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:N`,
+      range: `${SHEETS.EXPENSES}!A2:O`,
     });
     
     const rows = response.data.values || [];
@@ -1146,11 +1151,12 @@ export async function updateExpense(
           expenseData.amount,
           expenseData.date,
           expenseData.category || 'other',
+          expenseData.subcategoryId || '',
           expenseData.expenseType || 'variable',
           expenseData.notes || '',
           expenseData.isRecurring || false,
           expenseData.frequency || 'monthly',
-          existingRow[10] || new Date().toISOString(), // Mantener createdAt original
+          existingRow[11] || new Date().toISOString(), // Mantener createdAt original (ahora en índice 11)
           expenseData.totalInstallments || '',
           expenseData.currentInstallment || '',
           expenseData.paymentMethod || '',
@@ -1181,7 +1187,7 @@ export async function deleteExpense(expenseId: string, userId: string): Promise<
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:N`,
+      range: `${SHEETS.EXPENSES}!A2:O`,
     });
     
     const rows = response.data.values || [];
@@ -1438,7 +1444,7 @@ export async function getSharedExpensesByUser(
     // Obtener gastos de otros usuarios si es necesario
     const allExpensesResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.EXPENSES}!A2:N`,
+      range: `${SHEETS.EXPENSES}!A2:O`,
     });
     const allExpensesRows = allExpensesResponse.data.values || [];
     const allExpensesData = allExpensesRows.map(row => ({
@@ -1448,14 +1454,15 @@ export async function getSharedExpensesByUser(
       amount: parseFloat(row[3] || '0'),
       date: row[4],
       category: row[5] || 'other',
-      expenseType: row[6] || 'variable',
-      notes: row[7] || '',
-      isRecurring: row[8] === 'true',
-      totalInstallments: row[11] ? parseInt(row[11]) : undefined,
-      currentInstallment: row[12] ? parseInt(row[12]) : undefined,
-      paymentMethod: row[13] || undefined,
-      frequency: row[9] || 'monthly',
-      createdAt: row[10] || new Date().toISOString(),
+      subcategoryId: row[6] || '',
+      expenseType: row[7] || 'variable',
+      notes: row[8] || '',
+      isRecurring: row[9] === 'true',
+      totalInstallments: row[12] ? parseInt(row[12]) : undefined,
+      currentInstallment: row[13] ? parseInt(row[13]) : undefined,
+      paymentMethod: row[14] || undefined,
+      frequency: row[10] || 'monthly',
+      createdAt: row[11] || new Date().toISOString(),
     }));
 
     const enrichedExpenses = sharedExpenses.map((se) => {

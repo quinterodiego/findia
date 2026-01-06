@@ -36,6 +36,7 @@ export async function PUT(
       amount: parseFloat(body.amount),
       date: body.date,
       category: body.category || 'other',
+      subcategoryId: body.subcategory || body.subcategoryId || undefined,
       expenseType: body.expenseType || 'variable',
       notes: body.notes || '',
       isRecurring: body.isRecurring || false,
