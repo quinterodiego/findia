@@ -1011,23 +1011,31 @@ export async function getExpensesByUser(userId: string): Promise<any[]> {
     const rows = response.data.values || [];
     const expenses = rows
       .filter(row => row[1] === userId)
-      .map(row => ({
-        id: row[0],
-        userId: row[1],
-        name: row[2],
-        amount: parseFloat(row[3] || '0'),
-        date: row[4],
-        category: row[5] || 'other',
-        subcategoryId: row[6] || '',
-        expenseType: row[7] || 'variable',
-        notes: row[8] || '',
-        isRecurring: row[9] === 'true',
-        frequency: row[10] || 'monthly',
-        createdAt: row[11] || new Date().toISOString(),
-        totalInstallments: row[12] ? parseInt(row[12]) : undefined,
-        currentInstallment: row[13] ? parseInt(row[13]) : undefined,
-        paymentMethod: row[14] || undefined,
-      }));
+      .map(row => {
+        // Filtrar valores "false" o booleanos false en notes
+        let notesValue = row[8] || '';
+        if (notesValue === 'false' || notesValue === false || notesValue === 'FALSE') {
+          notesValue = '';
+        }
+        
+        return {
+          id: row[0],
+          userId: row[1],
+          name: row[2],
+          amount: parseFloat(row[3] || '0'),
+          date: row[4],
+          category: row[5] || 'other',
+          subcategoryId: row[6] || '',
+          expenseType: row[7] || 'variable',
+          notes: notesValue,
+          isRecurring: row[9] === 'true',
+          frequency: row[10] || 'monthly',
+          createdAt: row[11] || new Date().toISOString(),
+          totalInstallments: row[12] ? parseInt(row[12]) : undefined,
+          currentInstallment: row[13] ? parseInt(row[13]) : undefined,
+          paymentMethod: row[14] || undefined,
+        };
+      });
     
     return expenses;
   } catch (error) {
