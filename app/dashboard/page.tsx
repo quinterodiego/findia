@@ -2103,6 +2103,7 @@ export default function Dashboard() {
           setSelectedTransaction(null);
         }}
         transaction={selectedTransaction}
+        subcategories={subcategories}
         onEdit={() => {
           if (selectedTransaction?.type === 'income') {
             setEditingIncome(selectedTransaction);

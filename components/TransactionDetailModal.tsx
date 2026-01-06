@@ -12,6 +12,7 @@ interface TransactionDetailModalProps {
   onDelete: () => void;
   onAddPayment?: () => void;
   onShare?: () => void;
+  subcategories?: Array<{ id: string; categoryId: string; name: string; icon?: string }>;
 }
 
 export default function TransactionDetailModal({ 
@@ -21,7 +22,8 @@ export default function TransactionDetailModal({
   onEdit, 
   onDelete,
   onAddPayment,
-  onShare
+  onShare,
+  subcategories = []
 }: TransactionDetailModalProps) {
   if (!isOpen || !transaction) return null;
 
@@ -141,17 +143,30 @@ export default function TransactionDetailModal({
                 </p>
               </div>
 
-              {transaction.category && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Categoría</p>
+              {(() => {
+                // Buscar la subcategoría por subcategoryId
+                const subcategoryId = transaction.subcategoryId || transaction.subcategory;
+                const subcategory = subcategoryId 
+                  ? subcategories.find(sub => sub.id === subcategoryId)
+                  : null;
+                
+                // Mostrar subcategoría si existe, sino mostrar categoría como fallback
+                const displayValue = subcategory 
+                  ? `${subcategory.icon || ''} ${subcategory.name}`.trim()
+                  : transaction.category || 'Sin categoría';
+                
+                return (subcategory || transaction.category) ? (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Categoría</p>
+                    </div>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {displayValue}
+                    </p>
                   </div>
-                  <p className="font-semibold text-gray-900 dark:text-white capitalize">
-                    {transaction.category}
-                  </p>
-                </div>
-              )}
+                ) : null;
+              })()}
             </div>
 
             {/* Debt Specific Info */}
