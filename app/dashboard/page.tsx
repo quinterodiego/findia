@@ -2032,7 +2032,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         
-                        {transaction.notes && typeof transaction.notes === 'string' && transaction.notes.trim() !== '' && transaction.notes !== 'false' && (
+                        {transaction.notes && (
                           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                             {transaction.notes}
                           </p>
@@ -2390,11 +2390,14 @@ export default function Dashboard() {
                           <div className="text-sm text-gray-600 dark:text-gray-400">
                             {new Date(expense.date).toLocaleDateString('es-AR')}
                           </div>
-                          {(expense as Expense & { notes?: string }).notes && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
-                              {(expense as Expense & { notes?: string }).notes}
-                            </p>
-                          )}
+                          {(() => {
+                            const notes = (expense as Expense & { notes?: string }).notes;
+                            return notes && typeof notes === 'string' && notes.trim() !== '' && notes !== 'false' ? (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
+                                {notes}
+                              </p>
+                            ) : null;
+                          })()}
                         </motion.div>
                       );
                     });
