@@ -222,7 +222,7 @@ export default function TransactionDetailModal({
             )}
 
             {/* Notes */}
-            {transaction.notes && (
+            {transaction.notes && typeof transaction.notes === 'string' && transaction.notes.trim() !== '' && transaction.notes !== 'false' && (
               <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Notas</p>
                 <p className="text-gray-900 dark:text-white">{transaction.notes}</p>

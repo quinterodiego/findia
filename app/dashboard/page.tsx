@@ -2032,7 +2032,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         
-                        {transaction.notes && (
+                        {transaction.notes && typeof transaction.notes === 'string' && transaction.notes.trim() !== '' && transaction.notes !== 'false' && (
                           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                             {transaction.notes}
                           </p>
