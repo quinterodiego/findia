@@ -86,11 +86,20 @@ const debtCategories = [
   'Otros'
 ];
 
+// Función helper para obtener la fecha de hoy en formato YYYY-MM-DD usando la zona horaria local
+const getTodayLocalDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function TransactionModal({ isOpen, onClose, type, onSave, loading = false, editingTransaction, categories = [], subcategories = [] }: TransactionModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayLocalDate(),
     subcategory: '',
     notes: '',
     // Campos específicos para deudas
@@ -151,7 +160,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
         setFormData({
           name: editingTransaction.name || '',
           amount: editingTransaction.amount || 0,
-          date: editingTransaction.date || new Date().toISOString().split('T')[0],
+          date: editingTransaction.date || getTodayLocalDate(),
           subcategory: editingTransaction.subcategory || editingTransaction.subcategoryId || '',
           notes: editingTransaction.notes || '',
           balance: editingTransaction.balance || 0,
@@ -181,7 +190,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
         setFormData({
           name: '',
           amount: 0,
-          date: new Date().toISOString().split('T')[0],
+          date: getTodayLocalDate(),
           subcategory: '',
           notes: '',
           balance: 0,
