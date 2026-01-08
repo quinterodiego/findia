@@ -59,9 +59,23 @@ export default function TransactionDetailModal({
 
   const formatDate = (date: string) => {
     if (!date) return 'No disponible';
+    
+    // Si la fecha viene en formato YYYY-MM-DD, parsearla manualmente para evitar problemas de UTC
+    if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = date.split('-').map(Number);
+      // Crear fecha usando valores locales (month - 1 porque Date usa 0-11 para meses)
+      const dateObj = new Date(year, month - 1, day);
+      return dateObj.toLocaleDateString('es-AR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    
+    // Para otros formatos, intentar parsear normalmente
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) return 'Fecha inválida';
-    return dateObj.toLocaleDateString('es-CO', {
+    return dateObj.toLocaleDateString('es-AR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
