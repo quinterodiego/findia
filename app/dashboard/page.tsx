@@ -2397,7 +2397,19 @@ export default function Dashboard() {
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {new Date(expense.date).toLocaleDateString('es-AR')}
+                            {(() => {
+                              if (!expense.date) return 'Sin fecha';
+                              // Si la fecha viene en formato YYYY-MM-DD, parsearla manualmente para evitar problemas de UTC
+                              if (expense.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                const [year, month, day] = expense.date.split('-').map(Number);
+                                const dateObj = new Date(year, month - 1, day);
+                                return dateObj.toLocaleDateString('es-AR');
+                              }
+                              // Para otros formatos, intentar parsear normalmente
+                              const dateObj = new Date(expense.date);
+                              if (isNaN(dateObj.getTime())) return 'Fecha inválida';
+                              return dateObj.toLocaleDateString('es-AR');
+                            })()}
                           </div>
                           {(() => {
                             const notes = (expense as Expense & { notes?: string }).notes;
