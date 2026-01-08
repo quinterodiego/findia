@@ -2024,6 +2024,15 @@ export default function Dashboard() {
                                   ? (String(transaction.dueDate || transaction.createdAt || transaction.date || ''))
                                   : String(transaction.date || '');
                                 if (!dateToShow) return 'Sin fecha';
+                                
+                                // Si la fecha viene en formato YYYY-MM-DD, parsearla manualmente para evitar problemas de UTC
+                                if (dateToShow.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                  const [year, month, day] = dateToShow.split('-').map(Number);
+                                  const dateObj = new Date(year, month - 1, day);
+                                  return dateObj.toLocaleDateString('es-AR');
+                                }
+                                
+                                // Para otros formatos, intentar parsear normalmente
                                 const dateObj = new Date(dateToShow);
                                 if (isNaN(dateObj.getTime())) return 'Fecha inválida';
                                 return dateObj.toLocaleDateString('es-AR');
