@@ -89,10 +89,24 @@ const debtCategories = [
 // Función helper para obtener la fecha de hoy en formato YYYY-MM-DD usando la zona horaria local
 const getTodayLocalDate = (): string => {
   const now = new Date();
+  // Usar métodos locales para evitar problemas de zona horaria
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const month = now.getMonth() + 1; // getMonth() devuelve 0-11
+  const day = now.getDate();
+  
+  const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  
+  // Debug: verificar que la fecha sea correcta
+  console.log('[TransactionModal] Fecha local calculada:', {
+    fecha: dateString,
+    horaLocal: now.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }),
+    horaUTC: now.toISOString(),
+    getDate: now.getDate(),
+    getMonth: now.getMonth() + 1,
+    getFullYear: now.getFullYear()
+  });
+  
+  return dateString;
 };
 
 export default function TransactionModal({ isOpen, onClose, type, onSave, loading = false, editingTransaction, categories = [], subcategories = [] }: TransactionModalProps) {
@@ -255,7 +269,14 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
     e.preventDefault();
     
     if (!validateForm()) return;
-
+    
+    // Debug: verificar la fecha que se está enviando
+    console.log('[TransactionModal] Enviando datos:', {
+      ...formData,
+      fechaEnviada: formData.date,
+      fechaHoy: getTodayLocalDate()
+    });
+    
     try {
       await onSave(formData);
       onClose();
