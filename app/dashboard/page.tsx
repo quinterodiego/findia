@@ -570,30 +570,6 @@ export default function Dashboard() {
     sessionStatus: status
   })
 
-  // Si no hay sesión, redirigir al login
-  if (status === 'unauthenticated') {
-    router.push('/')
-    return null
-  }
-
-  if (debtsError) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FF3A5F]/5 via-white to-[#FF007A]/5 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-        <div className="text-center p-8">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error al cargar datos</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">{debtsError}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[#FF3A5F] text-white rounded-lg hover:bg-[#FF3A5F]/90 transition-colors cursor-pointer"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   const filteredIncomes = useMemo(() =>
     dateFilter === 'current-month'
       ? incomes.filter(income => {
@@ -675,7 +651,29 @@ export default function Dashboard() {
     }
   }, [filteredIncomes, filteredExpenses, sharedExpensesMap, goals, stats, session?.user?.id])
 
-  // Usar el estado de carga optimizado del hook
+  // Si no hay sesión, redirigir al login
+  if (status === 'unauthenticated') {
+    router.push('/')
+    return null
+  }
+
+  if (debtsError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FF3A5F]/5 via-white to-[#FF007A]/5 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Error al cargar datos</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">{debtsError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-[#FF3A5F] text-white rounded-lg hover:bg-[#FF3A5F]/90 transition-colors cursor-pointer"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // Mostrar pantalla de logout inmediata
   if (isLoggingOut) {
