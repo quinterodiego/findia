@@ -375,6 +375,7 @@ function rowToDebt(row: string[]): Debt {
     paymentMethod: row[15] as 'automatic' | 'manual' | 'transfer' || undefined,
     totalInstallments: row[16] ? parseInt(row[16]) : undefined,
     remainingInstallments: row[17] ? parseInt(row[17]) : undefined,
+    debtType: (row[18] as 'prestamo' | 'tarjeta' | 'credito') || undefined,
   };
 }
 
@@ -401,6 +402,7 @@ function debtToRow(debt: Debt): (string | number)[] {
     debt.paymentMethod || '',
     debt.totalInstallments || '',
     debt.remainingInstallments || '',
+    debt.debtType || '',
   ];
 }
 

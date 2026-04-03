@@ -104,6 +104,7 @@ export interface Debt {
   paymentMethod?: 'automatic' | 'manual' | 'transfer' // Método de pago (DbA/Man/Transf)
   remainingInstallments?: number // Cuotas restantes
   totalInstallments?: number // Total de cuotas originales
+  debtType?: 'prestamo' | 'tarjeta' | 'credito' // Tipo de deuda
 }
 
 export interface CreditCard {

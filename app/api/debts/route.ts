@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
       totalInstallments: body.totalInstallments ? parseInt(body.totalInstallments) : undefined,
       remainingInstallments: body.remainingInstallments ? parseInt(body.remainingInstallments) : undefined,
       paymentMethod: body.paymentMethod || undefined,
+      debtType: body.debtType || undefined,
     });
     
     return NextResponse.json({

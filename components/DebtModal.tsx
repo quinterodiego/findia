@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
+import { X, DollarSign, Calendar, AlertTriangle, CreditCard, Landmark, TrendingUp } from 'lucide-react';
 import type { Debt, Category, Subcategory } from '@/types';
 
 interface DebtModalProps {
@@ -19,6 +19,7 @@ interface DebtModalProps {
     categoryId?: string;
     subcategoryId?: string;
     notes?: string;
+    debtType?: 'prestamo' | 'tarjeta' | 'credito';
   }) => Promise<void>;
   debt?: Debt; // Para edición
   loading?: boolean;
@@ -38,6 +39,7 @@ export default function DebtModal({ isOpen, onClose, onSave, debt, loading = fal
     categoryId: debt?.categoryId || (categories.length > 0 ? categories[0].id : ''),
     subcategoryId: debt?.subcategoryId || '',
     notes: debt?.notes || '',
+    debtType: debt?.debtType || 'prestamo' as 'prestamo' | 'tarjeta' | 'credito',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -175,6 +177,7 @@ export default function DebtModal({ isOpen, onClose, onSave, debt, loading = fal
         categoryId: formData.categoryId,
         subcategoryId: formData.subcategoryId,
         notes: formData.notes.trim(),
+        debtType: formData.debtType,
       });
       
       onClose();
@@ -235,6 +238,35 @@ export default function DebtModal({ isOpen, onClose, onSave, debt, loading = fal
 
             {/* Content */}
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              {/* Tipo de deuda */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Tipo de deuda
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'prestamo', label: 'Préstamo', Icon: Landmark, desc: 'Cuotas fijas' },
+                    { value: 'tarjeta', label: 'Tarjeta', Icon: CreditCard, desc: 'Crédito revolvente' },
+                    { value: 'credito', label: 'Crédito', Icon: TrendingUp, desc: 'Línea de crédito' },
+                  ] as const).map(({ value, label, Icon, desc }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => handleInputChange('debtType', value)}
+                      className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 transition-all cursor-pointer ${
+                        formData.debtType === value
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-sm font-semibold">{label}</span>
+                      <span className="text-xs opacity-70">{desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Categoría */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -20,18 +20,21 @@ import TransactionModal from '@/components/TransactionModal'
 import TransactionDetailModal from '@/components/TransactionDetailModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import PaymentModal from '@/components/PaymentModal'
-import ExportModal from '@/components/ExportModal'
+import dynamic from 'next/dynamic'
 import QuickExport from '@/components/QuickExport'
-import ExpenseTemplateModal from '@/components/ExpenseTemplateModal'
 import CreditCardModal from '@/components/CreditCardModal'
-import CreditCardCenter from '@/components/CreditCardCenter'
-import CreditCardConsumptionModal from '@/components/CreditCardConsumptionModal'
-import CreditCardPaymentModal from '@/components/CreditCardPaymentModal'
-import InterestCalculatorModal from '@/components/InterestCalculatorModal'
-import CreditCardProjectionModal from '@/components/CreditCardProjectionModal'
-import CreditCardAlertsModal from '@/components/CreditCardAlertsModal'
-import CreditCardRecommendationsModal from '@/components/CreditCardRecommendationsModal'
-import CreditCardReportsModal from '@/components/CreditCardReportsModal'
+
+// Modales pesados: cargados sólo cuando se abren por primera vez
+const ExportModal = dynamic(() => import('@/components/ExportModal'), { ssr: false })
+const ExpenseTemplateModal = dynamic(() => import('@/components/ExpenseTemplateModal'), { ssr: false })
+const CreditCardCenter = dynamic(() => import('@/components/CreditCardCenter'), { ssr: false })
+const CreditCardConsumptionModal = dynamic(() => import('@/components/CreditCardConsumptionModal'), { ssr: false })
+const CreditCardPaymentModal = dynamic(() => import('@/components/CreditCardPaymentModal'), { ssr: false })
+const InterestCalculatorModal = dynamic(() => import('@/components/InterestCalculatorModal'), { ssr: false })
+const CreditCardProjectionModal = dynamic(() => import('@/components/CreditCardProjectionModal'), { ssr: false })
+const CreditCardAlertsModal = dynamic(() => import('@/components/CreditCardAlertsModal'), { ssr: false })
+const CreditCardRecommendationsModal = dynamic(() => import('@/components/CreditCardRecommendationsModal'), { ssr: false })
+const CreditCardReportsModal = dynamic(() => import('@/components/CreditCardReportsModal'), { ssr: false })
 import { SkeletonStats, SkeletonTable } from '@/components/Skeleton'
 import { useLoadingState } from '@/hooks/useLoadingState'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -121,16 +124,15 @@ export default function Dashboard() {
   // Filtro de fecha por defecto: mes actual
   const [dateFilter, setDateFilter] = useState<'current-month' | 'all'>('current-month')
   
-  const getCurrentMonthRange = () => {
+  const currentMonthRange = useMemo(() => {
     const now = new Date()
     const year = now.getFullYear()
     const month = now.getMonth()
-    const startDate = new Date(year, month, 1)
-    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999)
-    return { startDate, endDate }
-  }
-  
-  const currentMonthRange = getCurrentMonthRange()
+    return {
+      startDate: new Date(year, month, 1),
+      endDate: new Date(year, month + 1, 0, 23, 59, 59, 999),
+    }
+  }, [])
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null)
   const [showExpenseBreakdown, setShowExpenseBreakdown] = useState(false)
@@ -358,7 +360,7 @@ export default function Dashboard() {
     }
   }, [showBottomNav])
 
-  const confirmLogout = async () => {
+  const confirmLogout = useCallback(async () => {
     try {
       // Limpiar el flag del toast de bienvenida para mostrarlo en el próximo login
       if (session?.user) {
@@ -370,9 +372,9 @@ export default function Dashboard() {
     setIsLoggingOut(true)
     setShowLogoutModal(false)
     await signOut({ callbackUrl: '/' })
-  }
+  }, [session?.user])
 
-  const handleApplyTemplate = (template: {
+  const handleApplyTemplate = useCallback((template: {
     id: string
     name: string
     amount: number
@@ -399,16 +401,16 @@ export default function Dashboard() {
       expenseType: template.expenseType,
     } as TransactionWithType)
     setShowTransactionModal(true)
-  }
+  }, [])
 
-  const handleSelectCreditCard = (card: { id: string; name: string }) => {
+  const handleSelectCreditCard = useCallback((card: { id: string; name: string }) => {
     setSelectedCreditCard(card)
     setShowCreditCardModal(false)
     setShowCreditCardConsumptionModal(true)
-  }
+  }, [])
 
 
-  const handleShareExpense = async (data: {
+  const handleShareExpense = useCallback(async (data: {
     expenseId: string;
     sharedWithEmail: string;
     splitType: 'equal' | 'percentage' | 'amount';
@@ -439,19 +441,19 @@ export default function Dashboard() {
       console.error('Error compartiendo gasto:', errorMessage);
       info('Error', errorMessage);
     }
-  }
+  }, [info])
 
-  const handleTransactionAction = (type: TransactionType) => {
+  const handleTransactionAction = useCallback((type: TransactionType) => {
     setTransactionType(type)
     setShowTransactionModal(true)
-  }
+  }, [])
 
-  const openConfirmModal = (title: string, message: string, onConfirm: () => void) => {
+  const openConfirmModal = useCallback((title: string, message: string, onConfirm: () => void) => {
     setConfirmConfig({ title, message, onConfirm });
     setShowConfirmModal(true);
-  };
+  }, []);
 
-  const handleSaveTransaction = async (data: TransactionData) => {
+  const handleSaveTransaction = useCallback(async (data: TransactionData) => {
     
     // Si estamos editando
     if (editingIncome) {
@@ -557,7 +559,7 @@ export default function Dashboard() {
         }
         break
     }
-  }
+  }, [editingIncome, transactionType, updateIncome, updateExpense, updateGoal, updateDebt, createDebt, createExpense, createIncome, createGoal])
 
   // Estado de carga optimizado
   const { shouldShowSkeleton } = useLoadingState({
@@ -592,123 +594,86 @@ export default function Dashboard() {
     )
   }
 
-  // Filtrar ingresos y gastos por mes actual si el filtro está activo
-  const filteredIncomes = dateFilter === 'current-month' 
-    ? incomes.filter(income => {
-        const incomeDate = new Date(income.date);
-        return incomeDate >= currentMonthRange.startDate && 
-               incomeDate <= currentMonthRange.endDate;
-      })
-    : incomes;
+  const filteredIncomes = useMemo(() =>
+    dateFilter === 'current-month'
+      ? incomes.filter(income => {
+          const d = new Date(income.date)
+          return d >= currentMonthRange.startDate && d <= currentMonthRange.endDate
+        })
+      : incomes,
+  [incomes, dateFilter, currentMonthRange])
 
-  const filteredExpenses = dateFilter === 'current-month'
-    ? expenses.filter(expense => {
-        const expenseDate = new Date(expense.date);
-        return expenseDate >= currentMonthRange.startDate && 
-               expenseDate <= currentMonthRange.endDate;
-      })
-    : expenses;
+  const filteredExpenses = useMemo(() =>
+    dateFilter === 'current-month'
+      ? expenses.filter(expense => {
+          const d = new Date(expense.date)
+          return d >= currentMonthRange.startDate && d <= currentMonthRange.endDate
+        })
+      : expenses,
+  [expenses, dateFilter, currentMonthRange])
 
-  // Calcular estadísticas financieras completas (usando datos filtrados)
-  const totalIncomes = filteredIncomes.reduce((sum, income) => sum + income.amount, 0);
-  
-  // Crear un mapa de gastos compartidos por expenseId para acceso rápido
-  const sharedExpensesMap = new Map<string, SharedExpense>();
-  sharedExpenses.forEach(se => {
-    const expenseId = typeof se === 'object' && se !== null && 'expenseId' in se ? String(se.expenseId) : '';
-    const status = typeof se === 'object' && se !== null && 'status' in se ? String(se.status) : '';
-    if (expenseId && status === 'accepted') {
-      sharedExpensesMap.set(expenseId, se as unknown as SharedExpense);
+  const sharedExpensesMap = useMemo(() => {
+    const map = new Map<string, SharedExpense>()
+    sharedExpenses.forEach(se => {
+      const expenseId = typeof se === 'object' && se !== null && 'expenseId' in se ? String(se.expenseId) : ''
+      const status = typeof se === 'object' && se !== null && 'status' in se ? String(se.status) : ''
+      if (expenseId && status === 'accepted') {
+        map.set(expenseId, se as unknown as SharedExpense)
+      }
+    })
+    return map
+  }, [sharedExpenses])
+
+  const displayStats = useMemo(() => {
+    const userId = session?.user?.id
+
+    const totalIncomes = filteredIncomes.reduce((sum, income) => sum + income.amount, 0)
+
+    const calcExpenseAmount = (expense: Expense) => {
+      const se = sharedExpensesMap.get(expense.id)
+      if (se) {
+        if (se.ownerUserId === userId) return typeof se.ownerAmount === 'number' ? se.ownerAmount : 0
+        if (se.sharedWithUserId === userId) return typeof se.partnerAmount === 'number' ? se.partnerAmount : 0
+      }
+      return expense.amount
     }
-  });
 
-  // Calcular gastos totales considerando gastos compartidos (usando gastos filtrados)
-  const totalExpenses = filteredExpenses.reduce((sum, expense) => {
-    const sharedExpense = sharedExpensesMap.get(expense.id);
-    
-    if (sharedExpense) {
-      // Si el gasto está compartido y aceptado, usar solo la parte del usuario
-      if (sharedExpense.ownerUserId === session?.user?.id) {
-        // Soy el owner, uso mi parte (ownerAmount)
-        const ownerAmount = typeof sharedExpense.ownerAmount === 'number' ? sharedExpense.ownerAmount : 0;
-        return sum + ownerAmount;
-      } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
-        // Soy el partner, uso mi parte (partnerAmount)
-        const partnerAmount = typeof sharedExpense.partnerAmount === 'number' ? sharedExpense.partnerAmount : 0;
-        return sum + partnerAmount;
-      }
+    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + calcExpenseAmount(e), 0)
+    const totalFixedExpenses = filteredExpenses
+      .filter(e => e.expenseType === 'fixed')
+      .reduce((sum, e) => sum + calcExpenseAmount(e), 0)
+    const totalVariableExpenses = filteredExpenses
+      .filter(e => e.expenseType === 'variable')
+      .reduce((sum, e) => sum + calcExpenseAmount(e), 0)
+
+    const netBalance = totalIncomes - totalExpenses
+    const completedGoals = goals.filter(g => (g.currentAmount || 0) >= g.amount).length
+    const totalGoals = goals.length
+    const totalGoalValue = goals.reduce((sum, g) => sum + g.amount, 0)
+    const totalCurrentValue = goals.reduce((sum, g) => sum + (g.currentAmount || 0), 0)
+    const goalsProgress = totalGoalValue > 0 ? (totalCurrentValue / totalGoalValue) * 100 : 0
+    const averageProgress = totalGoals > 0
+      ? goals.reduce((sum, g) => sum + Math.min((g.currentAmount || 0) / g.amount * 100, 100), 0) / totalGoals
+      : 0
+
+    return {
+      totalIncomes,
+      totalExpenses,
+      totalFixedExpenses,
+      totalVariableExpenses,
+      netBalance,
+      goalsProgress,
+      averageProgress,
+      completedGoals,
+      totalGoals,
+      totalGoalValue,
+      totalCurrentValue,
+      totalBalance: stats?.totalBalance || 0,
+      totalPaid: stats?.totalPaid || 0,
+      progress: stats?.progress || 0,
+      monthlyMinPayment: stats?.monthlyMinPayment || 0,
     }
-    
-    // Si no está compartido o no está aceptado, usar el monto completo
-    return sum + expense.amount;
-  }, 0);
-  
-  const netBalance = totalIncomes - totalExpenses;
-  const completedGoals = goals.filter(goal => (goal.currentAmount || 0) >= goal.amount).length;
-  const totalGoals = goals.length;
-  
-  // Calcular progreso ponderado por valor de meta (más inteligente)
-  const totalGoalValue = goals.reduce((sum, goal) => sum + goal.amount, 0);
-  const totalCurrentValue = goals.reduce((sum, goal) => sum + (goal.currentAmount || 0), 0);
-  const goalsProgress = totalGoalValue > 0 ? (totalCurrentValue / totalGoalValue) * 100 : 0;
-  
-  // Calcular progreso promedio simple (para comparación)
-  const averageProgress = totalGoals > 0 ? 
-    goals.reduce((sum, goal) => sum + Math.min((goal.currentAmount || 0) / goal.amount * 100, 100), 0) / totalGoals : 0;
-  
-  // Calcular gastos fijos y variables considerando gastos compartidos (usando gastos filtrados)
-  const totalFixedExpenses = filteredExpenses
-    .filter(expense => expense.expenseType === 'fixed')
-    .reduce((sum, expense) => {
-      const sharedExpense = sharedExpensesMap.get(expense.id);
-      
-      if (sharedExpense) {
-        // Si el gasto está compartido y aceptado, usar solo la parte del usuario
-        if (sharedExpense.ownerUserId === session?.user?.id) {
-          return sum + sharedExpense.ownerAmount;
-        } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
-          return sum + sharedExpense.partnerAmount;
-        }
-      }
-      
-      return sum + expense.amount;
-    }, 0);
-    
-  const totalVariableExpenses = filteredExpenses
-    .filter(expense => expense.expenseType === 'variable')
-    .reduce((sum, expense) => {
-      const sharedExpense = sharedExpensesMap.get(expense.id);
-      
-      if (sharedExpense) {
-        // Si el gasto está compartido y aceptado, usar solo la parte del usuario
-        if (sharedExpense.ownerUserId === session?.user?.id) {
-          return sum + sharedExpense.ownerAmount;
-        } else if (sharedExpense.sharedWithUserId === session?.user?.id) {
-          return sum + sharedExpense.partnerAmount;
-        }
-      }
-      
-      return sum + expense.amount;
-    }, 0);
-
-  const displayStats = {
-    totalIncomes,
-    totalExpenses,
-    totalFixedExpenses,
-    totalVariableExpenses,
-    netBalance,
-    goalsProgress,
-    averageProgress,
-    completedGoals,
-    totalGoals,
-    totalGoalValue,
-    totalCurrentValue,
-    // Mantener estadísticas de deudas para compatibilidad
-    totalBalance: stats?.totalBalance || 0,
-    totalPaid: stats?.totalPaid || 0,
-    progress: stats?.progress || 0,
-    monthlyMinPayment: stats?.monthlyMinPayment || 0,
-  }
+  }, [filteredIncomes, filteredExpenses, sharedExpensesMap, goals, stats, session?.user?.id])
 
   // Usar el estado de carga optimizado del hook
 
@@ -1642,8 +1607,15 @@ export default function Dashboard() {
 
                   return allTransactions.map((transaction) => {
                     const getTransactionIcon = () => {
+                      if (transaction.type === 'debt') {
+                        switch ((transaction as Debt).debtType) {
+                          case 'prestamo': return '🏦';
+                          case 'tarjeta': return '💳';
+                          case 'credito': return '📈';
+                          default: return '💳';
+                        }
+                      }
                       switch (transaction.type) {
-                        case 'debt': return '💳';
                         case 'income': return '💰';
                         case 'expense': return '💸';
                         case 'goal': return '🎯';
@@ -1662,8 +1634,15 @@ export default function Dashboard() {
                     };
 
                     const getTransactionLabel = () => {
+                      if (transaction.type === 'debt') {
+                        switch ((transaction as Debt).debtType) {
+                          case 'prestamo': return 'Préstamo';
+                          case 'tarjeta': return 'Tarjeta de crédito';
+                          case 'credito': return 'Línea de crédito';
+                          default: return 'Deuda';
+                        }
+                      }
                       switch (transaction.type) {
-                        case 'debt': return 'Deuda';
                         case 'income': return 'Ingreso';
                         case 'expense': return 'Gasto';
                         case 'goal': return 'Meta';
