@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('🚀 Iniciando migración de subcategorías...')
 
     // 1. Obtener todos los usuarios únicos
     const usersResponse = await sheets.spreadsheets.values.get({
@@ -52,7 +51,6 @@ export async function POST(request: NextRequest) {
     const userRows = usersResponse.data.values || []
     const uniqueUserEmails = [...new Set(userRows.map(row => row[1]).filter(Boolean))]
     
-    console.log(`📊 Encontrados ${uniqueUserEmails.length} usuarios únicos`)
 
     // 2. Obtener todas las categorías
     const categoriesResponse = await sheets.spreadsheets.values.get({
@@ -83,7 +81,6 @@ export async function POST(request: NextRequest) {
           }))
 
         if (userExpenseCategories.length === 0) {
-          console.log(`⏭️  Usuario ${userEmail}: Sin categorías de tipo "expense", saltando...`)
           continue
         }
 
@@ -126,7 +123,7 @@ export async function POST(request: NextRequest) {
                 newSubcategory.categoryId,
                 newSubcategory.name,
                 newSubcategory.icon,
-                newSubcategory.isDefault.toString(),
+                (newSubcategory.isDefault ?? false).toString(),
                 newSubcategory.createdAt,
               ])
               userAdded++
@@ -147,10 +144,8 @@ export async function POST(request: NextRequest) {
             },
           })
 
-          console.log(`✅ Usuario ${userEmail}: Agregadas ${userAdded} subcategorías, omitidas ${userSkipped}`)
           totalAdded += userAdded
         } else {
-          console.log(`⏭️  Usuario ${userEmail}: Todas las subcategorías ya existen, omitidas ${userSkipped}`)
         }
 
         results.push({
@@ -168,7 +163,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`✨ Migración completada: ${totalAdded} subcategorías agregadas en total`)
 
     return NextResponse.json({
       success: true,

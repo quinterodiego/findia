@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { 
   getPDFImportTemplate,
   updatePDFImportTemplate,
@@ -16,7 +16,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string; templateId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions as any)
+    const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -29,7 +29,7 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, template }, { status: 200 })
-  } catch (e: any) {
+  } catch (e) {
     console.error('GET template error', e)
     return NextResponse.json({ error: 'Error obteniendo template' }, { status: 500 })
   }
@@ -44,14 +44,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; templateId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions as any)
+    const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { templateId } = await params
     const body = await req.json()
-    const updates: any = {}
+    const updates: Partial<import('@/types').PDFImportTemplate> = {}
 
     if (body.name !== undefined) updates.name = body.name
     if (body.datePattern !== undefined) updates.datePattern = body.datePattern
@@ -73,9 +73,9 @@ export async function PUT(
     )
 
     return NextResponse.json({ success: true, template }, { status: 200 })
-  } catch (e: any) {
+  } catch (e) {
     console.error('PUT template error', e)
-    return NextResponse.json({ error: e.message || 'Error actualizando template' }, { status: 500 })
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error actualizando template' }, { status: 500 })
   }
 }
 
@@ -88,7 +88,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; templateId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions as any)
+    const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -97,9 +97,9 @@ export async function DELETE(
     await deletePDFImportTemplate(templateId, session.user.id as string)
 
     return NextResponse.json({ success: true, message: 'Template eliminado' }, { status: 200 })
-  } catch (e: any) {
+  } catch (e) {
     console.error('DELETE template error', e)
-    return NextResponse.json({ error: e.message || 'Error eliminando template' }, { status: 500 })
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error eliminando template' }, { status: 500 })
   }
 }
 

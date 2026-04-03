@@ -86,7 +86,6 @@ async function createSheetIfNotExists(sheetName: string, headers: string[]) {
       },
     });
     
-    console.log(`Hoja ${sheetName} creada con encabezados`);
   }
 }
 
@@ -151,7 +150,6 @@ export async function initializeSheets() {
       
       // Si tiene headers antiguos (sin password o con estructura vieja)
       if (!currentHeaders.includes('password')) {
-        console.log('🔄 Migrando hoja Users a nuevo formato...');
         
         // Leer todas las filas
         const allRowsResponse = await sheets.spreadsheets.values.get({
@@ -171,7 +169,6 @@ export async function initializeSheets() {
               values: [['id', 'email', 'password', 'name', 'image', 'createdAt', 'lastLogin']]
             }
           });
-          console.log('✅ Headers actualizados en hoja Users');
           return;
         }
         
@@ -179,11 +176,9 @@ export async function initializeSheets() {
         const oldHeaders = rows[0] || [];
         const dataRows = rows.slice(1);
         
-        console.log('📋 Headers antiguos:', oldHeaders);
-        console.log('📊 Filas de datos:', dataRows.length);
         
         // Crear mapa de índices de columnas viejas
-        const columnIndexes: any = {};
+        const columnIndexes: Record<string, number> = {};
         oldHeaders.forEach((header, index) => {
           const lowerHeader = header?.toString().toLowerCase() || '';
           
@@ -196,7 +191,6 @@ export async function initializeSheets() {
           if (lowerHeader.includes('login') || lowerHeader.includes('admin')) columnIndexes.lastLogin = index;
         });
         
-        console.log('🗺️ Mapeo de columnas:', columnIndexes);
         
         // Crear datos migrados
         const migratedRows = dataRows.map(row => [
@@ -222,10 +216,8 @@ export async function initializeSheets() {
           }
         });
         
-        console.log('✅ Hoja Users migrada correctamente con', migratedRows.length, 'usuarios');
       }
     } catch (error) {
-      console.log('ℹ️ Error en migración o hoja Users ya tiene formato correcto:', error);
     }
     
     // Crear hoja de Expenses
@@ -342,7 +334,6 @@ export async function initializeSheets() {
       'updatedAt',
     ]);
     
-    console.log('✅ Todas las hojas inicializadas correctamente');
     return { success: true };
   } catch (error) {
     console.error('❌ Error inicializando hojas:', error);
@@ -401,10 +392,10 @@ function debtToRow(debt: Debt): (string | number)[] {
     debt.minPayment,
     debt.dueDate,
     debt.priority,
-    debt.status,
-    debt.categoryId,
-    debt.subcategoryId,
-    debt.notes,
+    debt.status || '',
+    debt.categoryId || '',
+    debt.subcategoryId || '',
+    debt.notes || '',
     debt.createdAt,
     debt.updatedAt,
     debt.paymentMethod || '',
@@ -439,8 +430,8 @@ function paymentToRow(payment: Payment): (string | number)[] {
     payment.userId,
     payment.amount,
     payment.date,
-    payment.type,
-    payment.notes,
+    payment.type || '',
+    payment.notes || '',
     payment.createdAt,
   ];
 }
@@ -519,7 +510,6 @@ export async function createDebt(
       },
     });
     
-    console.log('✅ Deuda creada:', newDebt.id);
     return newDebt;
   } catch (error) {
     console.error('Error creando deuda:', error);
@@ -568,7 +558,6 @@ export async function updateDebt(
       },
     });
     
-    console.log('✅ Deuda actualizada:', debtId);
     return updatedDebt;
   } catch (error) {
     console.error('Error actualizando deuda:', error);
@@ -626,7 +615,6 @@ export async function deleteDebt(debtId: string, userId: string): Promise<void> 
       },
     });
     
-    console.log('✅ Deuda eliminada:', debtId);
   } catch (error) {
     console.error('Error eliminando deuda:', error);
     throw error;
@@ -691,7 +679,7 @@ export async function createPayment(
     const debt = await getDebtById(debtId, userId);
     if (debt) {
       const newBalance = debt.balance - paymentData.amount;
-      const newStatus: 'active' | 'paid' | 'overdue' = newBalance <= 0 ? 'paid' : debt.status;
+      const newStatus: 'active' | 'paid' | 'overdue' = newBalance <= 0 ? 'paid' : (debt.status ?? 'active');
       
       await updateDebt(debtId, userId, {
         balance: Math.max(0, newBalance),
@@ -699,7 +687,6 @@ export async function createPayment(
       });
     }
     
-    console.log('✅ Pago registrado:', newPayment.id);
     return newPayment;
   } catch (error) {
     console.error('Error creando pago:', error);
@@ -811,7 +798,6 @@ export async function updateDebtStatuses(userId: string): Promise<void> {
       }
     }
     
-    console.log('✅ Estados de deudas actualizados');
   } catch (error) {
     console.error('Error actualizando estados:', error);
     throw error;
@@ -873,11 +859,9 @@ export async function saveUser(user: {
       const headers = headersResponse.data.values?.[0] || [];
       if (!headers.includes('password')) {
         // Ejecutar migración automáticamente
-        console.log('🔄 Ejecutando migración automática de Users...');
         await initializeSheets();
       }
     } catch (migrationError) {
-      console.log('⚠️ No se pudo verificar formato de hoja, continuando...');
     }
     
     const response = await sheets.spreadsheets.values.get({
@@ -919,7 +903,6 @@ export async function saveUser(user: {
           values: [userData],
         },
       });
-      console.log('✅ Usuario creado:', user.email, 'ID:', finalUserId);
     } else {
       // Actualizar usuario existente
       const actualRowNumber = existingUserIndex + 2;
@@ -931,7 +914,6 @@ export async function saveUser(user: {
           values: [userData],
         },
       });
-      console.log('✅ Usuario actualizado:', user.email, 'ID:', finalUserId);
     }
     
     // Retornar el ID final para que se use consistentemente
@@ -1001,7 +983,7 @@ export async function registerUser(email: string, password: string, name: string
 /**
  * Obtiene todos los gastos de un usuario
  */
-export async function getExpensesByUser(userId: string): Promise<any[]> {
+export async function getExpensesByUser(userId: string): Promise<any[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -1098,7 +1080,6 @@ export async function createExpense(
       },
     });
     
-    console.log('✅ Gasto creado:', newExpense.id);
     return newExpense;
   } catch (error) {
     console.error('Error creando gasto:', error);
@@ -1128,7 +1109,6 @@ export async function updateExpense(
   }
 ): Promise<any> {
   try {
-    console.log('🔍 updateExpense - Iniciando con:', { expenseId, userId, expenseData });
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -1172,7 +1152,6 @@ export async function updateExpense(
       },
     });
     
-    console.log('✅ Gasto actualizado exitosamente:', expenseId);
     
     return {
       id: expenseId,
@@ -1191,7 +1170,6 @@ export async function updateExpense(
  */
 export async function deleteExpense(expenseId: string, userId: string): Promise<void> {
   try {
-    console.log('🔍 deleteExpense - Iniciando con:', { expenseId, userId });
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -1225,7 +1203,6 @@ export async function deleteExpense(expenseId: string, userId: string): Promise<
       },
     });
     
-    console.log('✅ Gasto eliminado exitosamente:', expenseId);
   } catch (error) {
     console.error('❌ Error en deleteExpense:', error);
     throw error;
@@ -1362,10 +1339,8 @@ export async function createSharedExpense(
         frequency: expense.frequency,
       });
     } catch (err) {
-      console.log('No se pudo actualizar el gasto como compartido:', err);
     }
 
-    console.log('✅ Gasto compartido creado:', newSharedExpense.id);
     return newSharedExpense;
   } catch (error) {
     console.error('Error creando gasto compartido:', error);
@@ -1544,7 +1519,6 @@ export async function acceptSharedExpense(
       },
     });
 
-    console.log('✅ Gasto compartido aceptado:', sharedExpenseId);
   } catch (error) {
     console.error('Error aceptando gasto compartido:', error);
     throw error;
@@ -1588,7 +1562,6 @@ export async function rejectSharedExpense(
       },
     });
 
-    console.log('✅ Gasto compartido rechazado:', sharedExpenseId);
   } catch (error) {
     console.error('Error rechazando gasto compartido:', error);
     throw error;
@@ -1652,7 +1625,6 @@ export async function cancelSharedExpense(
           ],
         },
       });
-      console.log('✅ Gasto compartido cancelado (estaba pendiente):', sharedExpenseId);
     } else if (status === 'accepted') {
       // Si está aceptado, cambiar el estado a 'cancellation_requested'
       await sheets.spreadsheets.values.update({
@@ -1663,7 +1635,6 @@ export async function cancelSharedExpense(
           values: [['cancellation_requested']],
         },
       });
-      console.log('✅ Solicitud de cancelación enviada (estaba aceptado):', sharedExpenseId);
     } else {
       throw new Error('No se puede cancelar un gasto en este estado');
     }
@@ -1732,7 +1703,6 @@ export async function confirmCancelSharedExpense(
       },
     });
 
-    console.log('✅ Cancelación de gasto compartido confirmada:', sharedExpenseId);
   } catch (error) {
     console.error('Error confirmando cancelación de gasto compartido:', error);
     throw error;
@@ -1789,7 +1759,6 @@ export async function rejectCancelSharedExpense(
       },
     });
 
-    console.log('✅ Cancelación de gasto compartido rechazada, restaurado a aceptado:', sharedExpenseId);
   } catch (error) {
     console.error('Error rechazando cancelación de gasto compartido:', error);
     throw error;
@@ -1850,7 +1819,6 @@ export async function markSharedExpenseAsSettled(
       },
     });
 
-    console.log('✅ Gasto compartido marcado como saldado:', sharedExpenseId);
   } catch (error) {
     console.error('Error marcando gasto compartido como saldado:', error);
     throw error;
@@ -1983,7 +1951,6 @@ export async function createIncome(
   }
 ): Promise<any> {
   try {
-    console.log('🔍 createIncome - Iniciando con:', { userId, incomeData });
     
     const now = new Date().toISOString();
     const newIncome = {
@@ -1993,9 +1960,7 @@ export async function createIncome(
       createdAt: now,
     };
     
-    console.log('📋 Datos del ingreso preparados:', newIncome);
     
-    console.log('📤 Enviando a Google Sheets...');
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEETS.INCOMES}!A2`,
@@ -2016,7 +1981,6 @@ export async function createIncome(
       },
     });
     
-    console.log('✅ Ingreso creado exitosamente en Google Sheets:', newIncome.id);
     return newIncome;
   } catch (error) {
     console.error('❌ Error en createIncome:', error);
@@ -2043,7 +2007,6 @@ export async function updateIncome(
   }
 ): Promise<any> {
   try {
-    console.log('🔍 updateIncome - Iniciando con:', { incomeId, userId, incomeData });
     
     // Obtener todos los ingresos para encontrar la fila
     const response = await sheets.spreadsheets.values.get({
@@ -2060,7 +2023,6 @@ export async function updateIncome(
     
     const actualRowIndex = rowIndex + 2; // +2 porque A2 es la primera fila de datos (A1 son headers)
     
-    console.log('📋 Actualizando fila:', actualRowIndex);
     
     // Actualizar la fila
     await sheets.spreadsheets.values.update({
@@ -2083,7 +2045,6 @@ export async function updateIncome(
       },
     });
     
-    console.log('✅ Ingreso actualizado exitosamente:', incomeId);
     
     return {
       id: incomeId,
@@ -2102,7 +2063,6 @@ export async function updateIncome(
  */
 export async function deleteIncome(incomeId: string, userId: string): Promise<void> {
   try {
-    console.log('🔍 deleteIncome - Iniciando con:', { incomeId, userId });
     
     // Obtener todos los ingresos para encontrar la fila
     const response = await sheets.spreadsheets.values.get({
@@ -2119,7 +2079,6 @@ export async function deleteIncome(incomeId: string, userId: string): Promise<vo
     
     const actualRowIndex = rowIndex + 2; // +2 porque A2 es la primera fila de datos
     
-    console.log('🗑️ Eliminando fila:', actualRowIndex);
     
     // Eliminar la fila
     await sheets.spreadsheets.batchUpdate({
@@ -2140,7 +2099,6 @@ export async function deleteIncome(incomeId: string, userId: string): Promise<vo
       },
     });
     
-    console.log('✅ Ingreso eliminado exitosamente:', incomeId);
   } catch (error) {
     console.error('❌ Error en deleteIncome:', error);
     throw error;
@@ -2240,7 +2198,6 @@ export async function createGoal(
       },
     });
     
-    console.log('✅ Meta creada:', newGoal.id);
     return newGoal;
   } catch (error) {
     console.error('Error creando meta:', error);
@@ -2265,7 +2222,6 @@ export async function updateGoal(
   }
 ): Promise<any> {
   try {
-    console.log('🔍 updateGoal - Iniciando con:', { goalId, userId, goalData });
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -2301,7 +2257,6 @@ export async function updateGoal(
       },
     });
     
-    console.log('✅ Meta actualizada exitosamente:', goalId);
     
     return {
       id: goalId,
@@ -2320,7 +2275,6 @@ export async function updateGoal(
  */
 export async function deleteGoal(goalId: string, userId: string): Promise<void> {
   try {
-    console.log('🔍 deleteGoal - Iniciando con:', { goalId, userId });
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -2354,7 +2308,6 @@ export async function deleteGoal(goalId: string, userId: string): Promise<void> 
       },
     });
     
-    console.log('✅ Meta eliminada exitosamente:', goalId);
   } catch (error) {
     console.error('❌ Error en deleteGoal:', error);
     throw error;
@@ -2373,7 +2326,6 @@ export async function getCreditCardsByUser(userId: string): Promise<CreditCard[]
     // Verificar si la hoja existe antes de intentar leerla
     const exists = await sheetExists(SHEETS.CREDIT_CARDS);
     if (!exists) {
-      console.log('Hoja CreditCards no existe, devolviendo array vacío');
       return [];
     }
 
@@ -2405,7 +2357,6 @@ export async function getCreditCardsByUser(userId: string): Promise<CreditCard[]
   } catch (error: any) {
     // Si el error es que la hoja no existe, devolver array vacío en lugar de fallar
     if (error?.code === 400 && error?.message?.includes('Unable to parse range')) {
-      console.log('Hoja CreditCards no existe aún, devolviendo array vacío');
       return [];
     }
     console.error('Error obteniendo tarjetas de crédito:', error);
@@ -2491,7 +2442,6 @@ export async function createCreditCard(
       },
     });
     
-    console.log('✅ Tarjeta de crédito creada:', newCard.id);
     return newCard;
   } catch (error) {
     console.error('Error creando tarjeta de crédito:', error);
@@ -2578,7 +2528,6 @@ export async function updateCreditCard(
       },
     });
     
-    console.log('✅ Tarjeta de crédito actualizada:', cardId);
     return updatedCard;
   } catch (error) {
     console.error('Error actualizando tarjeta de crédito:', error);
@@ -2636,7 +2585,6 @@ async function deleteCreditCardConsumptions(cardId: string, userId: string): Pro
       },
     });
     
-    console.log(`✅ ${matchingRows.length} consumos eliminados para tarjeta:`, cardId);
   } catch (error) {
     console.error('Error eliminando consumos de tarjeta:', error);
     // No lanzar el error, solo loguear
@@ -2693,7 +2641,6 @@ async function deleteCreditCardPayments(cardId: string, userId: string): Promise
       },
     });
     
-    console.log(`✅ ${matchingRows.length} pagos eliminados para tarjeta:`, cardId);
   } catch (error) {
     console.error('Error eliminando pagos de tarjeta:', error);
     // No lanzar el error, solo loguear
@@ -2750,7 +2697,6 @@ async function deleteCreditCardTemplates(cardId: string, userId: string): Promis
       },
     });
     
-    console.log(`✅ ${matchingRows.length} templates eliminados para tarjeta:`, cardId);
   } catch (error) {
     console.error('Error eliminando templates de tarjeta:', error);
     // No lanzar el error, solo loguear
@@ -2763,7 +2709,6 @@ async function deleteCreditCardTemplates(cardId: string, userId: string): Promis
 export async function deleteCreditCard(cardId: string, userId: string): Promise<void> {
   try {
     // Primero eliminar todos los datos relacionados
-    console.log(`🗑️ Iniciando eliminación de tarjeta ${cardId} y todos sus datos relacionados...`);
     
     await deleteCreditCardConsumptions(cardId, userId);
     await deleteCreditCardPayments(cardId, userId);
@@ -2807,7 +2752,6 @@ export async function deleteCreditCard(cardId: string, userId: string): Promise<
       },
     });
     
-    console.log('✅ Tarjeta de crédito eliminada completamente:', cardId);
   } catch (error) {
     console.error('Error eliminando tarjeta de crédito:', error);
     throw error;
@@ -2883,10 +2827,8 @@ export async function createCreditCardPayment(
         });
       }
     } catch (err) {
-      console.log('No se pudo actualizar el balance de la tarjeta (puede que la hoja no exista aún):', err);
     }
     
-    console.log('✅ Pago de tarjeta registrado:', newPayment.id);
     return newPayment;
   } catch (error) {
     console.error('Error registrando pago de tarjeta:', error);
@@ -3067,7 +3009,6 @@ export async function createCreditCardConsumption(
       },
     });
     
-    console.log('✅ Consumo de tarjeta registrado:', newConsumption.id);
     return newConsumption;
   } catch (error) {
     console.error('Error registrando consumo de tarjeta:', error);
@@ -3191,12 +3132,6 @@ export async function updateCreditCardConsumption(
       },
     });
     
-    console.log('✅ Consumo de tarjeta actualizado:', consumptionId);
-    console.log('[updateCreditCardConsumption] Valores guardados:', {
-      montoPesos: finalMontoPesos,
-      montoUSD: finalMontoUSD,
-      amount: updated.amount
-    });
     
     // Devolver el objeto con montoPesos y montoUSD explícitamente incluidos
     return {
@@ -3246,9 +3181,9 @@ export async function getPDFImportTemplates(
         installmentsPattern: row[7] || undefined,
         interestKeywords: row[8] ? JSON.parse(row[8]) : undefined,
         feeKeywords: row[9] ? JSON.parse(row[9]) : undefined,
-        dateFormat: row[10] as any || undefined,
-        amountDecimalSeparator: row[11] as any || undefined,
-        amountThousandsSeparator: row[12] as any || undefined,
+        dateFormat: (row[10] as PDFImportTemplate['dateFormat']) || undefined,
+        amountDecimalSeparator: (row[11] as PDFImportTemplate['amountDecimalSeparator']) || undefined,
+        amountThousandsSeparator: (row[12] as PDFImportTemplate['amountThousandsSeparator']) || undefined,
         searchRange: row[13] ? parseInt(row[13]) : undefined,
         skipLines: row[14] ? JSON.parse(row[14]) : undefined,
         createdAt: row[15],
@@ -3403,7 +3338,6 @@ export async function createPDFImportTemplate(
       },
     });
     
-    console.log('✅ Template creado:', newTemplate.id);
     return newTemplate;
   } catch (error) {
     console.error('Error creando template:', error);
@@ -3493,7 +3427,6 @@ export async function updatePDFImportTemplate(
       },
     });
     
-    console.log('✅ Template actualizado:', templateId);
     return updated;
   } catch (error) {
     console.error('Error actualizando template:', error);
@@ -3550,7 +3483,6 @@ export async function deletePDFImportTemplate(
       },
     });
     
-    console.log('✅ Template eliminado:', templateId);
   } catch (error) {
     console.error('Error eliminando template:', error);
     throw error;
@@ -3793,7 +3725,6 @@ export async function saveSmartTemplate(
       });
     }
     
-    console.log('✅ Smart template guardado:', finalTemplate.id);
     return finalTemplate;
   } catch (error) {
     console.error('Error guardando smart template:', error);

@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Income } from '@/types';
+import type { Income } from '@/types';
+
+type IncomeInput = Omit<Income, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
+type IncomeUpdate = Partial<IncomeInput>;
 
 export function useIncomes() {
   const [incomes, setIncomes] = useState<Income[]>([]);
@@ -26,7 +29,7 @@ export function useIncomes() {
     }
   };
 
-  const createIncome = async (incomeData: any) => {
+  const createIncome = async (incomeData: IncomeInput) => {
     try {
       const response = await fetch('/api/incomes', {
         method: 'POST',
@@ -48,7 +51,7 @@ export function useIncomes() {
     }
   };
 
-  const updateIncome = async (incomeId: string, incomeData: any) => {
+  const updateIncome = async (incomeId: string, incomeData: IncomeUpdate) => {
     try {
       const response = await fetch(`/api/incomes/${incomeId}`, {
         method: 'PUT',

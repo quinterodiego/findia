@@ -10,11 +10,9 @@ export function useSubcategories() {
     try {
       setLoading(true)
       setError(null)
-      console.log('[useSubcategories] Iniciando fetch de subcategorías...')
       
       const response = await fetch('/api/subcategories')
       
-      console.log('[useSubcategories] Response status:', response.status, response.statusText)
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }))
@@ -23,13 +21,8 @@ export function useSubcategories() {
       }
 
       const data = await response.json()
-      console.log('[useSubcategories] Subcategorías cargadas:', {
-        count: Array.isArray(data) ? data.length : 0,
-        data: Array.isArray(data) ? data.slice(0, 3) : data // Mostrar solo las primeras 3 para no saturar
-      })
       
       if (!Array.isArray(data)) {
-        console.warn('[useSubcategories] ⚠️ La respuesta no es un array:', data)
         setSubcategories([])
         return
       }
@@ -68,7 +61,6 @@ export function useSubcategories() {
 
         const newSubcategory = await response.json()
         setSubcategories((prev) => [...prev, newSubcategory])
-        console.log('Subcategoría creada:', newSubcategory)
         return newSubcategory
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Error desconocido'

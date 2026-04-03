@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { updateDebt, deleteDebt } from '@/lib/googleSheets';
 
 /**
@@ -35,12 +35,11 @@ export async function PUT(
       name: body.name,
       amount: parseFloat(body.amount),
       balance: parseFloat(body.balance) || parseFloat(body.amount),
-      date: body.date,
       dueDate: body.dueDate || body.date,
       interestRate: body.interestRate || 0,
       minPayment: body.minPayment || 0,
       priority: body.priority || 'medium',
-      category: body.category || 'other',
+      categoryId: body.category || body.categoryId || '',
       notes: body.notes || '',
       totalInstallments: body.totalInstallments ? parseInt(body.totalInstallments) : undefined,
       remainingInstallments: body.remainingInstallments ? parseInt(body.remainingInstallments) : undefined,

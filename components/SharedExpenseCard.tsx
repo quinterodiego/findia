@@ -8,12 +8,12 @@ import type { SharedExpense } from '@/types';
 interface SharedExpenseCardProps {
   sharedExpense: SharedExpense;
   currentUserId: string;
-  onAccept?: (id: string) => Promise<void>;
-  onReject?: (id: string) => Promise<void>;
-  onCancel?: (id: string) => Promise<void>;
-  onConfirmCancel?: (id: string) => Promise<void>;
-  onRejectCancel?: (id: string) => Promise<void>;
-  onSettle?: (id: string) => Promise<void>;
+  onAccept?: (id: string) => Promise<void> | void;
+  onReject?: (id: string) => Promise<void> | void;
+  onCancel?: (id: string) => Promise<void> | void;
+  onConfirmCancel?: (id: string) => Promise<void> | void;
+  onRejectCancel?: (id: string) => Promise<void> | void;
+  onSettle?: (id: string) => Promise<void> | void;
   formatCurrency: (amount: number) => string;
 }
 
@@ -29,7 +29,8 @@ export default function SharedExpenseCard({
   formatCurrency,
 }: SharedExpenseCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const isOwner = sharedExpense.ownerUserId === currentUserId;
   const isPartner = sharedExpense.sharedWithUserId === currentUserId;
   const isPending = sharedExpense.status === 'pending';
@@ -91,41 +92,39 @@ export default function SharedExpenseCard({
     return '';
   };
 
-  const handleAccept = async () => {
-    if (onAccept && isPending && isPartner) {
-      await onAccept(sharedExpense.id);
+  const withSubmit = (fn: () => Promise<void> | void) => async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await fn();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleReject = async () => {
-    if (onReject && isPending && isPartner) {
-      await onReject(sharedExpense.id);
-    }
-  };
+  const handleAccept = withSubmit(async () => {
+    if (onAccept && isPending && isPartner) await onAccept(sharedExpense.id);
+  });
 
-  const handleCancel = async () => {
-    if (onCancel && isOwner && (isPending || isAccepted)) {
-      await onCancel(sharedExpense.id);
-    }
-  };
+  const handleReject = withSubmit(async () => {
+    if (onReject && isPending && isPartner) await onReject(sharedExpense.id);
+  });
 
-  const handleConfirmCancel = async () => {
-    if (onConfirmCancel && isCancellationRequested && isPartner) {
-      await onConfirmCancel(sharedExpense.id);
-    }
-  };
+  const handleCancel = withSubmit(async () => {
+    if (onCancel && isOwner && (isPending || isAccepted)) await onCancel(sharedExpense.id);
+  });
 
-  const handleRejectCancel = async () => {
-    if (onRejectCancel && isCancellationRequested && isPartner) {
-      await onRejectCancel(sharedExpense.id);
-    }
-  };
+  const handleConfirmCancel = withSubmit(async () => {
+    if (onConfirmCancel && isCancellationRequested && isPartner) await onConfirmCancel(sharedExpense.id);
+  });
 
-  const handleSettle = async () => {
-    if (onSettle && isAccepted && !isSettled) {
-      await onSettle(sharedExpense.id);
-    }
-  };
+  const handleRejectCancel = withSubmit(async () => {
+    if (onRejectCancel && isCancellationRequested && isPartner) await onRejectCancel(sharedExpense.id);
+  });
+
+  const handleSettle = withSubmit(async () => {
+    if (onSettle && isAccepted && !isSettled) await onSettle(sharedExpense.id);
+  });
 
   return (
     <motion.div
@@ -241,13 +240,15 @@ export default function SharedExpenseCard({
                   <>
                     <button
                       onClick={handleAccept}
-                      className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium"
+                      disabled={isSubmitting}
+                      className="px-2.5 py-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded text-xs font-medium"
                     >
-                      Aceptar
+                      {isSubmitting ? '...' : 'Aceptar'}
                     </button>
                     <button
                       onClick={handleReject}
-                      className="px-2.5 py-1 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-xs font-medium"
+                      disabled={isSubmitting}
+                      className="px-2.5 py-1 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 rounded text-xs font-medium"
                     >
                       Rechazar
                     </button>
@@ -259,13 +260,15 @@ export default function SharedExpenseCard({
                   <>
                     <button
                       onClick={handleConfirmCancel}
-                      className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-xs font-medium"
+                      disabled={isSubmitting}
+                      className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded text-xs font-medium"
                     >
-                      Confirmar Cancelación
+                      {isSubmitting ? '...' : 'Confirmar Cancelación'}
                     </button>
                     <button
                       onClick={handleRejectCancel}
-                      className="px-2.5 py-1 border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded text-xs font-medium"
+                      disabled={isSubmitting}
+                      className="px-2.5 py-1 border border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50 rounded text-xs font-medium"
                     >
                       Rechazar Cancelación
                     </button>
@@ -276,7 +279,8 @@ export default function SharedExpenseCard({
                 {isOwner && isPending && onCancel && (
                   <button
                     onClick={handleCancel}
-                    className="px-2.5 py-1 border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded text-xs font-medium"
+                    disabled={isSubmitting}
+                    className="px-2.5 py-1 border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 rounded text-xs font-medium"
                   >
                     Cancelar
                   </button>
@@ -288,7 +292,8 @@ export default function SharedExpenseCard({
                     {isOwner && onCancel && (
                       <button
                         onClick={handleCancel}
-                        className="px-2.5 py-1 border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded text-xs font-medium"
+                        disabled={isSubmitting}
+                        className="px-2.5 py-1 border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 disabled:opacity-50 rounded text-xs font-medium"
                       >
                         Solicitar Cancelación
                       </button>
@@ -296,9 +301,10 @@ export default function SharedExpenseCard({
                     {onSettle && (
                       <button
                         onClick={handleSettle}
-                        className="px-2.5 py-1 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded text-xs font-medium"
+                        disabled={isSubmitting}
+                        className="px-2.5 py-1 border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 rounded text-xs font-medium"
                       >
-                        Marcar como Saldado
+                        {isSubmitting ? '...' : 'Marcar como Saldado'}
                       </button>
                     )}
                   </>

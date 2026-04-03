@@ -19,10 +19,10 @@ export async function POST(request: Request) {
       { message: 'Usuario registrado exitosamente', user },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error en registro:', error);
     return NextResponse.json(
-      { error: error.message || 'Error al registrar usuario' },
+      { error: error instanceof Error ? error.message : 'Error al registrar usuario' },
       { status: 400 }
     );
   }

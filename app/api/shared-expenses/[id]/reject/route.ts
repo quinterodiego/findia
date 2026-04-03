@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { rejectSharedExpense, getSharedExpensesByUser } from '@/lib/googleSheets';
 import { sendSharedExpenseRejectedNotification } from '@/lib/email';
 
@@ -25,10 +25,10 @@ export async function PUT(
     const { id } = await params;
     
     // Obtener información del gasto compartido antes de rechazarlo
-    let sharedExpenseData: any = null;
+    let sharedExpenseData: import('@/types').SharedExpense | null = null;
     try {
       const sharedExpenses = await getSharedExpensesByUser(session.user.id);
-      sharedExpenseData = sharedExpenses.find((se: any) => se.id === id);
+      sharedExpenseData = sharedExpenses.find(se => se.id === id);
     } catch (error) {
       console.error('Error obteniendo gasto compartido:', error);
     }
@@ -57,12 +57,12 @@ export async function PUT(
       success: true,
       message: 'Gasto compartido rechazado',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error en PUT /api/shared-expenses/[id]/reject:', error);
     return NextResponse.json(
       { 
         error: 'Error al rechazar gasto compartido',
-        details: error.message || 'Error desconocido',
+        details: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     );

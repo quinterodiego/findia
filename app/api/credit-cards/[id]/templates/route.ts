@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { 
   getPDFImportTemplates, 
   createPDFImportTemplate,
@@ -15,7 +15,7 @@ import {
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions as any)
+    const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const templates = await getPDFImportTemplates(cardId, session.user.id as string)
 
     return NextResponse.json({ success: true, templates }, { status: 200 })
-  } catch (e: any) {
+  } catch (e) {
     console.error('GET templates error', e)
     return NextResponse.json({ error: 'Error obteniendo templates' }, { status: 500 })
   }
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions as any)
+    const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -62,9 +62,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
 
     return NextResponse.json({ success: true, template }, { status: 201 })
-  } catch (e: any) {
+  } catch (e) {
     console.error('POST template error', e)
-    return NextResponse.json({ error: e.message || 'Error creando template' }, { status: 500 })
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error creando template' }, { status: 500 })
   }
 }
 

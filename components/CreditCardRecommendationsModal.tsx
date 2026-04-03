@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Lightbulb, TrendingUp, TrendingDown, Target, DollarSign, CreditCard, Calculator, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react'
+import { X, Lightbulb, TrendingUp, TrendingDown, Target, DollarSign, CreditCard, Calculator, AlertCircle, CheckCircle, ArrowRight, Clock } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
 import { formatCurrency } from '@/lib/formatNumber'
 

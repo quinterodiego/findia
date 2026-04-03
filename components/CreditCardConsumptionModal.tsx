@@ -46,8 +46,6 @@ export default function CreditCardConsumptionModal({
   // Debug: Verificar que categorías y subcategorías se reciben correctamente
   useEffect(() => {
     if (isOpen) {
-      console.log('[CreditCardConsumptionModal] Categorías recibidas:', categories.length, categories)
-      console.log('[CreditCardConsumptionModal] Subcategorías recibidas:', subcategories.length, subcategories)
     }
   }, [isOpen, categories, subcategories])
 
@@ -67,36 +65,22 @@ export default function CreditCardConsumptionModal({
 
   // Filtrar subcategorías basadas en la categoría seleccionada
   const availableSubcategories = useMemo(() => {
-    console.log('[CreditCardConsumptionModal] useMemo - Categoría seleccionada:', formData.category)
-    console.log('[CreditCardConsumptionModal] useMemo - Categorías disponibles:', categories)
-    console.log('[CreditCardConsumptionModal] useMemo - Subcategorías totales:', subcategories)
     
     if (!formData.category || !categories.length || !subcategories.length) {
-      console.log('[CreditCardConsumptionModal] useMemo - Condiciones no cumplidas:', {
-        hasCategory: !!formData.category,
-        hasCategories: !!categories.length,
-        hasSubcategories: !!subcategories.length
-      })
       return []
     }
     
     const selectedCategory = categories.find(cat => cat.name === formData.category)
     if (!selectedCategory) {
-      console.log('[CreditCardConsumptionModal] useMemo - No se encontró categoría seleccionada:', formData.category)
-      console.log('[CreditCardConsumptionModal] useMemo - Categorías disponibles:', categories.map(c => ({ id: c.id, name: c.name })))
       return []
     }
     
-    console.log('[CreditCardConsumptionModal] useMemo - Categoría encontrada:', selectedCategory)
-    console.log('[CreditCardConsumptionModal] useMemo - Filtrando subcategorías por categoryId:', selectedCategory.id)
     
     const filtered = subcategories.filter(sub => {
       const matches = sub.categoryId === selectedCategory.id
-      console.log('[CreditCardConsumptionModal] useMemo - Subcategoría:', sub.name, 'categoryId:', sub.categoryId, 'Matches:', matches)
       return matches
     })
     
-    console.log('[CreditCardConsumptionModal] useMemo - Subcategorías filtradas:', filtered.length, filtered)
     return filtered
   }, [formData.category, categories, subcategories])
 
@@ -146,13 +130,6 @@ export default function CreditCardConsumptionModal({
           montoPesos: c.montoPesos !== undefined && c.montoPesos !== null ? parseFloat(c.montoPesos) : undefined,
           montoUSD: c.montoUSD !== undefined && c.montoUSD !== null ? parseFloat(c.montoUSD) : undefined
         } as any
-        console.log('[loadConsumptions] Consumo cargado:', {
-          id: consumption.id,
-          merchant: consumption.merchant,
-          amount: consumption.amount,
-          montoPesos: consumption.montoPesos,
-          montoUSD: consumption.montoUSD
-        })
         return consumption
       })
       
@@ -344,7 +321,6 @@ export default function CreditCardConsumptionModal({
   }
 
   const handleEditConsumption = (consumption: CreditCardConsumption) => {
-    console.log('[CreditCardConsumptionModal] Editando consumo:', consumption)
     
     setEditingId(consumption.id)
     // Convertir fecha de dd/mm/yyyy a yyyy-mm-dd si es necesario
@@ -373,7 +349,6 @@ export default function CreditCardConsumptionModal({
     const montoUSD = (consumption as any).montoUSD
     const consumptionCurrency = montoUSD && montoUSD > 0 ? 'usd' : 'pesos'
     
-    console.log('[CreditCardConsumptionModal] Editando - montoPesos:', montoPesos, 'montoUSD:', montoUSD, 'currency:', consumptionCurrency)
     
     // Usar monthlyPayment si existe, ya que es la cuota mensual correcta
     // Si monthlyPayment no existe o es 0, usar amount como fallback
@@ -399,7 +374,7 @@ export default function CreditCardConsumptionModal({
       cardName: consumption.cardName || selectedCard?.name || '',
       merchant: consumption.merchant || '',
       amount: monthlyPaymentValue ? formatAmountArgentine(monthlyPaymentValue) : '',
-      currency: consumptionCurrency,
+      currency: consumptionCurrency as 'pesos' | 'usd',
       date: dateValue,
       category: categoryName,
       subcategory: '', // Ya no usamos subcategorías
@@ -407,9 +382,7 @@ export default function CreditCardConsumptionModal({
       description: consumption.description || ''
     }
     
-    console.log('[CreditCardConsumptionModal] Editando - amount original:', consumption.amount, 'monthlyPayment:', consumption.monthlyPayment, 'usando:', monthlyPaymentValue)
     
-    console.log('[CreditCardConsumptionModal] FormData a establecer:', formDataToSet)
     
     setFormData(formDataToSet)
     setShowCreateForm(false)
@@ -979,7 +952,6 @@ export default function CreditCardConsumptionModal({
                                         <select
                                           value={formData.category || ''}
                                           onChange={(e) => {
-                                            console.log('[CreditCardConsumptionModal] Cambio de categoría en edición:', e.target.value)
                                             setFormData(prev => ({ ...prev, category: e.target.value, subcategory: '' }))
                                           }}
                                           className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-pointer"

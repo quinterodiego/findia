@@ -2,12 +2,6 @@ import type { NextConfig } from "next";
 import withPWA from "next-pwa";
 
 const nextConfig: NextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -28,7 +22,7 @@ export default withPWA({
   disable: process.env.NODE_ENV === "development",
   buildExcludes: [
     /routes-manifest\.json$/,
-    ({ asset, compilation }) => {
+    ({ asset }: { asset: { name: string }; compilation: unknown }) => {
       if (asset.name === 'routes-manifest.json') {
         return true
       }

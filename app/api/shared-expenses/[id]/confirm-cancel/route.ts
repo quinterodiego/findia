@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { confirmCancelSharedExpense, getSharedExpensesByUser } from '@/lib/googleSheets';
 
 /**
@@ -30,10 +30,10 @@ export async function PUT(
       success: true,
       message: 'Cancelación confirmada. El gasto compartido ha sido eliminado.',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error confirmando cancelación:', error);
     return NextResponse.json(
-      { error: error.message || 'Error al confirmar la cancelación' },
+      { error: error instanceof Error ? error.message : 'Error al confirmar la cancelación' },
       { status: 500 }
     );
   }

@@ -108,7 +108,7 @@ export function useFixedExpenses(
         .filter(exp => exp.expenseType === 'installments' && exp.totalInstallments && exp.currentInstallment)
         .forEach(expense => {
           // Verificar si ya se pagaron todas las cuotas
-          if (expense.currentInstallment > expense.totalInstallments!) {
+          if (expense.currentInstallment! > expense.totalInstallments!) {
             return; // Ya está completamente pagado
           }
 
@@ -159,18 +159,12 @@ export function useFixedExpenses(
         });
 
       // Procesar préstamos/deudas con cuotas
-      console.log('🔍 Procesando deudas para presupuesto:', debts.length, 'deudas totales');
       const debtsWithInstallments = debts.filter(debt => {
         const hasInstallments = debt.totalInstallments && debt.remainingInstallments !== undefined && debt.remainingInstallments > 0;
         if (!hasInstallments && debt.totalInstallments) {
-          console.log('⚠️ Deuda sin cuotas válidas:', debt.name, {
-            totalInstallments: debt.totalInstallments,
-            remainingInstallments: debt.remainingInstallments
-          });
         }
         return hasInstallments;
       });
-      console.log('✅ Deudas con cuotas válidas:', debtsWithInstallments.length);
       
       debtsWithInstallments.forEach(debt => {
           // Calcular la fecha de vencimiento para el mes objetivo

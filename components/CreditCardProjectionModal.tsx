@@ -135,19 +135,10 @@ export default function CreditCardProjectionModal({
         const data = await response.json()
         if (response.ok && Array.isArray(data.consumptions)) {
           consumptionsMap[card.id] = data.consumptions
-          console.log(`[Proyección] ✅ Consumos cargados para ${card.name}:`, data.consumptions.length, 'consumos')
           if (data.consumptions.length > 0) {
-            console.log('[Proyección] Muestra de consumos:', data.consumptions.slice(0, 3).map((c: CreditCardConsumption) => ({
-              merchant: c.merchant,
-              date: c.date,
-              amount: c.amount,
-              installments: c.installments,
-              currentInstallment: c.currentInstallment
-            })))
           }
         } else {
           consumptionsMap[card.id] = []
-          console.log(`[Proyección] ⚠️ No se encontraron consumos para ${card.name}`)
         }
     } catch (err) {
         console.error(`[Proyección] ❌ Error cargando consumos para tarjeta ${card.id}:`, err)
@@ -170,11 +161,8 @@ export default function CreditCardProjectionModal({
       // Recargar consumos solo si se fuerza (click en "Recalcular") o si no hay consumos cargados
       let consumptionsToUse: Record<string, CreditCardConsumption[]>
       if (forceReload || Object.keys(allConsumptions).length === 0) {
-        console.log('[Proyección] 🔄 Recargando consumos antes de recalcular...')
         consumptionsToUse = await loadAllConsumptions()
-        console.log('[Proyección] ✅ Consumos recargados, calculando proyecciones...')
       } else {
-        console.log('[Proyección] 📊 Usando consumos ya cargados para calcular proyecciones...')
         consumptionsToUse = allConsumptions
       }
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -279,8 +267,6 @@ export default function CreditCardProjectionModal({
           let totalInstallmentsARS = 0
           let totalInstallmentsUSD = 0
 
-          console.log(`[Proyección] 🔍 Calculando cuotas para ${card.name} - Mes: ${monthNames[targetMonth]}/${targetYear}`)
-          console.log(`[Proyección] 📊 Total consumos a analizar: ${consumptions.length}`)
 
           for (const consumption of consumptions) {
             const rawCategory = (consumption.categoryId || '').trim()
@@ -295,17 +281,6 @@ export default function CreditCardProjectionModal({
             
             // Debug: Log detallado para todos los consumos en cuotas o que deberían estar en cuotas
             if (monthOffset === 0 || monthOffset === 1 || hasMultipleInstallments) {
-              console.log(`[Proyección] 🔍 Consumo ${consumption.merchant}:`, {
-                categoryId: rawCategory || '(vacío)',
-                effectiveCategory,
-                installments: consumption.installments,
-                currentInstallment: consumption.currentInstallment || 0,
-                monthlyPayment: consumption.monthlyPayment,
-                amount: consumption.amount,
-                date: consumption.date,
-                willInclude: effectiveCategory === 'Cuotas',
-                forcedCategory: hasMultipleInstallments && rawCategory !== 'Cuotas' ? 'Sí (múltiples cuotas)' : 'No'
-              })
             }
             
             // Solo incluir consumos con categoría "Cuotas"
@@ -340,7 +315,6 @@ export default function CreditCardProjectionModal({
               consumptionMonth = parsedDate.getMonth()
               consumptionYear = parsedDate.getFullYear()
             } else {
-              console.warn(`[Proyección] ⚠️ No se pudo parsear la fecha para consumo en cuotas: ${consumption.date} (${consumption.merchant})`)
               continue
             }
             
@@ -354,16 +328,6 @@ export default function CreditCardProjectionModal({
             
             // Debug detallado
             if (monthOffset === 0 || monthOffset === 1) {
-              console.log(`[Proyección] 📅 Consumo en cuotas ${consumption.merchant}:`, {
-                date: consumption.date,
-                parsed: `${consumptionMonth + 1}/${consumptionYear}`,
-                target: `${targetMonth + 1}/${targetYear}`,
-                monthsDiff,
-                installmentNumber,
-                installments: consumption.installments,
-                currentInstallment: consumption.currentInstallment,
-                monthlyPayment: consumption.monthlyPayment
-              })
             }
             
             // Si la cuota corresponde a este mes o futuro
@@ -414,25 +378,14 @@ export default function CreditCardProjectionModal({
                 totalInstallmentsARS += amountARS
                 totalInstallmentsUSD += amountUSD
                 
-                console.log(`[Proyección] ✅ Cuota agregada: ${consumption.merchant} - Cuota ${effectiveInstallmentNumber}/${consumption.installments} = ${monthlyPayment} (ARS: ${amountARS}, USD: ${amountUSD})${isOverdueButUnpaid ? ' [VENCIDA]' : ''}`)
               } else {
-                console.log(`[Proyección] ⏭️ Cuota ya pagada: ${consumption.merchant} - Cuota ${effectiveInstallmentNumber}/${consumption.installments} (current: ${consumption.currentInstallment || 0})`)
               }
             } else {
               if (monthOffset === 0 || monthOffset === 1) {
-                console.log(`[Proyección] ⏭️ Cuota fuera de rango para mes ${monthNames[targetMonth]}/${targetYear}: ${consumption.merchant}`, {
-                  monthsDiff,
-                  installments: consumption.installments,
-                  currentInstallment: consumption.currentInstallment,
-                  date: consumption.date,
-                  parsedDate: `${consumptionMonth + 1}/${consumptionYear}`,
-                  targetDate: `${targetMonth + 1}/${targetYear}`
-                })
               }
             }
           }
           
-          console.log(`[Proyección] 💰 Total cuotas calculadas para ${card.name} en ${monthNames[targetMonth]}/${targetYear}: ${formatCurrency(totalInstallments)} (${installmentsDetail.length} cuotas)`)
 
           // Calcular nuevos consumos del mes
           // Solo incluir consumos con categoría "Consumo del Mes"
@@ -445,8 +398,6 @@ export default function CreditCardProjectionModal({
           let newConsumptionsUSD = 0
           const consumptionsDetail: Array<{ merchant: string; amount: number; date: string; amountARS?: number; amountUSD?: number }> = []
           
-          console.log(`[Proyección] 🔍 Analizando consumos para ${card.name} - Mes: ${monthNames[targetMonth]}/${targetYear} (offset: ${monthOffset})`)
-          console.log(`[Proyección] 📅 Mes actual del sistema: ${monthNames[currentMonth]}/${currentYear}`)
           
           for (const consumption of consumptions) {
             if (!consumption.date) continue
@@ -456,7 +407,6 @@ export default function CreditCardProjectionModal({
             
             // Debug: Log de categoría
             if (monthOffset === 0) {
-              console.log(`[Proyección] 🔍 Consumo ${consumption.merchant}: categoryId="${rawCategory}" → effective="${effectiveCategory}"`)
             }
             
             // Solo incluir consumos con categoría "Consumo del Mes"
@@ -494,7 +444,6 @@ export default function CreditCardProjectionModal({
               consumptionMonth = parsedDate.getMonth()
               consumptionYear = parsedDate.getFullYear()
             } else {
-              console.warn(`[Proyección] ⚠️ No se pudo parsear la fecha: ${consumption.date} para consumo ${consumption.merchant}`)
               continue
             }
             
@@ -533,14 +482,6 @@ export default function CreditCardProjectionModal({
                   amountUSD
                 })
                 
-                console.log(`[Proyección] ✅ Consumo "Consumo del Mes" agregado: ${consumption.merchant}`, {
-                  date: consumption.date,
-                  parsedDate: `${consumptionMonth + 1}/${consumptionYear}`,
-                  amount: consumption.amount,
-                  installments: consumption.installments ? `${consumption.currentInstallment}/${consumption.installments}` : 'sin cuotas',
-                  isCurrentMonth,
-                  hasNoInstallments
-                })
               }
             } else {
               // Para meses pasados y futuros: contar consumos hechos en ese mes específico
@@ -568,16 +509,10 @@ export default function CreditCardProjectionModal({
                   amountARS,
                   amountUSD
                 })
-                console.log(`[Proyección] ✅ Consumo "Consumo del Mes" agregado para ${card.name} en ${monthNames[targetMonth]}/${targetYear}:`, {
-                  merchant: consumption.merchant,
-                  amount: consumption.amount,
-                  date: consumption.date
-                })
               }
             }
           }
           
-          console.log(`[Proyección] 💰 Total consumos calculados para ${card.name} en ${monthNames[targetMonth]}/${targetYear}: ${formatCurrency(newConsumptions)}`)
 
           // Calcular intereses: verificar primero si hay un valor personalizado para este mes
           const interestKey = `${card.id}-${targetYear}-${targetMonth + 1}`
@@ -808,15 +743,6 @@ export default function CreditCardProjectionModal({
 
           // Debug logs detallados
           if (monthOffset === 0 || monthOffset === 1) {
-            console.log(`[Proyección] 📊 ${card.name} - ${monthNames[targetMonth]}/${targetYear}:`, {
-              previousDebt: formatCurrency(previousDebt),
-              totalInstallments: formatCurrency(totalInstallments),
-              newConsumptions: formatCurrency(newConsumptions),
-              interest: formatCurrency(interest),
-              fixedExpenses: formatCurrency(fixedExpenses),
-              monthlyTotal: formatCurrency(totalInstallments + newConsumptions + interest + fixedExpenses),
-              finalBalance: formatCurrency(previousDebt + totalInstallments + newConsumptions + interest + fixedExpenses)
-            })
           }
 
           // Total del mes = cuotas + consumos nuevos + intereses + gastos fijos

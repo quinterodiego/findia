@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { createSharedExpense, getSharedExpensesByUser, calculateSharedExpenseBalance, getUserByEmail } from '@/lib/googleSheets';
+import { authOptions } from '@/lib/auth';
+import { createSharedExpense, getSharedExpensesByUser } from '@/lib/googleSheets';
 import { sendSharedExpenseNotification } from '@/lib/email';
 
 /**
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       // Obtener el gasto original
       const { getExpensesByUser, getUserByEmail } = await import('@/lib/googleSheets');
       const expenses = await getExpensesByUser(session.user.id);
-      const expense = expenses.find((e: any) => e.id === body.expenseId);
+      const expense = expenses.find(e => e.id === body.expenseId);
       
       // Obtener información del usuario dueño
       const ownerUser = await getUserByEmail(session.user.email || '');
@@ -93,12 +93,12 @@ export async function POST(req: NextRequest) {
       success: true,
       sharedExpense: newSharedExpense,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error en POST /api/shared-expenses:', error);
     return NextResponse.json(
       { 
         error: 'Error al crear gasto compartido',
-        details: error.message || 'Error desconocido',
+        details: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     );

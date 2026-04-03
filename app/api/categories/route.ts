@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { google } from 'googleapis'
 import { createDefaultCategories } from '@/lib/defaultCategories'
 
@@ -29,7 +29,6 @@ export async function GET() {
       )
     }
 
-    console.log('Fetching categories for user:', session.user.email)
     
     // Intentar leer categorías existentes
     try {
@@ -39,7 +38,6 @@ export async function GET() {
       })
 
       const rows = response.data.values || []
-      console.log('Categories sheet exists, found rows:', rows.length)
       
       // Filtrar categorías del usuario actual
       const userCategories = rows
@@ -55,11 +53,9 @@ export async function GET() {
           createdAt: row[7],
         }))
 
-      console.log('User categories found:', userCategories.length)
 
       // Si el usuario no tiene categorías, crear las por defecto
       if (userCategories.length === 0) {
-        console.log('Creating default categories for user:', session.user.email)
         const defaultCategories = createDefaultCategories(session.user.email)
         
         // Insertar categorías por defecto
@@ -70,7 +66,7 @@ export async function GET() {
           cat.color,
           cat.icon,
           cat.type,
-          cat.isDefault.toString(),
+          (cat.isDefault ?? false).toString(),
           new Date().toISOString(),
         ])
         
@@ -83,7 +79,6 @@ export async function GET() {
           },
         })
         
-        console.log('Default categories created successfully')
         
         // Devolver las categorías creadas
         const categories = defaultCategories.map((cat, index) => ({
@@ -102,7 +97,6 @@ export async function GET() {
       // Si la hoja "Categories" no existe, crearla
       const errorMessage = error instanceof Error ? error.message : ''
       if (errorMessage.includes('Unable to parse range') || errorMessage.includes('not found')) {
-        console.log('Categories sheet does not exist, creating it...')
         
         await sheets.spreadsheets.batchUpdate({
           spreadsheetId: SPREADSHEET_ID,
@@ -119,7 +113,6 @@ export async function GET() {
           },
         })
 
-        console.log('Categories sheet created')
 
         // Agregar headers
         await sheets.spreadsheets.values.update({
@@ -131,7 +124,6 @@ export async function GET() {
           },
         })
 
-        console.log('Headers added to Categories sheet')
 
         // Crear categorías por defecto
         const defaultCategories = createDefaultCategories(session.user.email!)
@@ -142,7 +134,7 @@ export async function GET() {
           cat.color,
           cat.icon,
           cat.type,
-          cat.isDefault.toString(),
+          (cat.isDefault ?? false).toString(),
           new Date().toISOString(),
         ])
         
@@ -155,7 +147,6 @@ export async function GET() {
           },
         })
 
-        console.log('Default categories added')
 
         const categories = defaultCategories.map((cat, index) => ({
           id: `cat_${Date.now()}_${index}`,
@@ -222,7 +213,7 @@ export async function POST(request: NextRequest) {
           newCategory.color,
           newCategory.icon,
           newCategory.type,
-          newCategory.isDefault.toString(),
+          (newCategory.isDefault ?? false).toString(),
           newCategory.createdAt,
         ]],
       },

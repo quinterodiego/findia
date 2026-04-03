@@ -45,7 +45,6 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
   const toggleMenu = () => setIsOpen(!isOpen);
 
   const handleAction = (type: 'debt' | 'expense' | 'income' | 'goal') => {
-    console.log('🎯 FloatingActionButton.handleAction llamado con type:', type);
     onAction(type);
     setIsOpen(false);
   };
@@ -91,7 +90,6 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
-                      console.log('🖱️ Botón clickeado:', action.type, action.label);
                       handleAction(action.type);
                     }}
                     className="flex items-center gap-3 group cursor-pointer"

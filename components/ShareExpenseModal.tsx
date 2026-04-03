@@ -36,6 +36,7 @@ export default function ShareExpenseModal({
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState(false);
 
   useEffect(() => {
     if (expense && isOpen) {
@@ -48,6 +49,7 @@ export default function ShareExpenseModal({
       setPartnerAmount(0);
       setNotes('');
       setError('');
+      setEmailError(false);
       
       // Calcular montos por defecto (50/50)
       if (expense.amount > 0) {
@@ -86,6 +88,7 @@ export default function ShareExpenseModal({
 
     if (!sharedWithEmail) {
       setError('Debes ingresar el email del usuario con quien compartir');
+      setEmailError(true);
       return;
     }
 
@@ -195,9 +198,9 @@ export default function ShareExpenseModal({
                     id="shared-email"
                     type="email"
                     value={sharedWithEmail}
-                    onChange={(e) => setSharedWithEmail(e.target.value)}
+                    onChange={(e) => { setSharedWithEmail(e.target.value); setEmailError(false); }}
                     placeholder="usuario@ejemplo.com"
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white ${emailError ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                     required
                   />
                 </div>

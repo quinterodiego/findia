@@ -142,7 +142,7 @@ async function migrateSubcategories() {
                 newSubcategory.categoryId,
                 newSubcategory.name,
                 newSubcategory.icon,
-                newSubcategory.isDefault.toString(),
+                (newSubcategory.isDefault ?? false).toString(),
                 newSubcategory.createdAt,
               ])
               userAdded++

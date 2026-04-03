@@ -46,20 +46,15 @@ const transporter = nodemailer.createTransport({
 
 // Verificar conexión cuando se importa el módulo (solo si hay configuración)
 if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
-  console.log('📧 Inicializando servicio de email...');
-  console.log('   Email configurado:', process.env.EMAIL_USER);
   transporter.verify((error, success) => {
     if (error) {
       console.error('❌ Error en configuración de email:', error);
       console.error('   Detalles:', error.message);
       console.error('   Verifica que EMAIL_USER y EMAIL_PASSWORD estén correctos en .env.local');
     } else {
-      console.log('✅ Servidor de email listo para enviar mensajes');
     }
   });
 } else {
-  console.warn('⚠️  Email no configurado: faltan EMAIL_USER o EMAIL_PASSWORD en variables de entorno');
-  console.warn('   Los emails no se enviarán hasta que configures estas variables');
 }
 
 interface EmailOptions {
@@ -83,7 +78,6 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email enviado:', info.messageId);
     return true;
   } catch (error) {
     console.error('❌ Error enviando email:', error);

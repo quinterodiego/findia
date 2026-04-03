@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { updateCreditCardConsumption, getCreditCardConsumptions } from '@/lib/googleSheets'
 
 /**
@@ -12,7 +12,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; consumptionId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions as any)
+    const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -29,13 +29,6 @@ export async function PUT(
     }
 
     // Actualizar el consumo
-    console.log('[PUT consumption] Body recibido:', {
-      merchant: body.merchant,
-      amount: body.amount,
-      montoPesos: body.montoPesos,
-      montoUSD: body.montoUSD,
-      currency: body.currency
-    })
     
     const updated = await updateCreditCardConsumption(consumptionId, session.user.id as string, {
       merchant: body.merchant,
@@ -51,17 +44,11 @@ export async function PUT(
       montoUSD: body.montoUSD,
     })
 
-    console.log('[PUT consumption] Consumo actualizado:', {
-      id: updated.id,
-      amount: updated.amount,
-      montoPesos: (updated as any).montoPesos,
-      montoUSD: (updated as any).montoUSD,
-    })
 
     return NextResponse.json({ success: true, consumption: updated }, { status: 200 })
-  } catch (e: any) {
+  } catch (e) {
     console.error('PUT consumption error', e)
-    return NextResponse.json({ error: e?.message || 'Error' }, { status: 500 })
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 })
   }
 }
 

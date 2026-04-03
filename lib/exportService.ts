@@ -119,7 +119,6 @@ class ExportService {
         img.src = '/images/logo.png'
       })
     } catch (error) {
-      console.warn('No se pudo cargar el logo:', error)
     }
   }
 

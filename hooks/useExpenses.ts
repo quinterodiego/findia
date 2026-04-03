@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Expense } from '@/types';
+import type { Expense } from '@/types';
+
+type ExpenseInput = Omit<Expense, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
+type ExpenseUpdate = Partial<ExpenseInput>;
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -26,7 +29,7 @@ export function useExpenses() {
     }
   };
 
-  const createExpense = async (expenseData: any) => {
+  const createExpense = async (expenseData: ExpenseInput) => {
     try {
       const response = await fetch('/api/expenses', {
         method: 'POST',
@@ -56,7 +59,7 @@ export function useExpenses() {
     });
   }, []);
 
-  const updateExpense = async (expenseId: string, expenseData: any) => {
+  const updateExpense = async (expenseId: string, expenseData: ExpenseUpdate) => {
     try {
       const response = await fetch(`/api/expenses/${expenseId}`, {
         method: 'PUT',

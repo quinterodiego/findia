@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Goal } from '@/types';
+import type { Goal } from '@/types';
+
+type GoalInput = Omit<Goal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
+type GoalUpdate = Partial<GoalInput>;
 
 export function useGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -26,7 +29,7 @@ export function useGoals() {
     }
   };
 
-  const createGoal = async (goalData: any) => {
+  const createGoal = async (goalData: GoalInput) => {
     try {
       const response = await fetch('/api/goals', {
         method: 'POST',
@@ -56,7 +59,7 @@ export function useGoals() {
     });
   }, []);
 
-  const updateGoal = async (goalId: string, goalData: any) => {
+  const updateGoal = async (goalId: string, goalData: GoalUpdate) => {
     try {
       const response = await fetch(`/api/goals/${goalId}`, {
         method: 'PUT',

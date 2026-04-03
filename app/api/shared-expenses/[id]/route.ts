@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { cancelSharedExpense, getSharedExpensesByUser } from '@/lib/googleSheets';
 import { sendSharedExpenseCancelledNotification } from '@/lib/email';
 
@@ -27,10 +27,10 @@ export async function DELETE(
     const { id } = await params;
     
     // Obtener información del gasto compartido antes de cancelarlo
-    let sharedExpenseData: any = null;
+    let sharedExpenseData: import('@/types').SharedExpense | null = null;
     try {
       const sharedExpenses = await getSharedExpensesByUser(session.user.id);
-      sharedExpenseData = sharedExpenses.find((se: any) => se.id === id);
+      sharedExpenseData = sharedExpenses.find(se => se.id === id);
     } catch (error) {
       console.error('Error obteniendo gasto compartido:', error);
     }
@@ -77,10 +77,10 @@ export async function DELETE(
         ? 'Solicitud de cancelación enviada. El partner debe confirmarla.' 
         : 'Gasto compartido cancelado',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error cancelando gasto compartido:', error);
     return NextResponse.json(
-      { error: error.message || 'Error al cancelar el gasto compartido' },
+      { error: error instanceof Error ? error.message : 'Error al cancelar el gasto compartido' },
       { status: 500 }
     );
   }

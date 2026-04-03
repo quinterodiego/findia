@@ -17,7 +17,6 @@ const sheets = google.sheets({ version: 'v4', auth })
 
 export async function GET() {
   try {
-    console.log('[GET /api/subcategories] Iniciando...')
     const session = await getServerSession()
     
     if (!session?.user?.email) {
@@ -28,7 +27,6 @@ export async function GET() {
       )
     }
 
-    console.log('[GET /api/subcategories] Usuario autenticado:', session.user.email)
 
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID
     const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
@@ -53,7 +51,6 @@ export async function GET() {
       )
     }
 
-    console.log('[GET /api/subcategories] Variables de entorno OK')
 
     // 1. Verificar si existe la hoja "Subcategories"
     let sheetExists = false
@@ -70,7 +67,6 @@ export async function GET() {
 
     // 2. Crear la hoja si no existe
     if (!sheetExists) {
-      console.log('Creando hoja Subcategories...')
       try {
         await sheets.spreadsheets.batchUpdate({
           spreadsheetId,
@@ -100,7 +96,6 @@ export async function GET() {
             values: [['ID', 'UserId', 'CategoryId', 'Name', 'Icon', 'IsDefault', 'CreatedAt']],
           },
         })
-        console.log('Hoja Subcategories creada exitosamente')
       } catch (error) {
         console.error('Error creando hoja Subcategories:', error)
         return NextResponse.json(
@@ -182,17 +177,11 @@ export async function GET() {
     const userSubcategories: Subcategory[] = []
     const processedKeys = new Set<string>() // Para evitar duplicados
 
-    console.log('🔍 Procesando subcategorías globales (SIN filtrar por userId)...')
-    console.log(`   - Total subcategorías en sistema: ${allSubcategories.length}`)
-    console.log(`   - Tipos de categorías del usuario: ${Array.from(userCategoryTypes).join(', ')}`)
-    console.log(`   - Subcategorías agrupadas por tipo: ${Array.from(subcategoriesByType.keys()).join(', ')}`)
 
     for (const [categoryType, uniqueSubcats] of subcategoriesByType.entries()) {
       // Obtener todas las categorías del usuario de este tipo
       const userCategoriesOfType = userCategories.filter(cat => cat.type === categoryType)
       
-      console.log(`   - Tipo "${categoryType}": ${uniqueSubcats.size} subcategorías únicas, ${userCategoriesOfType.length} categorías del usuario`)
-      console.log(`     Subcategorías únicas: ${Array.from(uniqueSubcats.keys()).join(', ')}`)
       
       // Para cada subcategoría única de este tipo
       for (const globalSubcat of uniqueSubcats.values()) {
@@ -208,22 +197,17 @@ export async function GET() {
               id: `${globalSubcat.id}-${userCategory.id}`, // ID único pero determinístico
             })
             processedKeys.add(uniqueKey)
-            console.log(`     ✓ Mapeada "${globalSubcat.name}" (${globalSubcat.icon}) a categoría ${userCategory.id}`)
           }
         }
       }
     }
 
-    console.log(`✅ Total subcategorías mapeadas para el usuario: ${userSubcategories.length}`)
-    console.log(`   Subcategorías por categoría:`)
     userCategories.forEach(cat => {
       const count = userSubcategories.filter(sub => sub.categoryId === cat.id).length
-      console.log(`     - ${cat.id}: ${count} subcategorías`)
     })
 
     // 8. Si el usuario no tiene subcategorías, crear las por defecto
     if (userSubcategories.length === 0) {
-      console.log('Usuario sin subcategorías, creando defaults...')
 
       const defaultSubcategories = createDefaultSubcategories(
         session.user.email, // Mantener por compatibilidad con la función, pero no se usará para filtrar
@@ -238,7 +222,7 @@ export async function GET() {
         subcat.categoryId,
         subcat.name,
         subcat.icon,
-        subcat.isDefault.toString(),
+        (subcat.isDefault ?? false).toString(),
         new Date().toISOString(),
       ])
 
@@ -251,7 +235,6 @@ export async function GET() {
         },
       })
 
-      console.log(`${newRows.length} subcategorías por defecto creadas`)
 
       // Retornar las subcategorías recién creadas
       const createdSubcategories: Subcategory[] = newRows.map(row => ({
@@ -267,10 +250,6 @@ export async function GET() {
       return NextResponse.json(createdSubcategories)
     }
 
-    console.log('[GET /api/subcategories] ✅ Retornando subcategorías:', {
-      total: userSubcategories.length,
-      sample: userSubcategories.slice(0, 3).map(s => ({ name: s.name, categoryId: s.categoryId }))
-    })
     
     return NextResponse.json(userSubcategories)
   } catch (error) {
@@ -359,7 +338,7 @@ export async function POST(request: NextRequest) {
           newSubcategory.categoryId,
           newSubcategory.name,
           newSubcategory.icon,
-          newSubcategory.isDefault.toString(),
+          (newSubcategory.isDefault ?? false).toString(),
           newSubcategory.createdAt,
         ]],
       },

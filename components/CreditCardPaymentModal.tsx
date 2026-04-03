@@ -40,6 +40,7 @@ export default function CreditCardPaymentModal({
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const { success, error } = useToastContext()
+  const [formErrors, setFormErrors] = useState<{ amount?: string; cardId?: string }>({});
 
   // Form state
   const [formData, setFormData] = useState({
@@ -158,10 +159,11 @@ export default function CreditCardPaymentModal({
   }
 
   const handleCreatePayment = async () => {
-    if (!formData.cardId || !formData.amount || !formData.paymentDate) {
-      error('Por favor completa todos los campos obligatorios')
-      return
-    }
+    const errs: { amount?: string; cardId?: string } = {}
+    if (!formData.cardId) errs.cardId = 'Seleccioná una tarjeta'
+    if (!formData.amount) errs.amount = 'El monto es obligatorio'
+    if (Object.keys(errs).length > 0) { setFormErrors(errs); return }
+    setFormErrors({})
 
     try {
       setLoading(true)
@@ -380,10 +382,11 @@ export default function CreditCardPaymentModal({
                       <input
                         type="number"
                         value={formData.amount}
-                        onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        onChange={(e) => { setFormData(prev => ({ ...prev, amount: e.target.value })); setFormErrors(prev => ({ ...prev, amount: undefined })) }}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${formErrors.amount ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                         placeholder="0"
                       />
+                      {formErrors.amount && <p className="mt-1 text-xs text-red-500">{formErrors.amount}</p>}
                     </div>
 
                     <div>

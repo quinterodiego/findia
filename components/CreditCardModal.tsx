@@ -40,6 +40,7 @@ export default function CreditCardModal({
   const [bankSearchQuery, setBankSearchQuery] = useState('')
   const [filteredBanks, setFilteredBanks] = useState(argentineBanks)
   const { success, error } = useToastContext()
+  const [formErrors, setFormErrors] = useState<{ name?: string; bank?: string; limit?: string }>({})
 
   // Form state
   const [formData, setFormData] = useState({
@@ -90,6 +91,7 @@ export default function CreditCardModal({
 
   const handleBankSelect = (bankName: string) => {
     setFormData(prev => ({ ...prev, bank: bankName }))
+    setFormErrors(prev => ({ ...prev, bank: undefined }))
     setShowBankDropdown(false)
     setBankSearchQuery('')
   }
@@ -134,11 +136,17 @@ export default function CreditCardModal({
     }
   }
 
+  const validateForm = () => {
+    const errs: { name?: string; bank?: string; limit?: string } = {}
+    if (!formData.name) errs.name = 'El nombre es obligatorio'
+    if (!formData.bank) errs.bank = 'El banco es obligatorio'
+    if (!formData.limit) errs.limit = 'El límite es obligatorio'
+    setFormErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   const handleCreateCard = async () => {
-    if (!formData.name || !formData.bank || !formData.limit) {
-      error('Por favor completa todos los campos obligatorios')
-      return
-    }
+    if (!validateForm()) return
 
     try {
       setLoading(true)
@@ -168,10 +176,7 @@ export default function CreditCardModal({
   }
 
   const handleEditCard = async () => {
-    if (!editingCard || !formData.name || !formData.bank || !formData.limit) {
-      error('Por favor completa todos los campos obligatorios')
-      return
-    }
+    if (!editingCard || !validateForm()) return
 
     try {
       setLoading(true)
@@ -347,10 +352,11 @@ export default function CreditCardModal({
                       <input
                         type="text"
                         value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        onChange={(e) => { setFormData(prev => ({ ...prev, name: e.target.value })); setFormErrors(prev => ({ ...prev, name: undefined })) }}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${formErrors.name ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                         placeholder="Ej: Visa Platinum, Mastercard Gold..."
                       />
+                      {formErrors.name && <p className="mt-1 text-xs text-red-500">{formErrors.name}</p>}
                     </div>
 
                     <div>
@@ -363,11 +369,12 @@ export default function CreditCardModal({
                           value={formData.bank}
                           onChange={(e) => {
                             setFormData(prev => ({ ...prev, bank: e.target.value }))
+                            setFormErrors(prev => ({ ...prev, bank: undefined }))
                             handleBankSearch(e.target.value)
                             setShowBankDropdown(true)
                           }}
                           onFocus={() => setShowBankDropdown(true)}
-                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                          className={`w-full px-3 py-2 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${formErrors.bank ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                           placeholder="Buscar banco..."
                         />
                         <button
@@ -404,6 +411,7 @@ export default function CreditCardModal({
                           </div>
                         )}
                       </div>
+                      {formErrors.bank && <p className="mt-1 text-xs text-red-500">{formErrors.bank}</p>}
                     </div>
 
                     <div>
@@ -427,10 +435,11 @@ export default function CreditCardModal({
                       <input
                         type="number"
                         value={formData.limit}
-                        onChange={(e) => setFormData(prev => ({ ...prev, limit: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        onChange={(e) => { setFormData(prev => ({ ...prev, limit: e.target.value })); setFormErrors(prev => ({ ...prev, limit: undefined })) }}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${formErrors.limit ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                         placeholder="5000000"
                       />
+                      {formErrors.limit && <p className="mt-1 text-xs text-red-500">{formErrors.limit}</p>}
                     </div>
 
                     <div>

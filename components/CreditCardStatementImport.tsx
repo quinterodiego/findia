@@ -40,12 +40,13 @@ function toDDMMYYYY(date: Date) {
   return `${d}/${m}/${y}`
 }
 
-// Mapeo de meses abreviados en español
+// Mapeo de meses abreviados en español e inglés
 const MONTHS_ABBREV: Record<string, number> = {
+  // Español
   'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
   'jul': 7, 'ago': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dic': 12,
-  'jan': 1, 'fev': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-  'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+  // Inglés (los que no colisionan con español)
+  'jan': 1, 'fev': 2, 'apr': 4, 'aug': 8, 'dec': 12,
 }
 
 // Función para convertir fecha con mes abreviado a dd/mm/yyyy
@@ -79,13 +80,10 @@ const INTEREST_KEYWORDS = /inter[eé]s|inter[eé]s\s*financ|financ|car\.?go\s*fi
 const FEE_KEYWORDS = /comisi[oó]n|mantenimiento|cuota\s*de\s*manejo|anualidad/i
 
 async function extractPdfText(file: File): Promise<string> {
-  console.log('[extractPdfText] Iniciando extracción...')
   
   try {
     // Importación dinámica de pdfjs-dist para Next.js
-    console.log('[extractPdfText] Importando pdfjs-dist...')
     const pdfjsLib = await import('pdfjs-dist')
-    console.log('[extractPdfText] pdfjs-dist importado, versión:', pdfjsLib.version)
     
     // Configurar el worker - usar unpkg (más confiable que cdnjs)
     if (typeof window !== 'undefined') {
@@ -93,32 +91,24 @@ async function extractPdfText(file: File): Promise<string> {
       // Usar unpkg como fuente del worker (más confiable)
       ;(pdfjsLib as any).GlobalWorkerOptions.workerSrc = 
         `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`
-      console.log('[extractPdfText] Worker configurado')
     }
     
-    console.log('[extractPdfText] Convirtiendo archivo a ArrayBuffer...')
     const array = await file.arrayBuffer()
-    console.log('[extractPdfText] ArrayBuffer obtenido, tamaño:', array.byteLength)
     
     // Cargar el PDF con configuración optimizada
-    console.log('[extractPdfText] Cargando PDF...')
     const pdf = await (pdfjsLib as any).getDocument({ 
       data: array,
       verbosity: 0 // Reducir logs
     }).promise
-    console.log('[extractPdfText] PDF cargado, páginas:', pdf.numPages)
     
     let text = ''
     for (let i = 1; i <= pdf.numPages; i++) {
-      console.log(`[extractPdfText] Procesando página ${i}/${pdf.numPages}...`)
       const page = await pdf.getPage(i)
       const content = await page.getTextContent()
       const pageText = content.items.map((it: any) => it.str).join('\n') + '\n'
       text += pageText
-      console.log(`[extractPdfText] Página ${i} procesada, texto extraído: ${pageText.length} caracteres`)
     }
     
-    console.log('[extractPdfText] Extracción completada, texto total:', text.length, 'caracteres')
     return text
   } catch (error: any) {
     console.error('[extractPdfText] ERROR:', error)
@@ -130,12 +120,9 @@ async function extractPdfText(file: File): Promise<string> {
 function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): ParsedLine[] {
   const lines: ParsedLine[] = []
   // VERSIÓN DEL PARSER - Para verificar que se está usando el código actualizado
-  console.log('[PDF Parsing] ✅✅✅ PARSER v3.0 - PARSEO ESPECÍFICO PARA DETALLE DEL CONSUMO ✅✅✅')
   // Dividir en líneas - ser más flexible con espacios y saltos de línea
   const rows = raw.split(/\r?\n+/).map(r => r.trim()).filter(Boolean)
   
-  console.log('[PDF Parsing] Total de líneas extraídas del PDF:', rows.length)
-  console.log('[PDF Parsing] Primeras 30 líneas:', rows.slice(0, 30))
   
   // NUEVA ESTRATEGIA: Buscar específicamente la sección "DETALLE DEL CONSUMO"
   // Esta es la única sección que contiene transacciones reales en formato tabular
@@ -146,14 +133,12 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     const upperRow = rows[i].toUpperCase()
     if (upperRow.includes('DETALLE DEL CONSUMO')) {
       detailStartIndex = i
-      console.log('[PDF Parsing] ✅ Sección DETALLE DEL CONSUMO encontrada en línea', i)
       break
     }
   }
   
   // Si no encontramos la sección, usar el método anterior como fallback
   if (detailStartIndex === -1) {
-    console.log('[PDF Parsing] ⚠️ No se encontró sección DETALLE DEL CONSUMO, usando método anterior')
     return parseByBankLegacy(bank, raw, template)
   }
   
@@ -165,7 +150,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     // Fin de sección si encuentra SUBTOTAL o TOTAL A PAGAR con números
     if ((upperRow.includes('SUBTOTAL') || upperRow.includes('TOTAL A PAGAR')) && /\d+[.,]\d+/.test(rows[i])) {
       detailEndIndex = i
-      console.log('[PDF Parsing] ✅ Fin de sección DETALLE DEL CONSUMO encontrado en línea', i, '(SUBTOTAL/TOTAL)')
       break
     }
     
@@ -181,15 +165,12 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     if (endSectionKeywords.some(keyword => upperRow.includes(keyword))) {
       // Retroceder un poco para asegurarnos de incluir el SUBTOTAL si existe
       detailEndIndex = Math.max(detailStartIndex + 10, i - 5)
-      console.log('[PDF Parsing] ✅ Fin de sección DETALLE DEL CONSUMO encontrado en línea', i, '(sección siguiente)')
       break
     }
   }
   
   // Extraer solo las líneas de la sección DETALLE DEL CONSUMO
   let detailRows = rows.slice(detailStartIndex, detailEndIndex)
-  console.log('[PDF Parsing] Líneas en DETALLE DEL CONSUMO:', detailRows.length)
-  console.log('[PDF Parsing] Primeras 10 líneas de DETALLE:', detailRows.slice(0, 10))
   
   // IMPORTANTE: Guardar el detalleRows ORIGINAL antes de combinarlo (para buscar montos en líneas siguientes)
   const originalDetailRows = [...detailRows]
@@ -283,8 +264,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
   }
   
   detailRows = combinedDetailRows
-  console.log('[PDF Parsing] Líneas después de combinar:', detailRows.length)
-  console.log('[PDF Parsing] Primeras 5 líneas combinadas:', detailRows.slice(0, 5))
   
   // PARSEO ESPECÍFICO PARA FORMATO TABULAR
   // Formato: FECHA DESCRIPCIÓN COMPROBANTE MONTO_PESOS MONTO_DOLARES
@@ -344,7 +323,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     ]
     
     if (noTransactionKeywords.some(keyword => textAfterDate.includes(keyword))) {
-      console.log('[PDF Parsing] ❌ Filtrando no-transacción:', row.substring(0, 80))
       continue
     }
     
@@ -361,30 +339,21 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
       const originalIndex = combinedRowsMapping.get(row) ?? i
       transactionRowsWithIndices.push({ row, originalIndex })
     } else {
-      console.log('[PDF Parsing] ❌ Filtrando línea sin monto/comprobante/descripción:', row.substring(0, 80))
     }
   }
   
   const transactionRows = transactionRowsWithIndices.map(item => item.row)
-  console.log('[PDF Parsing] Líneas de transacción encontradas:', transactionRows.length)
-  console.log('[PDF Parsing] Primeras 5 transacciones:', transactionRows.slice(0, 5))
-  console.log('[PDF Parsing] TODAS las líneas de transacción:', transactionRows)
   
   // Procesar cada línea de transacción con su índice original
   for (let idx = 0; idx < transactionRowsWithIndices.length; idx++) {
     const { row, originalIndex } = transactionRowsWithIndices[idx]
-    console.log('[PDF Parsing] Procesando línea:', row.substring(0, 150))
-    console.log('[PDF Parsing]   Índice en transactionRowsWithIndices:', idx)
-    console.log('[PDF Parsing]   originalIndex:', originalIndex)
     
     const dateMatch = row.match(dateRegex)
     if (!dateMatch) {
-      console.log('[PDF Parsing] ⚠️ No se encontró fecha en línea:', row.substring(0, 100))
       continue
     }
     
     const originalDate = dateMatch[0].trim()
-    console.log('[PDF Parsing] Fecha encontrada:', originalDate)
     let parsedDate = parseDateWithMonth(originalDate)
     
     // Si parseDateWithMonth no funcionó, intentar otros formatos
@@ -407,7 +376,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     }
     
     if (!parsedDate) {
-      console.log('[PDF Parsing] No se pudo parsear fecha:', originalDate)
       continue
     }
     
@@ -418,13 +386,12 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     const dateIndex = dateMatch.index ?? row.indexOf(originalDate)
     
     // Paso 1: Extraer el comprobante (número de 4-5 dígitos separado por espacios, está después de la descripción)
-    let remainingRow = row.substring(dateIndex + originalDate.length).trim()
+    const remainingRow = row.substring(dateIndex + originalDate.length).trim()
     const comprobanteMatch = remainingRow.match(/\s(\d{4,5})(?:\s|$)/)
     let comprobanteEndIndex = 0
     
     if (comprobanteMatch) {
       comprobanteEndIndex = remainingRow.indexOf(comprobanteMatch[0]) + comprobanteMatch[0].length
-      console.log('[PDF Parsing] Comprobante encontrado:', comprobanteMatch[1])
     }
     
     // Paso 2: Extraer descripción (todo entre fecha y comprobante)
@@ -470,7 +437,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         // Si el número es muy grande (más de 100,000) y está en la descripción, probablemente no es un monto
         // Los montos típicos de consumos son menores a 1 millón, y si es mayor probablemente es parte del nombre
         if (largeNum > 100000) {
-          console.log('[PDF Parsing] ⚠️ Número grande encontrado en nombre de comercio, saltando búsqueda en línea completa:', largeNum)
           // No buscar en toda la línea, esperar a buscar en líneas siguientes
         } else {
           // Buscar en toda la línea combinada (row puede tener múltiples líneas ya combinadas)
@@ -500,45 +466,40 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     // Primero filtrar pesosMatches si existen
     if (pesosMatches && pesosMatches.length > 0) {
       const validPesos = pesosMatches.filter(m => {
-        const cleanAmount = typeof m === 'string' ? m.replace(/\./g, '').replace(',', '.') : m.toString().replace(/\./g, '').replace(',', '.')
+        const cleanAmount = m.replace(/\./g, '').replace(',', '.')
         const numericValue = parseFloat(cleanAmount) || 0
         // Filtrar números muy grandes (probablemente parte del nombre del comercio)
         if (numericValue > 1000000) {
-          console.log('[PDF Parsing] ⚠️ Descartando monto sospechoso en pesosMatches (> 1M):', m)
           return false
         }
-        const numericOnly = (typeof m === 'string' ? m : m.toString()).replace(/[.,]/g, '')
-        if (numericOnly.length >= 6 && !(typeof m === 'string' ? m : m.toString()).includes('.')) {
-          console.log('[PDF Parsing] ⚠️ Descartando número grande sin punto miles en pesosMatches:', m)
+        const numericOnly = m.replace(/[.,]/g, '')
+        if (numericOnly.length >= 6 && !m.includes('.')) {
           return false
         }
         return true
       })
-      pesosMatches = validPesos.length > 0 ? validPesos as any : null
+      pesosMatches = validPesos.length > 0 ? validPesos as RegExpMatchArray : null
     }
-    
-    hasValidAmounts = (usdMatches && usdMatches.length > 0) || (pesosMatches && pesosMatches.length > 0)
+
+    hasValidAmounts = !!(
+      (usdMatches && usdMatches.length > 0) ||
+      (pesosMatches && pesosMatches.length > 0)
+    )
     
     // Si aún no encontramos montos válidos, buscar en las líneas siguientes del detalleRows ORIGINAL
     // (En PDFs tabulares, los montos pueden estar en líneas separadas)
     if (!hasValidAmounts) {
       // Usar directamente el originalIndex que ya tenemos del transactionRowsWithIndices[idx]
       if (originalIndex !== undefined && originalIndex >= 0 && originalIndex < originalDetailRows.length - 1) {
-        console.log('[PDF Parsing] 🔍 Buscando montos en líneas siguientes de detalleRows ORIGINAL...')
-        console.log('[PDF Parsing]   Línea actual:', row.substring(0, 120))
-        console.log('[PDF Parsing]   Índice original en originalDetailRows:', originalIndex)
-        console.log('[PDF Parsing]   Total líneas en originalDetailRows:', originalDetailRows.length)
         
         // Buscar en las siguientes 10 líneas (más agresivo para PDFs tabulares)
         let foundAmountsInNextLine = false
         for (let k = originalIndex + 1; k < Math.min(originalIndex + 11, originalDetailRows.length); k++) {
           const nextDetailLine = originalDetailRows[k]
-          console.log('[PDF Parsing]   Línea siguiente', k - originalIndex, '(índice', k, '):', nextDetailLine.substring(0, 120))
           const nextHasDate = dateRegex.test(nextDetailLine)
           
           // Si la siguiente línea tiene fecha, probablemente es otra transacción
           if (nextHasDate && k > originalIndex + 1) {
-            console.log('[PDF Parsing]   Siguiente línea tiene fecha, deteniendo búsqueda')
             break
           }
           
@@ -571,31 +532,24 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
             const cleanAmount = m.replace(/\./g, '').replace(',', '.')
             const numericValue = parseFloat(cleanAmount) || 0
             if (numericValue > 1000000 || (numericOnly.length >= 6 && !m.includes('.') && !m.includes(','))) {
-              console.log('[PDF Parsing] ⚠️ Descartando número grande en línea siguiente (probable parte del nombre):', m)
               return false
             }
             return true
           })
           
-          console.log('[PDF Parsing]   USD matches en línea siguiente:', nextUsdMatches)
-          console.log('[PDF Parsing]   PESOS matches (flexible) en línea siguiente:', nextPesosMatches)
-          console.log('[PDF Parsing]   PESOS matches válidos (sin comprobantes):', validPesosMatches)
           
           if ((nextUsdMatches && nextUsdMatches.length > 0) || validPesosMatches.length > 0) {
             usdMatches = nextUsdMatches
             pesosMatches = validPesosMatches.length > 0 ? validPesosMatches as any : null
             textAfterComprobante = nextDetailLine
             foundAmountsInNextLine = true
-            console.log('[PDF Parsing] ✅ Montos encontrados en línea siguiente del detalle (índice', k, '):', nextDetailLine.substring(0, 100))
             break
           }
         }
         
         if (!foundAmountsInNextLine) {
-          console.log('[PDF Parsing] ⚠️ No se encontraron montos en ninguna línea siguiente (buscadas hasta 10 líneas)')
         }
       } else {
-        console.log('[PDF Parsing] ⚠️ No se puede buscar en líneas siguientes: originalIndex=', originalIndex, 'originalDetailRows.length=', originalDetailRows.length)
       }
     }
     
@@ -639,14 +593,12 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         
         // Si es mayor a 1 millón, probablemente no es un monto válido de consumo
         if (numericValue > 1000000) {
-          console.log('[PDF Parsing] ⚠️ Descartando monto sospechoso (> 1M) en procesamiento final:', m, 'valor:', numericValue)
           return false
         }
         
         // Si es un número de 6+ dígitos sin punto miles (ni coma decimal visible), probablemente es parte del nombre
         const numericOnly = m.replace(/[.,]/g, '')
         if (numericOnly.length >= 6 && !m.includes('.')) {
-          console.log('[PDF Parsing] ⚠️ Descartando número grande sin punto miles (probable parte del nombre):', m)
           return false
         }
         
@@ -665,9 +617,7 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
             })
         const cleanPesos = pesosAmount.replace(/\./g, '').replace(',', '.')
         montoPesos = parseFloat(cleanPesos) || 0
-        console.log('[PDF Parsing] Monto PESOS encontrado:', pesosAmount, '->', montoPesos)
       } else {
-        console.log('[PDF Parsing] ⚠️ Todos los matches de PESOS fueron descartados como sospechosos en procesamiento final')
       }
     }
     
@@ -698,7 +648,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         const usdAmount = validUSDMatches[validUSDMatches.length - 1]
         const cleanUSD = usdAmount.replace(',', '.')
         montoUSD = parseFloat(cleanUSD) || 0
-        console.log('[PDF Parsing] Monto USD encontrado:', usdAmount, '->', montoUSD)
       } else {
         // Si hay matches pero no pasaron el filtro, probablemente son PESOS pequeños sin punto miles
         // Agregarlos a allPesosMatches si no están ya
@@ -709,7 +658,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
           if (numericAmount >= 100 && numericAmount < 1000000) {
             if (!allPesosMatches.includes(match)) {
               allPesosMatches.push(match)
-              console.log('[PDF Parsing] Convertiendo monto de USD a PESOS (>=100):', match)
             }
           }
         }
@@ -741,7 +689,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
       }
     }
     
-    console.log('[PDF Parsing] Descripción final:', description.substring(0, 60))
     
     // Extraer cuotas del formato X/Y (puede estar en la descripción)
     let installments = null
@@ -767,11 +714,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     
     // Solo agregar si hay al menos un monto válido
     if (montoPesos === 0 && montoUSD === 0) {
-      console.log('[PDF Parsing] ⚠️ Saltando transacción sin monto:', originalDate, description.substring(0, 50))
-      console.log('[PDF Parsing]   Línea completa:', row.substring(0, 200))
-      console.log('[PDF Parsing]   Texto después del comprobante:', textAfterComprobante.substring(0, 100))
-      console.log('[PDF Parsing]   USD matches encontrados:', allUsdMatches)
-      console.log('[PDF Parsing]   PESOS matches encontrados:', allPesosMatches)
       continue
     }
     
@@ -788,7 +730,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     })
     
     if (isDuplicate) {
-      console.log('[PDF Parsing] ⚠️ Saltando transacción duplicada:', originalDate, description.substring(0, 50))
       continue
     }
     
@@ -802,11 +743,9 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
       type,
     })
     
-    console.log('[PDF Parsing] ✅ Transacción agregada:', parsedDate, description.substring(0, 40), montoPesos > 0 ? `$${montoPesos.toFixed(2)}` : `U$D${montoUSD.toFixed(2)}`)
   }
   
   // AHORA: Buscar y parsear otras secciones importantes (Intereses, Impuestos, etc.)
-  console.log('[PDF Parsing] 🔍 Buscando otras secciones del resumen (Intereses, Impuestos, etc.)...')
   
   // Buscar secciones de intereses y cargos después del detalle de consumo
   // Estas secciones suelen aparecer después del SUBTOTAL y antes del TOTAL A PAGAR
@@ -853,7 +792,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         if (/\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2}/.test(rows[j])) {
           totalAPagarIndex = j
           foundAmount = true
-          console.log('[PDF Parsing] ✅ Sección TOTAL A PAGAR encontrada en línea', j)
           break
         }
       }
@@ -866,7 +804,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     const upperRow = rows[i].toUpperCase()
     if (upperRow.includes('OPCIONES DE FINANCIACION')) {
       opcionesFinanciacionStart = i
-      console.log('[PDF Parsing] ⚠️ Sección OPCIONES DE FINANCIACION encontrada en línea', i)
       break
     }
   }
@@ -874,18 +811,12 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
   // NO limitar la búsqueda por OPCIONES DE FINANCIACION si está después del TOTAL A PAGAR
   // Las líneas de intereses están ANTES del TOTAL A PAGAR
   
-  console.log('[PDF Parsing] 📊 Búsqueda de secciones de intereses/impuestos:')
-  console.log('[PDF Parsing]   - Inicio (otherSectionsStart):', otherSectionsStart)
-  console.log('[PDF Parsing]   - Fin del detalle (detailEndIndex):', detailEndIndex)
-  console.log('[PDF Parsing]   - Fin (totalAPagarIndex):', totalAPagarIndex)
-  console.log('[PDF Parsing]   - Rango de búsqueda:', totalAPagarIndex - otherSectionsStart, 'líneas')
   
   // Mostrar TODAS las líneas del rango para debugging completo
   // Buscar desde ANTES del detalle hasta el TOTAL A PAGAR
   if (otherSectionsStart < totalAPagarIndex && otherSectionsStart < rows.length) {
     const sampleStart = Math.max(0, otherSectionsStart)
     const sampleEnd = Math.min(totalAPagarIndex, rows.length)
-    console.log('[PDF Parsing]   - TODAS las líneas del rango (índices', sampleStart, 'a', sampleEnd - 1, '):')
     for (let idx = sampleStart; idx < sampleEnd; idx++) {
       const rowUpper = rows[idx].toUpperCase()
       const hasInterest = rowUpper.includes('INTERES') || rowUpper.includes('INTERESES')
@@ -900,7 +831,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
       if (hasPercepcion) markers.push('💡PERCEPCION')
       if (hasIIBB) markers.push('💡IIBB')
       const marker = markers.length > 0 ? ' ' + markers.join(' ') : ''
-      console.log('[PDF Parsing]     [' + idx + ']' + marker, rows[idx].substring(0, 120))
     }
   }
   
@@ -908,7 +838,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
   // (por si están en una sección separada)
   if (detailStartIndex > 0) {
     const preDetailStart = Math.max(0, detailStartIndex - 50)
-    console.log('[PDF Parsing]   - Búsqueda adicional ANTES del detalle (índices', preDetailStart, 'a', detailStartIndex - 1, '):')
     let foundInterestBeforeDetail = false
     for (let idx = preDetailStart; idx < detailStartIndex; idx++) {
       const rowUpper = rows[idx].toUpperCase()
@@ -925,19 +854,15 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         if (hasPercepcion) markers.push('💡PERCEPCION')
         if (hasIIBB) markers.push('💡IIBB')
         const marker = markers.length > 0 ? ' ' + markers.join(' ') : ''
-        console.log('[PDF Parsing]     [' + idx + ']' + marker, rows[idx].substring(0, 120))
         foundInterestBeforeDetail = true
       }
     }
     if (foundInterestBeforeDetail) {
-      console.log('[PDF Parsing] ⚠️ Se encontraron líneas con intereses/impuestos ANTES del detalle, expandiendo búsqueda...')
       otherSectionsStart = Math.min(otherSectionsStart, preDetailStart)
     }
   }
   
   // Buscar cada sección de interés/cargo
-  console.log('[PDF Parsing] 🔍 Iniciando búsqueda de intereses/impuestos...')
-  console.log('[PDF Parsing]   - Rango de búsqueda: líneas', otherSectionsStart, 'a', totalAPagarIndex)
   
   for (let i = otherSectionsStart; i < totalAPagarIndex; i++) {
     const row = rows[i]
@@ -946,7 +871,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
     // Log cada línea para debugging
     if (upperRow.includes('INTERES') || upperRow.includes('IMPUESTO') || upperRow.includes('IVA') || 
         upperRow.includes('PERCEPCION') || upperRow.includes('IIBB')) {
-      console.log('[PDF Parsing] 📋 Línea candidata [', i, ']:', row.substring(0, 120))
     }
     
     // PRIMERO: Filtrar líneas que claramente son parte de opciones de financiación
@@ -968,7 +892,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         (upperRow.includes('CUOTAS DE') && upperRow.includes('TNA')) ||
         upperRow.includes('CUOTAS DE $') || upperRow.match(/^\d+\s+CUOTAS/i)) {
       if (upperRow.includes('INTERES') || upperRow.includes('IMPUESTO')) {
-        console.log('[PDF Parsing] ⚠️ Saltando línea de opciones de financiación:', row.substring(0, 80))
       }
       continue
     }
@@ -1001,7 +924,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
       if (found) {
         foundSection = section
         foundKeyword = section.keyword
-        console.log('[PDF Parsing] 🔍 Palabra clave encontrada:', section.keyword, '| Tipo:', section.type, '| Línea:', row.substring(0, 100))
         break // Usar la primera que encontremos
       }
     }
@@ -1019,19 +941,16 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
                                 (upperRow.includes('OBSERVACION') && upperRow.includes('DISCRIMINADO'))
       
       if (isExplanatoryNote) {
-        console.log('[PDF Parsing] ⚠️ Saltando línea que parece nota explicativa:', row.substring(0, 80))
         continue // Continuar con siguiente línea
       }
       
       // Verificar que la línea NO contenga términos de opciones de financiación
       if (upperRow.includes('TNA') || upperRow.includes('TEA') || upperRow.includes('CFT') || 
           upperRow.includes('CUOTAS DE $')) {
-        console.log('[PDF Parsing] ⚠️ Saltando línea de opciones de financiación:', row.substring(0, 80))
         continue // Continuar con siguiente línea
       }
       
       // AHORA: Buscar directamente el monto en la línea (más simple y directo)
-      console.log('[PDF Parsing] ✅ Línea con keyword detectada, buscando monto...')
       
       // Filtrar montos excesivamente grandes (más de 1 millón) que probablemente son opciones de financiación
       // Buscar montos en la línea actual PRIMERO (formato tabular), luego en siguientes líneas
@@ -1102,24 +1021,19 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
             if (parsedAmount > 0 && parsedAmount <= maxAmount) {
               montoEncontrado = parsedAmount
               montoEncontradoEnLinea = i
-              console.log('[PDF Parsing] ✅ Monto encontrado en la MISMA línea (formato tabular):', parsedAmount, '| Línea:', row.substring(0, 80))
               break
             } else {
-              console.log('[PDF Parsing] ⚠️ Monto encontrado pero fuera de rango:', parsedAmount, '| Límite:', maxAmount, '| Línea:', row.substring(0, 80))
             }
           }
         }
         
         // Si no encontramos monto, intentar buscar el último número que parezca un monto en la línea
         if (montoEncontrado === 0) {
-          console.log('[PDF Parsing] 🔍 Intentando búsqueda alternativa de montos en la línea...')
           // Buscar TODOS los números que parezcan montos en la línea (más flexible)
           const allNumbers = row.match(/\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2}/g)
           if (allNumbers && allNumbers.length > 0) {
-            console.log('[PDF Parsing]   - Números encontrados en la línea:', allNumbers)
             // Tomar el último número (más probable que sea el monto en formato tabular)
             const lastNumber = allNumbers[allNumbers.length - 1]
-            console.log('[PDF Parsing]   - Último número encontrado:', lastNumber)
             
             // Normalizar el número
             let cleanAmount = lastNumber
@@ -1132,19 +1046,14 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
             }
             
             const parsedAmount = parseFloat(cleanAmount) || 0
-            console.log('[PDF Parsing]   - Monto parseado:', parsedAmount)
             
             const maxAmount = section.type === 'interest' || section.type === 'fee' ? 2000000 : 1000000
             if (parsedAmount > 0 && parsedAmount <= maxAmount) {
               montoEncontrado = parsedAmount
               montoEncontradoEnLinea = i
-              console.log('[PDF Parsing] ✅ Monto encontrado (último número de la línea):', parsedAmount, '| Línea:', row.substring(0, 80))
             } else {
-              console.log('[PDF Parsing] ⚠️ Monto fuera de rango:', parsedAmount, '| Límite:', maxAmount)
             }
           } else {
-            console.log('[PDF Parsing] ⚠️ No se encontraron números en la línea con los patrones esperados')
-            console.log('[PDF Parsing]   - Línea completa:', row)
           }
         }
         
@@ -1188,7 +1097,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
                 if (parsedAmount > 0 && parsedAmount <= maxAmount) {
                   montoEncontrado = parsedAmount
                   montoEncontradoEnLinea = searchIdx
-                  console.log('[PDF Parsing] ✅ Monto encontrado en línea', searchIdx - i, 'después:', parsedAmount)
                   break
                 }
               }
@@ -1205,7 +1113,7 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
         if (montoEncontrado > 0 && montoEncontrado <= maxAmount) {
           // Extraer descripción (limpiar la línea de números y espacios extra)
           // SIEMPRE usar la línea donde encontramos el keyword como descripción principal
-          let descriptionRow = row // Usar la línea donde encontramos el keyword
+          const descriptionRow = row // Usar la línea donde encontramos el keyword
           
           // Remover todos los patrones de montos posibles de la línea del keyword
           let description = descriptionRow
@@ -1260,7 +1168,6 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
               descUpper.includes('CREDITO FISCAL') ||
               descUpper.includes('NOTA:') ||
               descUpper.includes('OBSERVACION')) {
-            console.log('[PDF Parsing] ⚠️ Saltando descripción que parece nota explicativa:', description)
             break
           }
           
@@ -1269,17 +1176,14 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
             if (descUpper.includes('TNA') || descUpper.includes('TEA') || descUpper.includes('CFT') ||
                 descUpper.includes('CUOTAS DE') || descUpper.includes('CUOTAS DE $') ||
                 descUpper.match(/\d+\s+CUOTAS/i)) {
-              console.log('[PDF Parsing] ⚠️ Saltando descripción con términos de financiación:', description)
               break
             }
             
             // Verificar que la línea original no contenga términos de opciones de financiación
             if (upperRow.includes('CUOTAS DE $') || upperRow.match(/^\d+\s+CUOTAS/i)) {
-              console.log('[PDF Parsing] ⚠️ Saltando línea que parece opción de financiación:', row.substring(0, 80))
               break
             }
           } else {
-            console.log('[PDF Parsing] ℹ️ Impuesto real detectado, ignorando filtros de financiación:', description)
           }
           
           // Intentar encontrar una fecha asociada (puede estar en la misma línea o en líneas anteriores cercanas)
@@ -1328,22 +1232,15 @@ function parseByBank(bank: string, raw: string, template?: PDFImportTemplate): P
               type: section.type,
             })
             
-            console.log('[PDF Parsing] ✅ Sección agregada:', section.type, description.substring(0, 40), `$${montoEncontrado.toFixed(2)}`)
           }
       } else {
         // Si no se encontró monto válido, puede ser que la sección esté mal formateada
-        console.log('[PDF Parsing] ⚠️ Sección encontrada pero sin monto válido:', section.keyword, '| Tipo:', section.type, '| Línea:', row.substring(0, 100))
-        console.log('[PDF Parsing]   - Línea completa:', row)
-        console.log('[PDF Parsing]   - Líneas siguientes (3):', rows.slice(i, Math.min(i + 4, rows.length)))
       }
     }
   }
   
-  console.log(`[PDF Parsing] ✅ Estadísticas finales:`)
-  console.log(`  - Transacciones encontradas: ${lines.length}`)
   
   if (lines.length === 0) {
-    console.warn('[PDF Parsing] ⚠️ No se encontraron transacciones en DETALLE DEL CONSUMO')
   }
   
   return lines
@@ -1433,7 +1330,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
             combinedRows.push(combinedRow)
             i += linesToSkip // Saltar las líneas que combinamos
             combined = true
-            console.log('[PDF Parsing] Líneas combinadas:', linesToSkip + 1, '| Resultado:', combinedRow.substring(0, 120))
             break
           }
           j++
@@ -1463,12 +1359,9 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
   }
   filteredRows = combinedRows
   
-  console.log('[PDF Parsing] Líneas después del filtrado y combinación:', filteredRows.length)
-  console.log('[PDF Parsing] Primeras 15 líneas combinadas:', filteredRows.slice(0, 15))
   
   // Mostrar ejemplos de líneas con fechas para debugging
   const dateExamples = filteredRows.filter(row => /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/.test(row)).slice(0, 10)
-  console.log('[PDF Parsing] Ejemplos de líneas con fechas:', dateExamples)
   
   // Regex mejorado para detectar fechas: múltiples formatos
   // Formato 1: DD-MMM-YY o DD-MMM-YYYY (ej: 25-Jul-25, 25-Jul-2025)
@@ -1480,25 +1373,22 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
     /(\d{1,2}\s+\w{3}\s+\d{2,4})/i      // DD MMM YY (con espacios)
   ]
   
+  const lines: ParsedLine[] = []
+
   // Debug: contar líneas procesadas
   let linesProcessed = 0
   let datesFound = 0
   let validTransactions = 0
   
   // DEBUG: Mostrar ejemplos de líneas con fechas y sus siguientes líneas ANTES de procesar
-  console.log('[PDF Parsing] 🔍 Analizando formato del PDF...')
   const dateExampleRegex = /(\d{1,2}[-/]\w{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
   let exampleCount = 0
   for (let i = 0; i < filteredRows.length && exampleCount < 10; i++) {
     const testRow = filteredRows[i]
     if (dateExampleRegex.test(testRow)) {
       exampleCount++
-      console.log(`[PDF Parsing] 📅 Ejemplo #${exampleCount} - Fecha encontrada en línea ${i}:`)
-      console.log(`  Línea actual:`, testRow.substring(0, 150))
-      console.log(`  Próximas 5 líneas:`, filteredRows.slice(i + 1, i + 6))
     }
   }
-  console.log(`[PDF Parsing] Total de ejemplos de fechas encontrados: ${exampleCount}`)
   
   // Para cada línea, buscar si empieza con fecha
   for (let i = 0; i < filteredRows.length; i++) {
@@ -1530,7 +1420,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
       const isHeader = skipKeywords.some(keyword => beforeDate.includes(keyword)) || 
                        /^(PERIODO|RESUMEN|FECHA|CORTE|PAGO|DESDE|HASTA)/.test(beforeDate)
       if (isHeader) {
-        console.log('[PDF Parsing] Ignorando línea con fecha lejana (probablemente encabezado):', row.substring(0, 80))
         continue
       }
     }
@@ -1561,7 +1450,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
     }
     
     if (!parsedDate) {
-      console.log('[PDF Parsing] No se pudo parsear fecha:', originalDate, 'en línea:', row.substring(0, 100))
       continue // Si no se puede parsear, saltar
     }
     
@@ -1593,9 +1481,7 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
       
       // Si la línea solo tiene fecha, buscar más agresivamente
       if (isDateOnly) {
-        console.log('[PDF Parsing] 🔍 Fecha SOLA detectada:', originalDate, '- Buscando AGRESIVAMENTE en siguientes 25 líneas...')
       } else if (hasDescription) {
-        console.log('[PDF Parsing] 🔍 Fecha con descripción pero sin monto:', originalDate, '- Descripción:', remainingRow.substring(0, 50))
       }
       
       // Intentar combinar con líneas siguientes (hasta 25 líneas si es solo fecha, o hasta encontrar otra fecha)
@@ -1643,7 +1529,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
               amountMatches = extendedMatches
               remainingRow = extendedRow
               foundAmount = true
-              console.log('[PDF Parsing] ✅ Monto encontrado en línea extendida (líneas:', linesCombined, '| monto:', numericValue, '):', extendedRow.substring(0, 120))
               break
             }
           }
@@ -1656,7 +1541,7 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
             // Intentar buscar en líneas anteriores (por si el formato es fecha-descr-monto)
             // O buscar en líneas entre esta fecha y la siguiente
             let descWithAmount = ''
-            let searchBackwards = false
+            const searchBackwards = false
             
             // Primero intentar buscar entre líneas
             for (let k = i + 1; k < j; k++) {
@@ -1679,7 +1564,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
                 amountMatches = intermediateMatches
                 remainingRow = descWithAmount
                 foundAmount = true
-                console.log('[PDF Parsing] ✅ Monto encontrado en líneas intermedias:', descWithAmount.substring(0, 120))
                 break
               }
             }
@@ -1700,7 +1584,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
                     amountMatches = furtherMatches
                     remainingRow = descWithAmount2
                     foundAmount = true
-                    console.log('[PDF Parsing] ✅ Monto encontrado después de próxima fecha:', descWithAmount2.substring(0, 120))
                     break
                   }
                 }
@@ -1718,15 +1601,12 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
       }
       
       if (!foundAmount && linesCombined > 0) {
-        console.log('[PDF Parsing] ⚠️ Líneas combinadas pero sin monto válido:', extendedRow.substring(0, 150))
       }
     }
     
     if (!amountMatches || amountMatches.length === 0) {
       // Último intento desesperado: buscar cualquier número que parezca un monto en las siguientes líneas
       // Esto maneja casos donde el formato del PDF es completamente diferente
-      console.log('[PDF Parsing] 🔍 Último intento: búsqueda desesperada de montos...')
-      console.log('[PDF Parsing] Fecha:', originalDate, '| Línea:', row.substring(0, 100))
       
       // Buscar en las siguientes 20 líneas cualquier número que parezca un monto válido
       for (let j = i + 1; j < Math.min(i + 21, filteredRows.length); j++) {
@@ -1750,7 +1630,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
               // Si la línea no tiene fecha, usarla como descripción completa
               if (!nextHasDate) {
                 remainingRow = nextRow
-                console.log('[PDF Parsing] ✅ Monto encontrado en búsqueda desesperada (línea', j - i, 'después):', nextRow.substring(0, 120))
                 break
               } else {
                 // Tiene fecha, pero el monto puede ser de nuestra transacción
@@ -1765,7 +1644,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
                 } else {
                   remainingRow = nextRow
                 }
-                console.log('[PDF Parsing] ✅ Monto encontrado en búsqueda desesperada (con fecha):', remainingRow.substring(0, 120))
                 break
               }
             }
@@ -1783,22 +1661,16 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
       }
       
       if (!amountMatches || amountMatches.length === 0) {
-        console.log('[PDF Parsing] ❌ No se encontró monto después de TODAS las búsquedas')
-        console.log('[PDF Parsing] Fecha:', originalDate, '| Línea completa:', row.substring(0, 150))
-        console.log('[PDF Parsing] RemainingRow después de búsqueda:', remainingRow.substring(0, 150))
         // Debug: mostrar las siguientes 15 líneas para diagnóstico completo
         if (i + 1 < filteredRows.length) {
-          console.log('[PDF Parsing] 🔍 Próximas 15 líneas después de fecha:', filteredRows.slice(i + 1, i + 16))
         }
         
         // ÚLTIMO INTENTO: buscar cualquier patrón numérico en las siguientes 30 líneas
-        console.log('[PDF Parsing] 🔥 Búsqueda final agresiva: buscando CUALQUIER número en 30 líneas siguientes...')
         for (let j = i + 1; j < Math.min(i + 31, filteredRows.length); j++) {
           const nextRow = filteredRows[j]
           // Buscar cualquier número que pueda ser un monto
           const allNumbers = nextRow.match(/\d+(?:[.,]\d+)?/g)
           if (allNumbers) {
-            console.log(`[PDF Parsing]   Línea ${j - i}:`, nextRow.substring(0, 120), '| Números encontrados:', allNumbers)
             for (const num of allNumbers) {
               const cleanNum = num.replace(/[$\s]/g, '')
               let numericValue = 0
@@ -1834,7 +1706,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
                 const looksLikeAmount = hasDecimals || numericValue >= 10
                 
                 if (looksLikeAmount) {
-                  console.log(`[PDF Parsing] ✅ MONTO POTENCIAL ENCONTRADO en línea ${j - i}:`, numericValue, '| Original:', num)
                   // Intentar usar este número como monto
                   amountMatches = [num]
                   remainingRow = nextRow
@@ -1848,17 +1719,14 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
           // Si encontramos otra fecha después de buscar 5+ líneas, probablemente esta transacción no tiene monto
           const nextHasDate = dateRegexForAmountSearch.test(nextRow)
           if (nextHasDate && j > i + 5) {
-            console.log(`[PDF Parsing]   Otra fecha encontrada en línea ${j - i}, deteniendo búsqueda`)
             break
           }
         }
         
         // Si después de todo aún no encontramos monto, saltar esta transacción
         if (!amountMatches || amountMatches.length === 0) {
-          console.log('[PDF Parsing] ⚠️ Saltando transacción sin monto:', originalDate)
           continue
         } else {
-          console.log('[PDF Parsing] ✅ Usando monto encontrado en búsqueda final agresiva')
         }
       }
     }
@@ -1975,7 +1843,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
     
     // Solo agregar si hay al menos un monto válido
     if (montoPesos === 0 && montoUSD === 0) {
-      console.log('[PDF Parsing] Se saltó transacción porque no se pudo determinar monto:', originalDate, description.substring(0, 50))
       continue
     }
     
@@ -1994,7 +1861,6 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
     })
     
     if (isDuplicate) {
-      console.log('[PDF Parsing] Se saltó transacción duplicada:', originalDate, description.substring(0, 50), montoPesos || montoUSD)
       continue
     }
     
@@ -2008,23 +1874,14 @@ function parseByBankLegacy(bank: string, raw: string, template?: PDFImportTempla
       type,
     })
     
-    console.log('[PDF Parsing] Transacción agregada:', parsedDate, description.substring(0, 40), montoPesos || montoUSD)
   }
   
   // Debug: mostrar estadísticas detalladas
-  console.log(`[PDF Parsing] Estadísticas:`)
-  console.log(`  - Líneas totales procesadas: ${linesProcessed}`)
-  console.log(`  - Fechas encontradas: ${datesFound}`)
-  console.log(`  - Transacciones válidas creadas: ${validTransactions}`)
-  console.log(`  - Transacciones finales: ${lines.length}`)
   
   if (lines.length === 0 && datesFound > 0) {
-    console.warn('[PDF Parsing] Se encontraron fechas pero no se crearon transacciones. Revisa el formato de montos.')
   }
   
   if (lines.length === 0 && datesFound === 0) {
-    console.warn('[PDF Parsing] No se encontraron fechas. Revisa el formato del PDF.')
-    console.log('[PDF Parsing] Muestra de líneas sin filtrar:', rows.slice(0, 30))
   }
 
   return lines
@@ -2084,7 +1941,6 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
       const data = await res.json()
       if (data.success && data.smartTemplate) {
         setSmartTemplate(data.smartTemplate)
-        console.log('[Smart Template] Cargado:', data.smartTemplate)
       }
     } catch (e) {
       console.error('Error cargando smart template:', e)
@@ -2107,16 +1963,12 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
       }
       
       setParsing(true)
-      console.log('[PDF Import] ===== INICIANDO EXTRACCIÓN DE PDF =====')
-      console.log('[PDF Import] Archivo:', file.name, '| Tamaño:', file.size, 'bytes')
       
       const text = await extractPdfText(file)
-      console.log('[PDF Import] Texto extraído. Longitud:', text.length, 'caracteres')
       setRawText(text) // Guardar texto crudo para debug y aprendizaje
       
       // Mostrar muestra del texto extraído
       if (text.length > 0) {
-        console.log('[PDF Import] Muestra del texto (primeros 500 caracteres):', text.substring(0, 500))
       } else {
         console.error('[PDF Import] El PDF no contiene texto extraíble. El PDF podría estar escaneado.')
         error('El PDF no contiene texto. Puede ser un PDF escaneado. Intenta con un PDF con texto seleccionable.')
@@ -2127,16 +1979,12 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
       // Buscar template seleccionado o smart template
       const template = smartTemplate || templates.find(t => t.id === selectedTemplate)
       
-      console.log('[PDF Import] Iniciando parsing con banco:', bank)
-      console.log('[PDF Import] Usando smart template:', !!smartTemplate)
       const parsed = parseByBank(bank, text, template)
-      console.log('[PDF Import] Parsing completado. Resultado:', parsed.length, 'transacciones')
       
       // Aplicar mapeos de comercios para autocategorización
       let editableParsedRows: EditableParsedLine[]
       if (smartTemplate?.mapeoComercios) {
         editableParsedRows = applyMerchantMappings(parsed, smartTemplate.mapeoComercios)
-        console.log('[PDF Import] Se aplicaron mapeos de comercios para autocategorización')
       } else {
         // Crear filas editables sin mapeos
         editableParsedRows = parsed.map((row, i) => ({
@@ -2153,7 +2001,6 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
       setShowCorrectionAssistant(true)
       
       if (parsed.length === 0) {
-        console.warn('[PDF Import] No se detectaron movimientos. Revisa la consola para más detalles.')
         error('No se detectaron movimientos. Abre la consola del navegador (F12) para ver detalles del parsing.')
       } else {
         const templateName = smartTemplate ? 'Plantilla Inteligente' : template?.name
@@ -2224,7 +2071,6 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
             const templateData = await templateRes.json()
             if (templateData.success) {
               setSmartTemplate(templateData.smartTemplate)
-              console.log('[Smart Template] Actualizado con nuevos aprendizajes')
             }
           }
         } catch (templateError) {
@@ -2264,7 +2110,7 @@ export default function CreditCardStatementImport({ isOpen, onClose, cardId }: P
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Importar Resumen (PDF)</h3>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} aria-label="Cerrar" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer"><X className="w-5 h-5" /></button>
           </div>
           <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]">
             <div className="space-y-3">

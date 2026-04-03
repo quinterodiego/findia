@@ -46,11 +46,11 @@ export async function GET(req: NextRequest) {
         to: toEmail,
       }, { status: 500 });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error en test de email:', error);
     return NextResponse.json({
       success: false,
-      error: error.message || 'Error desconocido',
+      error: error instanceof Error ? error.message : 'Error desconocido',
     }, { status: 500 });
   }
 }

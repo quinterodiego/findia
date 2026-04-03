@@ -2,41 +2,36 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  X, 
-  CreditCard, 
-  TrendingDown, 
-  Target, 
-  Calculator, 
-  BarChart3, 
-  AlertCircle,
+import {
+  X,
+  CreditCard as CreditCardIcon,
+  TrendingDown,
+  Target,
+  Calculator,
+  BarChart3,
   CheckCircle,
   Calendar,
   DollarSign,
   TrendingUp,
   Sparkles,
-  Clock,
   Percent,
-  Zap,
-  Trophy,
   Info,
-  Play,
   ChevronRight,
   Wallet,
   Edit2,
   Trash2
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useToastContext } from '@/components/Toast';
 import { useCreditCards } from '@/hooks/useCreditCards';
 import { useDebts } from '@/hooks/useDebts';
 import type { CreditCard } from '@/types';
 import { argentineBanks } from '@/lib/argentineBanks';
-import { formatCurrency, formatNumber } from '@/lib/formatNumber';
+import { formatCurrency } from '@/lib/formatNumber';
 import CreditCardStatementImport from './CreditCardStatementImport';
 import CreditCardConsumptionModal from './CreditCardConsumptionModal';
 import EditCardModal from './EditCardModal';
 import CreditCardProjectionModal from './CreditCardProjectionModal';
+import CreditCardProgress from './CreditCardProgress';
 
 interface PaymentStrategy {
   type: 'snowball' | 'avalanche';
@@ -106,7 +101,7 @@ export default function CreditCardCenter({
   }, []);
   
   const { success, error } = useToastContext();
-  const { cards, loading, fetchCards, createCard, updateCard, deleteCard, makePayment, fetchPayments } = useCreditCards();
+  const { cards, loading, fetchCards, createCard, updateCard, deleteCard, fetchPayments } = useCreditCards();
   const { debts, fetchDebts } = useDebts();
 
   // Calculadora state
@@ -129,9 +124,12 @@ export default function CreditCardCenter({
     last4: '',
     limit: '',
   });
+  const [quickCreating, setQuickCreating] = useState(false);
 
   const handleQuickCreate = async () => {
+    if (quickCreating) return;
     try {
+      setQuickCreating(true);
       if (!quickForm.name || !quickForm.bank || !quickForm.limit) {
         error('Completa nombre, banco y límite');
         return;
@@ -151,8 +149,10 @@ export default function CreditCardCenter({
       setShowQuickAdd(false);
       setQuickForm({ name: '', bank: '', last4: '', limit: '' });
       fetchCards();
-    } catch (e) {
+    } catch {
       error('No se pudo crear la tarjeta');
+    } finally {
+      setQuickCreating(false);
     }
   };
 
@@ -177,7 +177,6 @@ export default function CreditCardCenter({
         if (!existingCard) {
           // Sincronizar: actualizar el balance de la tarjeta desde la deuda más reciente
           // No creamos automáticamente, solo sugerimos al usuario
-          console.log(`Deuda "${debt.name}" puede ser una tarjeta de crédito. Balance: ${debt.balance}`);
         } else {
           // Sincronizar balance si la deuda está más actualizada
           if (Math.abs(existingCard.currentBalance - debt.balance) > 100) {
@@ -258,8 +257,7 @@ export default function CreditCardCenter({
               cardId: card.id,
             });
           });
-        } catch (err) {
-          console.log(`Error cargando pagos de tarjeta ${card.id}:`, err);
+        } catch {
         }
       }
       
@@ -457,8 +455,6 @@ export default function CreditCardCenter({
             const [day, month, year] = (consumption.date || '').split('/').map(Number);
             if (!day || !month || !year) continue;
             
-            const consumptionDate = new Date(year, month - 1, day);
-            
             // Calcular cuántas cuotas han pasado desde el consumo hasta el mes objetivo
             const monthsSinceConsumption = (targetYear - year) * 12 + (targetMonth - (month - 1));
             
@@ -560,6 +556,7 @@ export default function CreditCardCenter({
                   </div>
                   <button
                     onClick={onClose}
+                    aria-label="Cerrar"
                     className="p-1.5 hover:bg-white/20 rounded-lg transition-colors cursor-pointer shrink-0"
                   >
                     <X className="w-4 h-4" />
@@ -579,6 +576,7 @@ export default function CreditCardCenter({
                 </div>
                 <button
                   onClick={onClose}
+                  aria-label="Cerrar"
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -657,7 +655,7 @@ export default function CreditCardCenter({
                     <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm text-green-600 dark:text-green-400 font-medium">Tarjetas</span>
-                        <CreditCard className="w-5 h-5 text-green-500" />
+                        <CreditCardIcon className="w-5 h-5 text-green-500" />
                       </div>
                       <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                         {cards.length}
@@ -689,7 +687,7 @@ export default function CreditCardCenter({
                           <div className="flex items-start justify-between mb-3">
                             <div>
                               <div className="flex items-center gap-2 mb-1">
-                                <CreditCard className="w-5 h-5 text-blue-500" />
+                                <CreditCardIcon className="w-5 h-5 text-blue-500" />
                                 <h4 className="font-semibold text-gray-900 dark:text-white">{card.name}</h4>
                                 <span className="text-sm text-gray-500 dark:text-gray-400">{card.bank}</span>
                               </div>
@@ -1095,152 +1093,13 @@ export default function CreditCardCenter({
               )}
 
               {activeTab === 'progress' && (
-                <motion.div
-                  key="progress"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                      Seguimiento de Progreso
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-300 mb-6">
-                      Visualiza tu progreso y celebra tus logros en el camino hacia la libertad financiera.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Trophy className="w-5 h-5 text-green-600 dark:text-green-400" />
-                        <span className="font-semibold text-gray-900 dark:text-white">Deuda Pagada</span>
-                      </div>
-                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                        ${progressHistory.length > 0 ? formatCurrency(progressHistory[progressHistory.length - 1].paid) : formatCurrency(0)}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {progressHistory.length > 0 
-                          ? `de ${formatCurrency(progressHistory[0].totalDebt + progressHistory[0].paid)} (${formatCurrency(totalDebt)} actual)`
-                          : `de ${formatCurrency(totalDebt)}`
-                        }
-                      </p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        <span className="font-semibold text-gray-900 dark:text-white">Tiempo Restante</span>
-                      </div>
-                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                        {selectedStrategy ? `${selectedStrategy.totalMonths} meses` : 'N/A'}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">según tu plan actual</p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <DollarSign className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                        <span className="font-semibold text-gray-900 dark:text-white">Intereses Ahorrados</span>
-                      </div>
-                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                        $0
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">con tu estrategia</p>
-                    </div>
-                  </div>
-
-                  {/* Gráficos de progreso */}
-                  {progressHistory.length > 0 ? (
-                    <div className="space-y-6">
-                      {/* Gráfico de reducción de deuda */}
-                      <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6">
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                          Evolución de la Deuda
-                        </h4>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <LineChart data={progressHistory.map(h => ({
-                            date: new Date(h.date).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' }),
-                            deuda: h.totalDebt,
-                            pagado: h.paid,
-                          }))}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis 
-                              dataKey="date" 
-                              stroke="#6b7280"
-                              tick={{ fill: '#6b7280', fontSize: 12 }}
-                            />
-                            <YAxis 
-                              stroke="#6b7280"
-                              tick={{ fill: '#6b7280', fontSize: 12 }}
-                              tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                            />
-                            <Tooltip 
-                              contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                              formatter={(value: number) => formatCurrency(value)}
-                            />
-                            <Legend />
-                            <Line 
-                              type="monotone" 
-                              dataKey="deuda" 
-                              stroke="#ef4444" 
-                              strokeWidth={2}
-                              name="Deuda Total"
-                              dot={{ r: 4 }}
-                            />
-                            <Line 
-                              type="monotone" 
-                              dataKey="pagado" 
-                              stroke="#10b981" 
-                              strokeWidth={2}
-                              name="Pagado"
-                              dot={{ r: 4 }}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      {/* Gráfico de distribución por tarjeta */}
-                      <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6">
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                          Distribución de Deuda por Tarjeta
-                        </h4>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <PieChart>
-                            <Pie
-                              data={cards.filter(c => c.currentBalance > 0).map(c => ({
-                                name: c.name,
-                                value: c.currentBalance,
-                              }))}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {cards.map((entry, index) => {
-                                const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'];
-                                return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                              })}
-                            </Pie>
-                            <Tooltip 
-                              formatter={(value: number) => formatCurrency(value)}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-6">
-                      <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                        Los gráficos de progreso se generarán cuando comiences a registrar pagos.
-                      </p>
-                    </div>
-                  )}
-                </motion.div>
+                <CreditCardProgress
+                  progressHistory={progressHistory}
+                  totalDebt={totalDebt}
+                  selectedStrategy={selectedStrategy}
+                  cards={cards}
+                  formatCurrency={formatCurrency}
+                />
               )}
 
               {activeTab === 'projection' && (
@@ -1253,7 +1112,7 @@ export default function CreditCardCenter({
                 >
                   {cards.length === 0 ? (
                     <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-12 text-center">
-                      <CreditCard className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                      <CreditCardIcon className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                       <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         No tienes tarjetas de crédito registradas
                       </h4>
@@ -1375,7 +1234,7 @@ export default function CreditCardCenter({
                               });
 
                               // Total a Pagar
-                              const totalToPayRow = monthKeys.map((idx) => {
+                              const totalToPayRow = monthKeys.map((_key, idx) => {
                                 return previousDebtRow[idx] + monthlyTotalRow[idx];
                               });
 
@@ -1383,7 +1242,7 @@ export default function CreditCardCenter({
                               const paymentRow = monthKeys.map(() => 0);
 
                               // Saldo
-                              const balanceRow = monthKeys.map((idx) => {
+                              const balanceRow = monthKeys.map((_key, idx) => {
                                 return totalToPayRow[idx] - paymentRow[idx];
                               });
 
@@ -1614,7 +1473,7 @@ export default function CreditCardCenter({
               >
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Nueva Tarjeta</h4>
-                  <button onClick={() => setShowQuickAdd(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer">
+                  <button onClick={() => setShowQuickAdd(false)} aria-label="Cerrar" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -1626,8 +1485,8 @@ export default function CreditCardCenter({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Nombre de la Tarjeta *</label>
-                    <input className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Ej: Visa Platinum" value={quickForm.name} onChange={(e)=>setQuickForm({...quickForm,name:e.target.value})} />
+                    <label htmlFor="quick-form-name" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Nombre de la Tarjeta *</label>
+                    <input id="quick-form-name" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="Ej: Visa Platinum" value={quickForm.name} onChange={(e)=>setQuickForm({...quickForm,name:e.target.value})} />
                   </div>
 
                   <div>
@@ -1647,18 +1506,18 @@ export default function CreditCardCenter({
                   </div>
 
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Últimos 4 dígitos (opcional)</label>
-                    <input maxLength={4} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="1234" value={quickForm.last4} onChange={(e)=>setQuickForm({...quickForm,last4:e.target.value.replace(/[^0-9]/g,'')})} />
+                    <label htmlFor="quick-form-last4" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Últimos 4 dígitos (opcional)</label>
+                    <input id="quick-form-last4" maxLength={4} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="1234" value={quickForm.last4} onChange={(e)=>setQuickForm({...quickForm,last4:e.target.value.replace(/[^0-9]/g,'')})} />
                   </div>
 
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Límite *</label>
-                    <input type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="500000" value={quickForm.limit} onChange={(e)=>setQuickForm({...quickForm,limit:e.target.value})} />
+                    <label htmlFor="quick-form-limit" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Límite *</label>
+                    <input id="quick-form-limit" type="number" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white" placeholder="500000" value={quickForm.limit} onChange={(e)=>setQuickForm({...quickForm,limit:e.target.value})} />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
                   <button onClick={()=>setShowQuickAdd(false)} className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 cursor-pointer">Cancelar</button>
-                  <button onClick={handleQuickCreate} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Crear</button>
+                  <button onClick={handleQuickCreate} disabled={quickCreating} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white cursor-pointer">{quickCreating ? 'Creando...' : 'Crear'}</button>
                 </div>
               </motion.div>
             </motion.div>
@@ -1679,7 +1538,7 @@ export default function CreditCardCenter({
                 success('Tarjeta actualizada exitosamente');
                 setEditingCard(null);
                 await fetchCards(); // Recargar tarjetas
-              } catch (err) {
+              } catch {
                 error('Error al actualizar tarjeta');
               }
             }}

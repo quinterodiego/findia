@@ -123,7 +123,6 @@ export default function PWAInstallBanner() {
         // Marcar como instalado aceptado
         localStorage.setItem('pwa-install-accepted', 'true');
         localStorage.setItem('pwa-banner-dismissed', 'true'); // No mostrar más
-        console.log('PWA instalada exitosamente');
         
         // Esperar un momento y verificar si realmente se instaló
         setTimeout(() => {

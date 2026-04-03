@@ -97,14 +97,6 @@ const getTodayLocalDate = (): string => {
   const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   
   // Debug: verificar que la fecha sea correcta
-  console.log('[TransactionModal] Fecha local calculada:', {
-    fecha: dateString,
-    horaLocal: now.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }),
-    horaUTC: now.toISOString(),
-    getDate: now.getDate(),
-    getMonth: now.getMonth() + 1,
-    getFullYear: now.getFullYear()
-  });
   
   return dateString;
 };
@@ -167,10 +159,8 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
 
   // Resetear formulario cuando cambia el tipo o poblar con datos de edición
   useEffect(() => {
-    console.log('🔄 TransactionModal useEffect - isOpen:', isOpen, 'type:', type, 'editingTransaction:', editingTransaction);
     if (isOpen) {
       if (editingTransaction) {
-        console.log('🔄 Cargando datos para edición:', editingTransaction);
         setFormData({
           name: editingTransaction.name || '',
           amount: editingTransaction.amount || 0,
@@ -200,7 +190,6 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
         setMinPaymentInput(editingTransaction.minPayment ? formatDecimalDisplay(editingTransaction.minPayment) : '');
         setCurrentAmountInput(editingTransaction.currentAmount ? formatDecimalDisplay(editingTransaction.currentAmount) : '');
       } else {
-        console.log('🔄 Reseteando formulario para tipo:', type);
         setFormData({
           name: '',
           amount: 0,
@@ -271,11 +260,6 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
     if (!validateForm()) return;
     
     // Debug: verificar la fecha que se está enviando
-    console.log('[TransactionModal] Enviando datos:', {
-      ...formData,
-      fechaEnviada: formData.date,
-      fechaHoy: getTodayLocalDate()
-    });
     
     try {
       await onSave(formData);
@@ -406,23 +390,11 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                   else if (type === 'expense' || type === 'debt') categoryType = 'expense'
                   
                   // Debug logs
-                  console.log('[TransactionModal] Filtrado de subcategorías:', {
-                    type,
-                    categoryType,
-                    totalSubcategories: subcategories.length,
-                    totalCategories: categories.length,
-                    categoriesOfType: categories.filter(cat => cat.type === categoryType).length
-                  })
                   
                   // Obtener las categorías del usuario del tipo correspondiente
                   const userCategoriesOfType = categories.filter(cat => cat.type === categoryType)
                   const userCategoryIds = new Set(userCategoriesOfType.map(cat => cat.id))
                   
-                  console.log('[TransactionModal] Categorías del usuario:', {
-                    categoryType,
-                    userCategoryIds: Array.from(userCategoryIds),
-                    userCategoriesOfType: userCategoriesOfType.map(c => ({ id: c.id, name: c.name, type: c.type }))
-                  })
                   
                   // Para gastos, mostrar TODAS las subcategorías de tipo expense
                   // Para otros tipos, mantener el filtrado por categorías del usuario
@@ -439,17 +411,8 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     return true
                   })
                   
-                  console.log('[TransactionModal] Subcategorías filtradas:', {
-                    total: subcategories.length,
-                    filtered: filtered.length,
-                    filteredNames: filtered.map(s => s.name)
-                  })
                   
                   if (filtered.length === 0 && subcategories.length > 0) {
-                    console.warn('[TransactionModal] ⚠️ No hay subcategorías después del filtrado, pero hay subcategorías disponibles:', {
-                      allSubcategories: subcategories.map(s => ({ name: s.name, categoryId: s.categoryId })),
-                      userCategoryIds: Array.from(userCategoryIds)
-                    })
                   }
                   
                   return filtered.map(sub => (
@@ -762,7 +725,6 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                 value={formData.date}
                 onChange={(e) => {
                   const selectedDate = e.target.value;
-                  console.log('[TransactionModal] Fecha seleccionada en input:', selectedDate);
                   handleInputChange('date', selectedDate);
                 }}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"

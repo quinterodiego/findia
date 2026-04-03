@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Filter, CheckCircle, XCircle, Clock, TrendingUp, TrendingDown, DollarSign, Search, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import type { SharedExpense, SharedExpenseBalance } from '@/types';
 import SharedExpenseCard from './SharedExpenseCard';
+import ConfirmModal from './ConfirmModal';
+import { useToastContext } from '@/components/Toast';
 
 interface SharedExpensesSectionProps {
   currentUserId: string;
@@ -15,6 +17,8 @@ export default function SharedExpensesSection({
   currentUserId,
   formatCurrency,
 }: SharedExpensesSectionProps) {
+  const { success, error: showError } = useToastContext();
+
   const [sharedExpenses, setSharedExpenses] = useState<SharedExpense[]>([]);
   const [balance, setBalance] = useState<SharedExpenseBalance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,21 +28,34 @@ export default function SharedExpensesSection({
   const [personFilter, setPersonFilter] = useState<string>('all');
   const [showOnlyPending, setShowOnlyPending] = useState(false);
 
-  useEffect(() => {
-    loadSharedExpenses();
-    loadBalance();
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    type: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', confirmText: 'Confirmar', type: 'danger', onConfirm: () => {} });
+
+  const loadBalance = useCallback(async () => {
+    try {
+      const response = await fetch('/api/shared-expenses/balance');
+      const data = await response.json();
+      if (data.success) {
+        setBalance(data.balance);
+      }
+    } catch {
+      // balance error is non-critical, silently ignore
+    }
   }, []);
 
-  const loadSharedExpenses = async () => {
+  const loadSharedExpenses = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (filter !== 'all') {
-        params.append('status', filter);
-      }
-      if (typeFilter !== 'all') {
-        params.append('type', typeFilter);
-      }
+      if (filter !== 'all') params.append('status', filter);
+      if (typeFilter !== 'all') params.append('type', typeFilter);
 
       const response = await fetch(`/api/shared-expenses?${params.toString()}`);
       const data = await response.json();
@@ -46,146 +63,146 @@ export default function SharedExpensesSection({
       if (data.success) {
         setSharedExpenses(data.sharedExpenses || []);
       }
-    } catch (error) {
-      console.error('Error cargando gastos compartidos:', error);
+    } catch {
+      showError('Error al cargar gastos compartidos');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, typeFilter, showError]);
 
-  const loadBalance = async () => {
-    try {
-      const response = await fetch('/api/shared-expenses/balance');
-      const data = await response.json();
-
-      if (data.success) {
-        setBalance(data.balance);
-      }
-    } catch (error) {
-      console.error('Error cargando balance:', error);
-    }
-  };
+  useEffect(() => {
+    loadSharedExpenses();
+    loadBalance();
+  }, [loadSharedExpenses, loadBalance]);
 
   const handleAccept = async (id: string) => {
     try {
-      const response = await fetch(`/api/shared-expenses/${id}/accept`, {
-        method: 'PUT',
-      });
-
+      const response = await fetch(`/api/shared-expenses/${id}/accept`, { method: 'PUT' });
       if (response.ok) {
+        success('Gasto compartido aceptado');
         await loadSharedExpenses();
         await loadBalance();
+      } else {
+        showError('Error al aceptar el gasto compartido');
       }
-    } catch (error) {
-      console.error('Error aceptando gasto compartido:', error);
+    } catch {
+      showError('Error al aceptar el gasto compartido');
     }
   };
 
   const handleReject = async (id: string) => {
     try {
-      const response = await fetch(`/api/shared-expenses/${id}/reject`, {
-        method: 'PUT',
-      });
-
+      const response = await fetch(`/api/shared-expenses/${id}/reject`, { method: 'PUT' });
       if (response.ok) {
+        success('Gasto compartido rechazado');
         await loadSharedExpenses();
         await loadBalance();
+      } else {
+        showError('Error al rechazar el gasto compartido');
       }
-    } catch (error) {
-      console.error('Error rechazando gasto compartido:', error);
+    } catch {
+      showError('Error al rechazar el gasto compartido');
     }
   };
 
-  const handleCancel = async (id: string) => {
-    if (!confirm('¿Estás seguro de que quieres cancelar/solicitar cancelación de este gasto compartido?')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/shared-expenses/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        await loadSharedExpenses();
-        await loadBalance();
-        if (data.message) {
-          alert(data.message);
+  const handleCancel = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Cancelar gasto compartido',
+      message: '¿Estás seguro de que querés cancelar/solicitar cancelación de este gasto compartido?',
+      confirmText: 'Sí, cancelar',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/shared-expenses/${id}`, { method: 'DELETE' });
+          const data = await response.json();
+          if (response.ok) {
+            success(data.message || 'Gasto compartido cancelado');
+            await loadSharedExpenses();
+            await loadBalance();
+          } else {
+            showError(data.error || 'Error al cancelar el gasto compartido');
+          }
+        } catch {
+          showError('Error al cancelar el gasto compartido');
         }
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Error al cancelar el gasto compartido');
-      }
-    } catch (error) {
-      console.error('Error cancelando gasto compartido:', error);
-      alert('Error al cancelar el gasto compartido');
-    }
+      },
+    });
   };
 
-  const handleConfirmCancel = async (id: string) => {
-    if (!confirm('¿Estás seguro de que quieres confirmar la cancelación de este gasto compartido? El gasto será eliminado.')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/shared-expenses/${id}/confirm-cancel`, {
-        method: 'PUT',
-      });
-
-      if (response.ok) {
-        await loadSharedExpenses();
-        await loadBalance();
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Error al confirmar la cancelación');
-      }
-    } catch (error) {
-      console.error('Error confirmando cancelación:', error);
-      alert('Error al confirmar la cancelación');
-    }
+  const handleConfirmCancel = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Confirmar cancelación',
+      message: '¿Estás seguro de que querés confirmar la cancelación? El gasto será eliminado definitivamente.',
+      confirmText: 'Sí, eliminar',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/shared-expenses/${id}/confirm-cancel`, { method: 'PUT' });
+          if (response.ok) {
+            success('Cancelación confirmada');
+            await loadSharedExpenses();
+            await loadBalance();
+          } else {
+            const data = await response.json();
+            showError(data.error || 'Error al confirmar la cancelación');
+          }
+        } catch {
+          showError('Error al confirmar la cancelación');
+        }
+      },
+    });
   };
 
-  const handleRejectCancel = async (id: string) => {
-    if (!confirm('¿Estás seguro de que quieres rechazar la solicitud de cancelación? El gasto se mantendrá activo.')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/shared-expenses/${id}/reject-cancel`, {
-        method: 'PUT',
-      });
-
-      if (response.ok) {
-        await loadSharedExpenses();
-        await loadBalance();
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Error al rechazar la cancelación');
-      }
-    } catch (error) {
-      console.error('Error rechazando cancelación:', error);
-      alert('Error al rechazar la cancelación');
-    }
+  const handleRejectCancel = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Rechazar solicitud de cancelación',
+      message: '¿Querés rechazar esta solicitud de cancelación? El gasto se mantendrá activo.',
+      confirmText: 'Sí, rechazar',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/shared-expenses/${id}/reject-cancel`, { method: 'PUT' });
+          if (response.ok) {
+            success('Solicitud de cancelación rechazada');
+            await loadSharedExpenses();
+            await loadBalance();
+          } else {
+            const data = await response.json();
+            showError(data.error || 'Error al rechazar la cancelación');
+          }
+        } catch {
+          showError('Error al rechazar la cancelación');
+        }
+      },
+    });
   };
 
-  const handleSettle = async (id: string) => {
-    if (!confirm('¿Estás seguro de que quieres marcar este gasto como saldado? Esto indica que la parte del otro usuario ya está pagada.')) {
-      return;
-    }
-    try {
-      const response = await fetch(`/api/shared-expenses/${id}/settle`, { method: 'PUT' });
-      if (response.ok) {
-        await loadSharedExpenses();
-        await loadBalance();
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Error al marcar como saldado');
-      }
-    } catch (error) {
-      console.error('Error marcando como saldado:', error);
-      alert('Error al marcar como saldado');
-    }
+  const handleSettle = (id: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Marcar como saldado',
+      message: '¿Querés marcar este gasto como saldado? Esto indica que la parte del otro usuario ya fue pagada.',
+      confirmText: 'Sí, marcar saldado',
+      type: 'info',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/shared-expenses/${id}/settle`, { method: 'PUT' });
+          if (response.ok) {
+            success('Gasto marcado como saldado');
+            await loadSharedExpenses();
+            await loadBalance();
+          } else {
+            const data = await response.json();
+            showError(data.error || 'Error al marcar como saldado');
+          }
+        } catch {
+          showError('Error al marcar como saldado');
+        }
+      },
+    });
   };
 
   const pendingCount = sharedExpenses.filter(se => 
@@ -233,8 +250,8 @@ export default function SharedExpensesSection({
         // 2. NO está saldado (isSettled !== true)
         // Excluimos gastos rechazados, cancelados, o saldados
         
-        // Verificar si está saldado (puede venir como string 'true' o booleano true)
-        const isSettled = se.isSettled === true || se.isSettled === 'true';
+        // Verificar si está saldado (puede venir como string 'true' o booleano true desde Google Sheets)
+        const isSettled = se.isSettled === true || (se.isSettled as unknown) === 'true';
         
         // Si está saldado, rechazado o cancelado, no mostrar
         if (isSettled || se.status === 'rejected' || se.status === 'cancellation_requested') {
@@ -272,6 +289,16 @@ export default function SharedExpensesSection({
   }, [sharedExpenses, filter, typeFilter, personFilter, searchQuery, showOnlyPending, currentUserId]);
 
   return (
+    <>
+    <ConfirmModal
+      isOpen={confirmModal.isOpen}
+      onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      onConfirm={confirmModal.onConfirm}
+      title={confirmModal.title}
+      message={confirmModal.message}
+      confirmText={confirmModal.confirmText}
+      type={confirmModal.type}
+    />
     <div className="space-y-4">
       {/* Balance - Más visual */}
       {balance && (
@@ -534,6 +561,7 @@ export default function SharedExpensesSection({
         </div>
       )}
     </div>
+    </>
   );
 }
 

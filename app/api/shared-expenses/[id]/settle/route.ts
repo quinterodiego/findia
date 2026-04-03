@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { markSharedExpenseAsSettled, getSharedExpensesByUser } from '@/lib/googleSheets';
 
 /**
@@ -24,10 +24,10 @@ export async function PUT(
     const { id } = await params;
     
     // Obtener información del gasto compartido antes de marcarlo como saldado
-    let sharedExpenseData: any = null;
+    let sharedExpenseData: import('@/types').SharedExpense | null = null;
     try {
       const sharedExpenses = await getSharedExpensesByUser(session.user.id);
-      sharedExpenseData = sharedExpenses.find((se: any) => se.id === id);
+      sharedExpenseData = sharedExpenses.find(se => se.id === id);
     } catch (error) {
       console.error('Error obteniendo gasto compartido:', error);
     }
@@ -38,10 +38,10 @@ export async function PUT(
       success: true, 
       message: 'Gasto compartido marcado como saldado.' 
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error marcando gasto compartido como saldado:', error);
     return NextResponse.json(
-      { error: error.message || 'Error al marcar el gasto compartido como saldado' },
+      { error: error instanceof Error ? error.message : 'Error al marcar el gasto compartido como saldado' },
       { status: 500 }
     );
   }

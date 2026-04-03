@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import {
   getIncomesByUser,
   createIncome,
@@ -45,13 +45,10 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    console.log('🔍 POST /api/incomes - Iniciando...');
     
     const session = await getServerSession(authOptions);
-    console.log('👤 Sesión obtenida:', session?.user?.id ? '✅' : '❌');
     
     if (!session?.user?.id) {
-      console.log('❌ No autorizado - sin sesión');
       return NextResponse.json(
         { error: 'No autorizado' },
         { status: 401 }
@@ -59,18 +56,15 @@ export async function POST(req: NextRequest) {
     }
     
     const body = await req.json();
-    console.log('📋 Body recibido:', body);
     
     // Validación básica
     if (!body.name || !body.amount || !body.date) {
-      console.log('❌ Validación fallida - campos faltantes');
       return NextResponse.json(
         { error: 'Faltan campos requeridos: name, amount, date' },
         { status: 400 }
       );
     }
     
-    console.log('✅ Validación pasada, creando ingreso...');
     
     // Crear el ingreso
     const newIncome = await createIncome(session.user.id, {
@@ -83,7 +77,6 @@ export async function POST(req: NextRequest) {
       frequency: body.frequency || 'monthly',
     });
     
-    console.log('✅ Ingreso creado exitosamente:', newIncome);
     
     return NextResponse.json({
       success: true,

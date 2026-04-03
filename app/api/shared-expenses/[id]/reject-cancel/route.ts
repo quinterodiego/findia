@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { rejectCancelSharedExpense, getSharedExpensesByUser } from '@/lib/googleSheets';
 import { sendSharedExpenseAcceptedNotification } from '@/lib/email';
 
@@ -25,10 +25,10 @@ export async function PUT(
     const { id } = await params;
     
     // Obtener información del gasto antes de rechazar la cancelación
-    let sharedExpenseData: any = null;
+    let sharedExpenseData: import('@/types').SharedExpense | null = null;
     try {
       const sharedExpenses = await getSharedExpensesByUser(session.user.id);
-      sharedExpenseData = sharedExpenses.find((se: any) => se.id === id);
+      sharedExpenseData = sharedExpenses.find(se => se.id === id);
     } catch (error) {
       console.error('Error obteniendo gasto compartido:', error);
     }
@@ -60,10 +60,10 @@ export async function PUT(
       success: true,
       message: 'Cancelación rechazada. El gasto compartido se mantiene activo.',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error rechazando cancelación:', error);
     return NextResponse.json(
-      { error: error.message || 'Error al rechazar la cancelación' },
+      { error: error instanceof Error ? error.message : 'Error al rechazar la cancelación' },
       { status: 500 }
     );
   }

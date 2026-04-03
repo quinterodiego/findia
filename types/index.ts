@@ -146,6 +146,11 @@ export interface CreditCardConsumption {
   categoryId?: string
   subcategoryId?: string
   description?: string
+  montoPesos?: number
+  montoUSD?: number
+  currency?: 'pesos' | 'usd'
+  cardId?: string
+  cardName?: string
   createdAt: string
 }
 
@@ -185,6 +190,27 @@ export interface MerchantMapping {
   typicalAmount?: number // Monto típico (útil para validación)
   frequency?: number // Cuántas veces se ha visto este comercio (para aprendizaje)
   lastSeen?: string // Última vez que se vio este comercio
+}
+
+export interface Category {
+  id: string
+  userId: string
+  name: string
+  color: string
+  icon: string
+  type: 'income' | 'expense' | 'saving' | 'custom'
+  isDefault?: boolean
+  createdAt: string
+}
+
+export interface Subcategory {
+  id: string
+  userId: string
+  categoryId: string
+  name: string
+  icon: string
+  isDefault?: boolean
+  createdAt: string
 }
 
 // Plantilla Inteligente que aprende patrones
