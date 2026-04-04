@@ -38,8 +38,15 @@ export default function TransactionDetailModal({
   };
 
   const getTransactionIcon = () => {
+    if (transaction.type === 'debt') {
+      switch (transaction.debtType) {
+        case 'prestamo': return '🏦';
+        case 'tarjeta': return '💳';
+        case 'credito': return '📈';
+        default: return '💳';
+      }
+    }
     switch (transaction.type) {
-      case 'debt': return '💳';
       case 'income': return '💰';
       case 'expense': return '💸';
       case 'goal': return '🎯';
@@ -48,8 +55,15 @@ export default function TransactionDetailModal({
   };
 
   const getTransactionLabel = () => {
+    if (transaction.type === 'debt') {
+      switch (transaction.debtType) {
+        case 'prestamo': return 'Préstamo';
+        case 'tarjeta': return 'Tarjeta de crédito';
+        case 'credito': return 'Línea de crédito';
+        default: return 'Deuda';
+      }
+    }
     switch (transaction.type) {
-      case 'debt': return 'Deuda';
       case 'income': return 'Ingreso';
       case 'expense': return 'Gasto';
       case 'goal': return 'Meta';
@@ -119,7 +133,15 @@ export default function TransactionDetailModal({
                 <span className="text-4xl">{getTransactionIcon()}</span>
                 <div>
                   <h2 className="text-xl font-semibold">{transaction.name}</h2>
-                  <p className="text-gray-700 text-sm">{getTransactionLabel()}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-gray-700 text-sm">{getTransactionLabel()}</p>
+                    {transaction.type === 'debt' && transaction.status === 'overdue' && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-200 text-red-800 font-medium">Vencida</span>
+                    )}
+                    {transaction.type === 'debt' && transaction.status === 'paid' && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-200 text-green-800 font-medium">Pagada</span>
+                    )}
+                  </div>
                 </div>
               </div>
               <button
@@ -234,6 +256,37 @@ export default function TransactionDetailModal({
                 </div>
               </div>
             )}
+
+            {/* Expense Installments */}
+            {transaction.type === 'expense' && transaction.expenseType === 'installments' && transaction.totalInstallments > 0 && (() => {
+              const current = transaction.currentInstallment || 1;
+              const total = transaction.totalInstallments;
+              const done = current > total;
+              const pct = Math.min((current - 1) / total * 100, 100);
+              return (
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">
+                      Cuotas
+                    </span>
+                    <span className={`font-semibold ${done ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                      {done ? '✅ Completo' : `${Math.min(current, total)} / ${total}`}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-300 ${done ? 'bg-green-400' : 'bg-orange-400'}`}
+                      style={{ width: `${done ? 100 : pct}%` }}
+                    />
+                  </div>
+                  {!done && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {total - (current - 1)} cuota{total - (current - 1) !== 1 ? 's' : ''} restante{total - (current - 1) !== 1 ? 's' : ''} · {formatCurrency(transaction.amount / total)} c/u
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Notes */}
             {transaction.notes && typeof transaction.notes === 'string' && transaction.notes.trim() !== '' && transaction.notes !== 'false' && (

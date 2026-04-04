@@ -114,6 +114,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
     minPayment: 0,
     dueDate: '',
     priority: 'medium' as 'high' | 'medium' | 'low',
+    status: 'active' as 'active' | 'paid' | 'overdue',
     // Campos para préstamos con cuotas
     totalInstallmentsDebt: 0,
     remainingInstallmentsDebt: 0,
@@ -172,6 +173,7 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           minPayment: editingTransaction.minPayment || 0,
           dueDate: editingTransaction.dueDate || '',
           priority: editingTransaction.priority || 'medium',
+          status: (editingTransaction.status as 'active' | 'paid' | 'overdue') || 'active',
           totalInstallmentsDebt: editingTransaction.totalInstallments || 0,
           remainingInstallmentsDebt: editingTransaction.remainingInstallments || 0,
           paymentMethodDebt: editingTransaction.paymentMethod || 'manual',
@@ -613,6 +615,21 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
                     <option value="low">Baja</option>
                     <option value="medium">Media</option>
                     <option value="high">Alta</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Estado
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="active">🟢 Activa</option>
+                    <option value="paid">✅ Pagada</option>
+                    <option value="overdue">🔴 Vencida</option>
                   </select>
                 </div>
 

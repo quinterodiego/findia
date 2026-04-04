@@ -66,6 +66,7 @@ interface TransactionData {
   minPayment?: number
   dueDate?: string
   priority?: 'high' | 'medium' | 'low'
+  status?: 'active' | 'paid' | 'overdue'
   // Campos para préstamos con cuotas
 totalInstallments?: number
   remainingInstallments?: number
@@ -103,7 +104,7 @@ interface TransactionWithType {
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { toasts, removeToast, info } = useToast()
+  const { toasts, removeToast, info, success: toastSuccess, error: toastError } = useToast()
   const [welcomeShown, setWelcomeShown] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionType, setTransactionType] = useState<TransactionType>('debt')
@@ -164,6 +165,8 @@ export default function Dashboard() {
   const [selectedExpenseForShare, setSelectedExpenseForShare] = useState<Expense | null>(null)
   const [sharedExpenses, setSharedExpenses] = useState<Array<Record<string, unknown>>>([])
   const [isSharedExpensesExpanded, setIsSharedExpensesExpanded] = useState(false)
+  const [addingToGoalId, setAddingToGoalId] = useState<string | null>(null)
+  const [goalAddInput, setGoalAddInput] = useState('')
 
   // Cargar gastos compartidos aceptados
   useEffect(() => {
@@ -461,30 +464,33 @@ export default function Dashboard() {
         if (editingIncome.type === 'income') {
           const result = await updateIncome(editingIncome.id, data);
           if (result.success) {
+            toastSuccess('Ingreso actualizado', data.name);
           } else {
-            console.error('❌ Error actualizando ingreso:', result.error);
+            toastError('Error al actualizar ingreso');
           }
         } else if (editingIncome.type === 'expense') {
           const result = await updateExpense(editingIncome.id, data);
           if (result.success) {
+            toastSuccess('Gasto actualizado', data.name);
           } else {
-            console.error('❌ Error actualizando gasto:', result.error);
+            toastError('Error al actualizar gasto');
           }
         } else if (editingIncome.type === 'goal') {
           const result = await updateGoal(editingIncome.id, data);
           if (result.success) {
+            toastSuccess('Meta actualizada', data.name);
           } else {
-            console.error('❌ Error actualizando meta:', result.error);
+            toastError('Error al actualizar meta');
           }
         } else if (editingIncome.type === 'debt') {
           const extendedData = data as ExtendedTransactionData;
           const totalInstallments = extendedData.totalInstallmentsDebt ? parseInt(String(extendedData.totalInstallmentsDebt)) : undefined;
           const remainingInstallments = extendedData.remainingInstallmentsDebt ? parseInt(String(extendedData.remainingInstallmentsDebt)) : undefined;
           // Si hay cuotas configuradas, siempre guardar el método de pago (incluso si es 'manual')
-          const paymentMethod = (totalInstallments || remainingInstallments) 
+          const paymentMethod = (totalInstallments || remainingInstallments)
             ? (extendedData.paymentMethodDebt || 'manual')
             : undefined;
-          
+
           const debtData = {
             ...data,
             dueDate: data.dueDate || data.date,
@@ -493,9 +499,11 @@ export default function Dashboard() {
             paymentMethod,
           };
           await updateDebt(editingIncome.id, debtData);
+          toastSuccess('Deuda actualizada', data.name);
         }
       } catch (error) {
         console.error('❌ Error actualizando transacción:', error);
+        toastError('Error al guardar los cambios');
       }
       return;
     }
@@ -513,53 +521,62 @@ export default function Dashboard() {
         
         const debtData = {
           ...data,
-          dueDate: data.dueDate || data.date, // Usar date como fallback
+          dueDate: data.dueDate || data.date,
           totalInstallments,
           remainingInstallments,
           paymentMethod,
+          status: data.status || 'active',
         }
-        
+
         try {
           await createDebt(debtData);
+          toastSuccess('Deuda creada', data.name);
         } catch (error) {
           console.error('❌ Error creando deuda:', error);
+          toastError('Error al crear la deuda');
         }
         break
       case 'expense':
         try {
           const result = await createExpense(data);
           if (result.success) {
+            toastSuccess('Gasto registrado', data.name);
           } else {
-            console.error('❌ Error creando gasto:', result.error);
+            toastError('Error al registrar gasto');
           }
         } catch (error) {
           console.error('❌ Error creando gasto:', error);
+          toastError('Error al registrar gasto');
         }
         break
       case 'income':
         try {
           const result = await createIncome(data);
           if (result.success) {
+            toastSuccess('Ingreso registrado', data.name);
           } else {
-            console.error('❌ Error creando ingreso:', result.error);
+            toastError('Error al registrar ingreso');
           }
         } catch (error) {
           console.error('❌ Error creando ingreso:', error);
+          toastError('Error al registrar ingreso');
         }
         break
       case 'goal':
         try {
           const result = await createGoal({ ...data, currentAmount: data.currentAmount ?? 0, targetDate: data.targetDate ?? '' });
           if (result.success) {
+            toastSuccess('Meta creada', data.name);
           } else {
-            console.error('❌ Error creando meta:', result.error);
+            toastError('Error al crear meta');
           }
         } catch (error) {
           console.error('❌ Error creando meta:', error);
+          toastError('Error al crear meta');
         }
         break
     }
-  }, [editingIncome, transactionType, updateIncome, updateExpense, updateGoal, updateDebt, createDebt, createExpense, createIncome, createGoal])
+  }, [editingIncome, transactionType, updateIncome, updateExpense, updateGoal, updateDebt, createDebt, createExpense, createIncome, createGoal, toastSuccess, toastError])
 
   // Estado de carga optimizado
   const { shouldShowSkeleton } = useLoadingState({
@@ -1154,30 +1171,34 @@ export default function Dashboard() {
               </div>
             </motion.div>
 
-            {/* Balance Neto */}
-            <motion.div 
+            {/* Balance Neto — card destacada */}
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group"
+              className={`rounded-xl p-6 shadow-xl border-2 transition-all duration-200 hover:shadow-2xl group ${
+                displayStats.netBalance >= 0
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+              }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Balance Neto</p>
-                  <motion.p 
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Balance Neto</p>
+                  <motion.p
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.4 }}
-                    className={`text-3xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                    className={`text-4xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
                   >
                     {displayStats.netBalance >= 0 ? '+' : ''}{formatCurrency(displayStats.netBalance)}
                   </motion.p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
-                    {displayStats.netBalance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {dateFilter === 'current-month' ? 'este mes' : 'total'} · {displayStats.netBalance >= 0 ? 'positivo' : 'negativo'}
                   </p>
                 </div>
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-200' : 'bg-red-200'}`}>
-                  <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-400' : 'text-red-400'}`} />
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-200 dark:bg-green-800' : 'bg-red-200 dark:bg-red-800'}`}>
+                  <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} />
                 </div>
               </div>
             </motion.div>
@@ -1191,7 +1212,10 @@ export default function Dashboard() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Metas de Ahorro</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">· total</span>
+                  </div>
                   <motion.p 
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
@@ -1238,6 +1262,26 @@ export default function Dashboard() {
               </>
             )}
           </div>
+
+          {/* Banner de deudas vencidas */}
+          {!shouldShowSkeleton && debts.filter((d: Debt) => d.status === 'overdue').length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3"
+            >
+              <span className="text-red-500 text-lg">⚠️</span>
+              <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                Tenés {debts.filter((d: Debt) => d.status === 'overdue').length} deuda{debts.filter((d: Debt) => d.status === 'overdue').length !== 1 ? 's' : ''} vencida{debts.filter((d: Debt) => d.status === 'overdue').length !== 1 ? 's' : ''}.
+              </p>
+              <button
+                onClick={() => { setFilterType('debt'); setDateFilter('all'); }}
+                className="ml-auto text-xs text-red-600 dark:text-red-400 underline cursor-pointer"
+              >
+                Ver deudas
+              </button>
+            </motion.div>
+          )}
 
           {/* Quick Export */}
           {!shouldShowSkeleton && (
@@ -1374,14 +1418,14 @@ export default function Dashboard() {
                     });
                   }
 
-                  // Aplicar filtro de fecha
+                  // Aplicar filtro de fecha: gastos e ingresos; deudas y metas siempre visibles
                   if (dateFilter === 'current-month') {
                     filtered = filtered.filter(t => {
-                      if (t.type === 'expense') {
+                      if (t.type === 'expense' || t.type === 'income') {
                         const dateStr = String(t.date || '');
                         if (!dateStr) return false;
                         const transactionDate = new Date(dateStr);
-                        return transactionDate >= currentMonthRange.startDate && 
+                        return transactionDate >= currentMonthRange.startDate &&
                                transactionDate <= currentMonthRange.endDate;
                       }
                       return true;
@@ -1414,14 +1458,14 @@ export default function Dashboard() {
                       });
                     }
 
-                    // Aplicar filtro de fecha
+                    // Aplicar filtro de fecha: gastos e ingresos; deudas y metas siempre visibles
                     if (dateFilter === 'current-month') {
                       filtered = filtered.filter(t => {
-                        if (t.type === 'expense') {
+                        if (t.type === 'expense' || t.type === 'income') {
                           const dateStr = t.date || t.createdAt || '';
                           if (!dateStr) return false;
                           const transactionDate = new Date(dateStr);
-                          return transactionDate >= currentMonthRange.startDate && 
+                          return transactionDate >= currentMonthRange.startDate &&
                                  transactionDate <= currentMonthRange.endDate;
                         }
                         return true;
@@ -1530,6 +1574,30 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Chips de filtros activos */}
+            {(filterType !== 'all' || searchQuery || dateFilter === 'current-month') && (
+              <div className="flex gap-2 flex-wrap mb-4">
+                {dateFilter === 'current-month' && (
+                  <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-[#FF3A5F]/10 text-[#FF3A5F] font-medium">
+                    📅 Mes actual
+                    <button onClick={() => setDateFilter('all')} className="hover:opacity-70 cursor-pointer leading-none">×</button>
+                  </span>
+                )}
+                {filterType !== 'all' && (
+                  <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">
+                    {filterType === 'income' ? '💰 Ingresos' : filterType === 'expense' ? '💸 Gastos' : filterType === 'debt' ? '💳 Deudas' : '🎯 Metas'}
+                    <button onClick={() => setFilterType('all')} className="hover:opacity-70 cursor-pointer leading-none">×</button>
+                  </span>
+                )}
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium">
+                    🔍 &quot;{searchQuery}&quot;
+                    <button onClick={() => setSearchQuery('')} className="hover:opacity-70 cursor-pointer leading-none">×</button>
+                  </span>
+                )}
+              </div>
+            )}
+
             {debts.length + incomes.length + expenses.length + goals.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1572,18 +1640,16 @@ export default function Dashboard() {
                     );
                   }
 
-                  // Filtrar por fecha (mes actual por defecto para gastos)
+                  // Filtrar por fecha: aplica a gastos e ingresos; deudas y metas se muestran siempre
                   if (dateFilter === 'current-month') {
                     allTransactions = allTransactions.filter(t => {
-                      // Solo aplicar filtro de fecha a gastos
-                      if (t.type === 'expense') {
+                      if (t.type === 'expense' || t.type === 'income') {
                         const dateStr = String(t.date || '');
                         if (!dateStr) return false;
                         const transactionDate = new Date(dateStr);
-                        return transactionDate >= currentMonthRange.startDate && 
+                        return transactionDate >= currentMonthRange.startDate &&
                                transactionDate <= currentMonthRange.endDate;
                       }
-                      // Para otros tipos, mostrar todos
                       return true;
                     });
                   }
@@ -1602,6 +1668,39 @@ export default function Dashboard() {
                         : a.name.localeCompare(b.name);
                     }
                   });
+
+                  if (allTransactions.length === 0) {
+                    const hasActiveFilters = filterType !== 'all' || searchQuery || dateFilter === 'current-month';
+                    return (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Search className="w-8 h-8 text-gray-400" />
+                        </div>
+                        <h4 className="text-base font-medium text-gray-900 dark:text-white mb-1">
+                          Sin resultados
+                        </h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                          {searchQuery
+                            ? `No se encontraron transacciones para "${searchQuery}"`
+                            : dateFilter === 'current-month'
+                              ? 'No hay gastos registrados en el mes actual'
+                              : 'No hay transacciones de ese tipo'}
+                        </p>
+                        {hasActiveFilters && (
+                          <button
+                            onClick={() => {
+                              setSearchQuery('');
+                              setFilterType('all');
+                              setDateFilter('all');
+                            }}
+                            className="text-sm text-[#FF3A5F] hover:underline cursor-pointer"
+                          >
+                            Limpiar filtros
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
 
                   return allTransactions.map((transaction) => {
                     const getTransactionIcon = () => {
@@ -1654,7 +1753,11 @@ export default function Dashboard() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3, delay: 0.1 }}
-                        className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all duration-300 group cursor-pointer"
+                        className={`border rounded-xl p-4 hover:shadow-md transition-all duration-300 group cursor-pointer ${
+                          transaction.type === 'debt' && (transaction as Debt).status === 'overdue'
+                            ? 'border-red-300 dark:border-red-700 bg-red-50/40 dark:bg-red-900/10'
+                            : 'border-gray-200 dark:border-gray-700'
+                        }`}
                         onClick={() => {
                           setSelectedTransaction(transaction);
                           setShowDetailModal(true);
@@ -1664,9 +1767,16 @@ export default function Dashboard() {
                           <div className="flex items-center gap-3">
                             <span className="text-2xl">{getTransactionIcon()}</span>
                             <div className="flex-1">
-                              <h4 className="font-semibold text-gray-900 dark:text-white">
-                                {transaction.name}
-                              </h4>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-semibold text-gray-900 dark:text-white">
+                                  {transaction.name}
+                                </h4>
+                                {transaction.type === 'debt' && (transaction as Debt).status === 'overdue' && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 font-medium">
+                                    Vencida
+                                  </span>
+                                )}
+                              </div>
                               <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 ${getTransactionColor()}`}>
                                 {getTransactionLabel()}
                               </span>
@@ -1676,25 +1786,25 @@ export default function Dashboard() {
                             <div className={`text-lg font-semibold ${getTransactionColor()}`}>
                               {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}{formatCurrency(typeof transaction.amount === 'number' ? transaction.amount : 0)}
                             </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                            <div className={`text-sm ${
+                              transaction.type === 'debt' && (transaction as Debt).status === 'overdue'
+                                ? 'text-red-500 dark:text-red-400 font-medium'
+                                : 'text-gray-600 dark:text-gray-400'
+                            }`}>
                               {(() => {
-                                // Para deudas, usar dueDate si existe, sino createdAt
-                                const dateToShow = transaction.type === 'debt' 
-                                  ? (String(transaction.dueDate || transaction.createdAt || transaction.date || ''))
+                                const dateToShow = transaction.type === 'debt'
+                                  ? (String((transaction as Debt).dueDate || transaction.createdAt || transaction.date || ''))
                                   : String(transaction.date || '');
                                 if (!dateToShow) return 'Sin fecha';
-                                
-                                // Si la fecha viene en formato YYYY-MM-DD, parsearla manualmente para evitar problemas de UTC
+                                let formatted: string;
                                 if (dateToShow.match(/^\d{4}-\d{2}-\d{2}$/)) {
                                   const [year, month, day] = dateToShow.split('-').map(Number);
-                                  const dateObj = new Date(year, month - 1, day);
-                                  return dateObj.toLocaleDateString('es-AR');
+                                  formatted = new Date(year, month - 1, day).toLocaleDateString('es-AR');
+                                } else {
+                                  const dateObj = new Date(dateToShow);
+                                  formatted = isNaN(dateObj.getTime()) ? 'Fecha inválida' : dateObj.toLocaleDateString('es-AR');
                                 }
-                                
-                                // Para otros formatos, intentar parsear normalmente
-                                const dateObj = new Date(dateToShow);
-                                if (isNaN(dateObj.getTime())) return 'Fecha inválida';
-                                return dateObj.toLocaleDateString('es-AR');
+                                return transaction.type === 'debt' ? `Vence: ${formatted}` : formatted;
                               })()}
                             </div>
                           </div>
@@ -1728,13 +1838,56 @@ export default function Dashboard() {
                               <span>{((transaction.currentAmount || 0) / transaction.amount * 100).toFixed(1)}%</span>
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div 
+                              <div
                                 className="bg-purple-400 h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${((transaction.currentAmount || 0) / transaction.amount * 100)}%` }}
                               ></div>
                             </div>
                           </div>
                         )}
+
+                        {transaction.type === 'expense' && (transaction as Expense).expenseType === 'installments' && typeof (transaction as Expense).totalInstallments === 'number' && (transaction as Expense).totalInstallments! > 0 && (() => {
+                          const exp = transaction as Expense;
+                          const current = exp.currentInstallment || 1;
+                          const total = exp.totalInstallments!;
+                          const done = current > total;
+                          const pct = Math.min((current - 1) / total * 100, 100);
+                          return (
+                            <div className="mt-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                  Cuota {Math.min(current, total)}/{total}
+                                </span>
+                                {done ? (
+                                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">✅ Pagado</span>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openConfirmModal(
+                                        `¿Marcar cuota ${current}/${total} como pagada?`,
+                                        'Esta acción no se puede deshacer fácilmente.',
+                                        () => {
+                                          updateExpense(exp.id, { currentInstallment: current + 1 });
+                                          toastSuccess(`Cuota ${current}/${total} marcada como pagada`);
+                                        }
+                                      );
+                                    }}
+                                    className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 font-medium cursor-pointer"
+                                  >
+                                    + Pagar cuota {current}
+                                  </button>
+                                )}
+                              </div>
+                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full transition-all duration-300 ${done ? 'bg-green-400' : 'bg-orange-400'}`}
+                                  style={{ width: `${done ? 100 : pct}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </motion.div>
                     );
                   });
@@ -1789,10 +1942,22 @@ export default function Dashboard() {
             setShowDetailModal(false);
             setShowTransactionModal(true);
           } else if (selectedTransaction?.type === 'debt') {
-            setEditingIncome(selectedTransaction);
-            setTransactionType('debt');
-            setShowDetailModal(false);
-            setShowTransactionModal(true);
+            const hasPayments = debtPayments.some(p => p.debtId === selectedTransaction.id);
+            const openDebtEdit = () => {
+              setEditingIncome(selectedTransaction);
+              setTransactionType('debt');
+              setShowDetailModal(false);
+              setShowTransactionModal(true);
+            };
+            if (hasPayments) {
+              openConfirmModal(
+                'Esta deuda tiene pagos registrados',
+                'Si modificás el monto original, el porcentaje de progreso cambiará. ¿Querés continuar?',
+                openDebtEdit
+              );
+            } else {
+              openDebtEdit();
+            }
           }
         }}
         onAddPayment={() => {
@@ -1811,6 +1976,7 @@ export default function Dashboard() {
                 deleteIncome(selectedTransaction.id);
                 setShowDetailModal(false);
                 setSelectedTransaction(null);
+                toastSuccess('Ingreso eliminado');
               }
             );
           } else if (selectedTransaction?.type === 'expense') {
@@ -1821,6 +1987,7 @@ export default function Dashboard() {
                 deleteExpense(selectedTransaction.id);
                 setShowDetailModal(false);
                 setSelectedTransaction(null);
+                toastSuccess('Gasto eliminado');
               }
             );
           } else if (selectedTransaction?.type === 'goal') {
@@ -1831,6 +1998,7 @@ export default function Dashboard() {
                 deleteGoal(selectedTransaction.id);
                 setShowDetailModal(false);
                 setSelectedTransaction(null);
+                toastSuccess('Meta eliminada');
               }
             );
           } else if (selectedTransaction?.type === 'debt') {
@@ -1841,6 +2009,7 @@ export default function Dashboard() {
                 deleteDebt(selectedTransaction.id);
                 setShowDetailModal(false);
                 setSelectedTransaction(null);
+                toastSuccess('Deuda eliminada');
               }
             );
           }
@@ -2248,7 +2417,66 @@ export default function Dashboard() {
                           />
                         </div>
                         
-                        {/* Información adicional */}
+                        {/* Botón agregar ahorro */}
+                        {!isCompleted && (
+                          <div className="mt-3">
+                            {addingToGoalId === goal.id ? (
+                              <div className="flex gap-2 items-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  autoFocus
+                                  value={goalAddInput}
+                                  onChange={(e) => setGoalAddInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                      setAddingToGoalId(null);
+                                      setGoalAddInput('');
+                                    }
+                                    if (e.key === 'Enter') {
+                                      const added = parseFloat(goalAddInput);
+                                      if (!isNaN(added) && added > 0) {
+                                        updateGoal(goal.id, { currentAmount: (goal.currentAmount || 0) + added });
+                                        toastSuccess('Progreso actualizado', goal.name);
+                                      }
+                                      setAddingToGoalId(null);
+                                      setGoalAddInput('');
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-1.5 text-sm border border-purple-300 dark:border-purple-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
+                                  placeholder="Monto a agregar..."
+                                />
+                                <button
+                                  onClick={() => {
+                                    const added = parseFloat(goalAddInput);
+                                    if (!isNaN(added) && added > 0) {
+                                      updateGoal(goal.id, { currentAmount: (goal.currentAmount || 0) + added });
+                                      toastSuccess('Progreso actualizado', goal.name);
+                                    }
+                                    setAddingToGoalId(null);
+                                    setGoalAddInput('');
+                                  }}
+                                  className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors cursor-pointer"
+                                >
+                                  Guardar
+                                </button>
+                                <button
+                                  onClick={() => { setAddingToGoalId(null); setGoalAddInput(''); }}
+                                  className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => { setAddingToGoalId(goal.id); setGoalAddInput(''); }}
+                                className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium cursor-pointer flex items-center gap-1"
+                              >
+                                + Agregar ahorro
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </motion.div>
                     );
                   })
