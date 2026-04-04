@@ -1705,7 +1705,7 @@ export default function Dashboard() {
                   return allTransactions.map((transaction) => {
                     const getTransactionIcon = () => {
                       if (transaction.type === 'debt') {
-                        switch ((transaction as Debt).debtType) {
+                        switch ((transaction as unknown as Debt).debtType) {
                           case 'prestamo': return '🏦';
                           case 'tarjeta': return '💳';
                           case 'credito': return '📈';
@@ -1732,7 +1732,7 @@ export default function Dashboard() {
 
                     const getTransactionLabel = () => {
                       if (transaction.type === 'debt') {
-                        switch ((transaction as Debt).debtType) {
+                        switch ((transaction as unknown as Debt).debtType) {
                           case 'prestamo': return 'Préstamo';
                           case 'tarjeta': return 'Tarjeta de crédito';
                           case 'credito': return 'Línea de crédito';
@@ -1754,7 +1754,7 @@ export default function Dashboard() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3, delay: 0.1 }}
                         className={`border rounded-xl p-4 hover:shadow-md transition-all duration-300 group cursor-pointer ${
-                          transaction.type === 'debt' && (transaction as Debt).status === 'overdue'
+                          transaction.type === 'debt' && (transaction as unknown as Debt).status === 'overdue'
                             ? 'border-red-300 dark:border-red-700 bg-red-50/40 dark:bg-red-900/10'
                             : 'border-gray-200 dark:border-gray-700'
                         }`}
@@ -1771,7 +1771,7 @@ export default function Dashboard() {
                                 <h4 className="font-semibold text-gray-900 dark:text-white">
                                   {transaction.name}
                                 </h4>
-                                {transaction.type === 'debt' && (transaction as Debt).status === 'overdue' && (
+                                {transaction.type === 'debt' && (transaction as unknown as Debt).status === 'overdue' && (
                                   <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 font-medium">
                                     Vencida
                                   </span>
@@ -1787,13 +1787,13 @@ export default function Dashboard() {
                               {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}{formatCurrency(typeof transaction.amount === 'number' ? transaction.amount : 0)}
                             </div>
                             <div className={`text-sm ${
-                              transaction.type === 'debt' && (transaction as Debt).status === 'overdue'
+                              transaction.type === 'debt' && (transaction as unknown as Debt).status === 'overdue'
                                 ? 'text-red-500 dark:text-red-400 font-medium'
                                 : 'text-gray-600 dark:text-gray-400'
                             }`}>
                               {(() => {
                                 const dateToShow = transaction.type === 'debt'
-                                  ? (String((transaction as Debt).dueDate || transaction.createdAt || transaction.date || ''))
+                                  ? (String((transaction as unknown as Debt).dueDate || transaction.createdAt || transaction.date || ''))
                                   : String(transaction.date || '');
                                 if (!dateToShow) return 'Sin fecha';
                                 let formatted: string;
@@ -1846,8 +1846,8 @@ export default function Dashboard() {
                           </div>
                         )}
 
-                        {transaction.type === 'expense' && (transaction as Expense).expenseType === 'installments' && typeof (transaction as Expense).totalInstallments === 'number' && (transaction as Expense).totalInstallments! > 0 && (() => {
-                          const exp = transaction as Expense;
+                        {transaction.type === 'expense' && (transaction as unknown as Expense).expenseType === 'installments' && typeof (transaction as unknown as Expense).totalInstallments === 'number' && (transaction as unknown as Expense).totalInstallments! > 0 && (() => {
+                          const exp = transaction as unknown as Expense;
                           const current = exp.currentInstallment || 1;
                           const total = exp.totalInstallments!;
                           const done = current > total;
