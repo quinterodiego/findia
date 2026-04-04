@@ -213,7 +213,8 @@ export default function TransactionModal({ isOpen, onClose, type, onSave, loadin
           currentInstallment: 1,
           paymentMethod: 'manual',
           isRecurring: false,
-          frequency: 'monthly'
+          frequency: 'monthly',
+          status: 'active' as 'active' | 'paid' | 'overdue'
         });
         setAmountInput('');
         setBalanceInput('');
