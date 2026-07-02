@@ -590,7 +590,7 @@ export default function Dashboard() {
   const filteredIncomes = useMemo(() =>
     dateFilter === 'current-month'
       ? incomes.filter(income => {
-          const d = new Date(income.date)
+          const d = new Date(income.date + 'T00:00:00')
           return d >= currentMonthRange.startDate && d <= currentMonthRange.endDate
         })
       : incomes,
@@ -599,7 +599,7 @@ export default function Dashboard() {
   const filteredExpenses = useMemo(() =>
     dateFilter === 'current-month'
       ? expenses.filter(expense => {
-          const d = new Date(expense.date)
+          const d = new Date(expense.date + 'T00:00:00')
           return d >= currentMonthRange.startDate && d <= currentMonthRange.endDate
         })
       : expenses,
@@ -1424,7 +1424,7 @@ export default function Dashboard() {
                       if (t.type === 'expense' || t.type === 'income') {
                         const dateStr = String(t.date || '');
                         if (!dateStr) return false;
-                        const transactionDate = new Date(dateStr);
+                        const transactionDate = new Date(dateStr + 'T00:00:00');
                         return transactionDate >= currentMonthRange.startDate &&
                                transactionDate <= currentMonthRange.endDate;
                       }
@@ -1462,9 +1462,9 @@ export default function Dashboard() {
                     if (dateFilter === 'current-month') {
                       filtered = filtered.filter(t => {
                         if (t.type === 'expense' || t.type === 'income') {
-                          const dateStr = t.date || t.createdAt || '';
+                          const dateStr = String(t.date || t.createdAt || '');
                           if (!dateStr) return false;
-                          const transactionDate = new Date(dateStr);
+                          const transactionDate = new Date(dateStr + 'T00:00:00');
                           return transactionDate >= currentMonthRange.startDate &&
                                  transactionDate <= currentMonthRange.endDate;
                         }
@@ -1646,7 +1646,7 @@ export default function Dashboard() {
                       if (t.type === 'expense' || t.type === 'income') {
                         const dateStr = String(t.date || '');
                         if (!dateStr) return false;
-                        const transactionDate = new Date(dateStr);
+                        const transactionDate = new Date(dateStr + 'T00:00:00');
                         return transactionDate >= currentMonthRange.startDate &&
                                transactionDate <= currentMonthRange.endDate;
                       }

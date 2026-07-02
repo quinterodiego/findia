@@ -880,15 +880,17 @@ export async function saveUser(user: {
     }
     
     const now = new Date().toISOString();
-    
+
     // Si se encontró por email pero con ID diferente, usar el ID existente
     const finalUserId = existingUserIndex !== -1 ? rows[existingUserIndex][0] : user.id;
     const createdAt = existingUserIndex !== -1 ? rows[existingUserIndex][5] : now;
-    
+    // Preservar el hash existente si no se proporciona password nuevo (ej: login con Google)
+    const existingPassword = existingUserIndex !== -1 ? (rows[existingUserIndex][2] || '') : '';
+
     const userData = [
       finalUserId,
       user.email,
-      user.password || '', // Password hasheado (vacío para usuarios de Google)
+      user.password !== undefined ? user.password : existingPassword,
       user.name || '',
       user.image || '',
       createdAt, // Mantener createdAt original si existe
