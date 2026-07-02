@@ -39,27 +39,27 @@ export default function DashboardBudget({
       transition={{ duration: 0.4, delay: 0.2 }}
       className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6"
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-lg shrink-0">
             <TrendingUp className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+          <div className="min-w-0">
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-tight">
               Presupuesto {getMonthLabel(budgetMonthOffset)}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
               Vista consolidada de tus gastos fijos recurrentes
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800">
-            <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800 flex-1 sm:flex-none">
+            <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
             <select
               value={budgetMonthOffset}
               onChange={(e) => setBudgetMonthOffset(Number(e.target.value))}
-              className="bg-transparent border-0 focus:ring-0 focus:outline-none text-sm font-medium cursor-pointer text-indigo-700 dark:text-indigo-300"
+              className="bg-transparent border-0 focus:ring-0 focus:outline-none text-sm font-medium cursor-pointer text-indigo-700 dark:text-indigo-300 w-full"
               aria-label="Seleccionar mes del presupuesto"
             >
               <option value={0}>{getMonthLabel(0)}</option>
@@ -68,10 +68,10 @@ export default function DashboardBudget({
           </div>
           <button
             onClick={() => setShowFixedExpensesTable(true)}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-lg hover:from-indigo-600 hover:to-violet-600 transition-all font-medium text-sm flex items-center gap-2"
+            className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-lg hover:from-indigo-600 hover:to-violet-600 transition-all font-medium text-sm flex items-center justify-center gap-2 flex-1 sm:flex-none"
           >
             <TrendingUp className="w-4 h-4" />
-            Ver Tabla Completa
+            <span>Ver Tabla</span>
           </button>
         </div>
       </div>
