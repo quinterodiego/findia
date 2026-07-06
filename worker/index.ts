@@ -2,6 +2,13 @@
 export type {};
 declare const self: ServiceWorkerGlobalScope;
 
+// Activar inmediatamente cuando el banner llama postMessage({ type: 'SKIP_WAITING' })
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 

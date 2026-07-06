@@ -118,7 +118,7 @@ export default function UpdateAvailableBanner() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:w-96"
+        className="fixed bottom-24 left-4 right-4 z-50 md:bottom-4 md:left-auto md:right-4 md:w-96"
       >
         <div className="bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white rounded-xl shadow-2xl p-4 border border-[#FF3A5F]/20">
           <div className="flex items-start gap-3">
