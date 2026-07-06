@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Menu, Users, RefreshCw } from 'lucide-react'
+import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Users, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -48,6 +48,7 @@ import DashboardBudget from '@/components/DashboardBudget'
 import { usePullToRefresh } from '@/hooks/usePullToRefresh'
 import PullToRefresh from '@/components/PullToRefresh'
 import NotificationBell from '@/components/NotificationBell'
+import BottomNavBar from '@/components/BottomNavBar'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -1056,30 +1057,8 @@ export default function Dashboard() {
                   <LogOut className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 </button>
 
-                {/* Botón de menú móvil */}
-                <button
-                  onClick={() => setShowBottomNav(!showBottomNav)}
-                  className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                  title="Menú"
-                  aria-expanded={showBottomNav}
-                  aria-label={showBottomNav ? 'Cerrar menú' : 'Abrir menú'}
-                >
-                  <motion.span
-                    key={showBottomNav ? 'close' : 'menu'}
-                    initial={{ rotate: 0, scale: 0.9, opacity: 0 }}
-                    animate={{ rotate: showBottomNav ? 90 : 0, scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                    className="inline-flex"
-                  >
-                    {showBottomNav ? (
-                      <X className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                    ) : (
-                      <Menu className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                    )}
-                  </motion.span>
-                </button>
               </div>
-              {/* Botón de refresh — solo mobile, solo PWA standalone */}
+              {/* Botón de refresh — solo mobile */}
               <div className="md:hidden">
                 <button
                   onClick={refreshAll}
@@ -1091,38 +1070,13 @@ export default function Dashboard() {
                   <RefreshCw className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${pullToRefresh.isRefreshing ? 'animate-spin' : ''}`} />
                 </button>
               </div>
-
-              {/* Botón de menú móvil (visible cuando los demás se ocultan) */}
-              <div className="md:hidden">
-                <button
-                  onClick={() => setShowBottomNav(!showBottomNav)}
-                  className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                  title="Menú"
-                  aria-expanded={showBottomNav}
-                  aria-label={showBottomNav ? 'Cerrar menú' : 'Abrir menú'}
-                >
-                  <motion.span
-                    key={showBottomNav ? 'close' : 'menu'}
-                    initial={{ rotate: 0, scale: 0.9, opacity: 0 }}
-                    animate={{ rotate: showBottomNav ? 90 : 0, scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                    className="inline-flex"
-                  >
-                    {showBottomNav ? (
-                      <X className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                    ) : (
-                      <Menu className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                    )}
-                  </motion.span>
-                </button>
-              </div>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6 py-6">
+      <main className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6 py-6 pb-28 md:pb-6">
         <div className="space-y-6">
           {/* Filtro Global del Dashboard */}
           <motion.div
@@ -1968,7 +1922,10 @@ export default function Dashboard() {
       </main>
 
       {/* Botón Flotante Mejorado */}
-      <FloatingActionButton onAction={handleTransactionAction} />
+      {/* FAB: only on desktop — mobile uses BottomNavBar center button */}
+      <div className="hidden md:block">
+        <FloatingActionButton onAction={handleTransactionAction} />
+      </div>
 
       {/* Modal Unificado de Transacciones */}
       <TransactionModal
@@ -2737,16 +2694,27 @@ export default function Dashboard() {
         loading={debtsLoading}
       />
 
-      {/* Mobile Menu (Burger) - Solo Mobile */}
+      {/* More sheet — slides up from bottom nav */}
       <AnimatePresence>
         {showBottomNav && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
+              onClick={() => setShowBottomNav(false)}
+            />
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="fixed top-16 left-0 right-0 z-50 md:hidden"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+            className="fixed left-0 right-0 z-50 md:hidden rounded-t-3xl overflow-hidden shadow-2xl"
+            style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}
           >
-            <div className="mx-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl rounded-2xl overflow-hidden bottom-nav-container">
+            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+              <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mt-3 mb-1" />
               <div className="px-4 py-3">
                 {/* User + Quick actions */}
                 <div className="flex items-center justify-between mb-3">
@@ -2890,6 +2858,7 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -2906,6 +2875,14 @@ export default function Dashboard() {
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Bottom Navigation Bar — mobile only */}
+      <BottomNavBar
+        activeFilter={filterType}
+        onFilterChange={(f) => setFilterType(f)}
+        onAction={handleTransactionAction}
+        onMore={() => setShowBottomNav(!showBottomNav)}
+      />
     </div>
   )
 }

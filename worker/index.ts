@@ -1,3 +1,5 @@
+/// <reference lib="WebWorker" />
+export type {};
 declare const self: ServiceWorkerGlobalScope;
 
 self.addEventListener('push', (event) => {
@@ -6,18 +8,20 @@ self.addEventListener('push', (event) => {
   const data = event.data.json();
   const { title, body, icon, url, tag } = data;
 
+  const opts: NotificationOptions & { actions?: { action: string; title: string }[] } = {
+    body: body || '',
+    icon: icon || '/icons/icon-192x192.png',
+    badge: '/icons/icon-192x192.png',
+    tag: tag || 'findia',
+    data: { url: url || '/dashboard' },
+    actions: [
+      { action: 'open', title: 'Ver ahora' },
+      { action: 'close', title: 'Ignorar' },
+    ],
+  };
+
   event.waitUntil(
-    self.registration.showNotification(title || 'FindIA', {
-      body: body || '',
-      icon: icon || '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
-      tag: tag || 'findia',
-      data: { url: url || '/dashboard' },
-      actions: [
-        { action: 'open', title: 'Ver ahora' },
-        { action: 'close', title: 'Ignorar' },
-      ],
-    })
+    self.registration.showNotification(title || 'FindIA', opts as NotificationOptions)
   );
 });
 

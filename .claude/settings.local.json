@@ -6,7 +6,9 @@
       "Bash(find c:/Users/Diego/Documents/GitHub/findia/app/api -name \"*.ts\" -exec grep -l \"authOptions.*from.*auth/\\\\[...nextauth\\\\]/route\" {} \\\\;)",
       "Bash(xargs sed:*)",
       "Bash(npm install *)",
-      "Bash(node -e \"const wp = require\\('web-push'\\); const keys = wp.generateVAPIDKeys\\(\\); console.log\\(JSON.stringify\\(keys\\)\\)\")"
+      "Bash(node -e \"const wp = require\\('web-push'\\); const keys = wp.generateVAPIDKeys\\(\\); console.log\\(JSON.stringify\\(keys\\)\\)\")",
+      "PowerShell(cd \"C:\\\\Users\\\\dquintero\\\\Documents\\\\GitHub\\\\findia\" && npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch '\\\\.next/types' } | Select-Object -First 20)",
+      "PowerShell(cd \"C:\\\\Users\\\\dquintero\\\\Documents\\\\GitHub\\\\findia\" && npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch '\\\\.next' } | Select-Object -First 20)"
     ]
   }
 }
