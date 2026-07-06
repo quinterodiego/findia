@@ -1404,7 +1404,8 @@ function Dashboard() {
           />
 
           {/* Lista de Deudas */}
-          <motion.div 
+          <motion.div
+            id="transaction-list"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.8 }}
@@ -2879,7 +2880,14 @@ function Dashboard() {
       {/* Bottom Navigation Bar — mobile only */}
       <BottomNavBar
         activeFilter={filterType}
-        onFilterChange={(f) => setFilterType(f)}
+        onFilterChange={(f) => {
+          setFilterType(f)
+          if (f !== 'all') {
+            setTimeout(() => {
+              document.getElementById('transaction-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }, 50)
+          }
+        }}
         onAction={handleTransactionAction}
         onMore={() => setShowBottomNav(!showBottomNav)}
       />
