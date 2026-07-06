@@ -8,7 +8,8 @@
       "Bash(npm install *)",
       "Bash(node -e \"const wp = require\\('web-push'\\); const keys = wp.generateVAPIDKeys\\(\\); console.log\\(JSON.stringify\\(keys\\)\\)\")",
       "PowerShell(cd \"C:\\\\Users\\\\dquintero\\\\Documents\\\\GitHub\\\\findia\" && npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch '\\\\.next/types' } | Select-Object -First 20)",
-      "PowerShell(cd \"C:\\\\Users\\\\dquintero\\\\Documents\\\\GitHub\\\\findia\" && npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch '\\\\.next' } | Select-Object -First 20)"
+      "PowerShell(cd \"C:\\\\Users\\\\dquintero\\\\Documents\\\\GitHub\\\\findia\" && npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch '\\\\.next' } | Select-Object -First 20)",
+      "PowerShell(cd \"C:\\\\Users\\\\dquintero\\\\Documents\\\\GitHub\\\\findia\" && npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch '\\\\.next' } | Select-Object -First 10)"
     ]
   }
 }
