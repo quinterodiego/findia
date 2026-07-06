@@ -1,11 +1,19 @@
 import webpush from 'web-push';
 import { google } from 'googleapis';
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@findia.app';
+let vapidInitialized = false;
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+function initWebPush() {
+  if (vapidInitialized) return;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  const subject = process.env.VAPID_SUBJECT || 'mailto:admin@findia.app';
+  if (!publicKey || !privateKey) {
+    throw new Error('VAPID environment variables are not configured');
+  }
+  webpush.setVapidDetails(subject, publicKey, privateKey);
+  vapidInitialized = true;
+}
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -100,6 +108,7 @@ export interface NotificationPayload {
 }
 
 export async function sendNotification(userId: string, payload: NotificationPayload) {
+  initWebPush();
   const subs = await getSubscriptions(userId);
   let sent = 0;
   let failed = 0;
@@ -121,4 +130,8 @@ export async function sendNotification(userId: string, payload: NotificationPayl
   return { sent, failed };
 }
 
-export const getVapidPublicKey = () => VAPID_PUBLIC_KEY;
+export const getVapidPublicKey = () => {
+  const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!key) throw new Error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set');
+  return key;
+};
