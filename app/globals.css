@@ -87,6 +87,23 @@ textarea {
   }
 }
 
+/* iOS safe area — notch / Dynamic Island / home indicator */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Elementos fijos en el bottom deben respetar el home indicator */
+.fixed-bottom-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Scrollbar personalizada */
 ::-webkit-scrollbar {
   width: 8px;

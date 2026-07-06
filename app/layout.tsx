@@ -23,7 +23,10 @@ export const metadata: Metadata = {
     ],
     shortcut: "/logo.ico",
     apple: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" }
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-192x192.png", sizes: "180x180", type: "image/png" },
+      { url: "/icons/icon-192x192.png", sizes: "167x167", type: "image/png" },
+      { url: "/icons/icon-192x192.png", sizes: "152x152", type: "image/png" },
     ],
   },
   appleWebApp: {
@@ -53,6 +56,7 @@ export const viewport = {
   maximumScale: 5,
   userScalable: true,
   themeColor: "#FF3A5F",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -75,6 +79,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#FF3A5F" />
         
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-192x192.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/logo.ico" />
         <link rel="icon" type="image/png" sizes="16x16" href="/logo.ico" />
         <link rel="manifest" href="/manifest.json?v=3" />

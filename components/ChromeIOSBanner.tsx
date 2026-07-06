@@ -59,13 +59,14 @@ export default function ChromeIOSBanner() {
     localStorage.setItem('chrome-ios-banner-dismissed-timestamp', new Date().toISOString());
   };
 
-  const handleOpenInSafari = () => {
-    // Crear un enlace que abra en Safari
+  const handleOpenInSafari = async () => {
     const url = window.location.href;
-    const safariUrl = `x-safari-https://${url.replace(/^https?:\/\//, '')}`;
-    
-    // Intentar abrir en Safari
-    window.location.href = safariUrl;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert('URL copiada. Pegala en Safari para instalar FindIA como app.');
+    } catch {
+      prompt('Copiá esta dirección y pegala en Safari:', url);
+    }
   };
 
   if (!showBanner) return null;
@@ -92,7 +93,7 @@ export default function ChromeIOSBanner() {
               className="flex items-center gap-2 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 text-white text-xs px-3 py-2 rounded-md transition-colors"
             >
               <ExternalLink size={12} />
-              Abrir en Safari
+              Copiar URL para Safari
             </button>
             <button
               onClick={handleDismiss}
