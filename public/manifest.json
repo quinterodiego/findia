@@ -43,16 +43,25 @@
   ],
   "shortcuts": [
     {
-      "name": "Dashboard",
-      "short_name": "Dashboard",
-      "description": "Accede rápidamente al dashboard principal",
-      "url": "/dashboard",
-      "icons": [
-        {
-          "src": "/images/logo.png",
-          "sizes": "96x96"
-        }
-      ]
+      "name": "Agregar Gasto",
+      "short_name": "Gasto",
+      "description": "Registrar un nuevo gasto rápidamente",
+      "url": "/dashboard?open=expense",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Agregar Ingreso",
+      "short_name": "Ingreso",
+      "description": "Registrar un nuevo ingreso rápidamente",
+      "url": "/dashboard?open=income",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Ver Deudas",
+      "short_name": "Deudas",
+      "description": "Ver el estado de tus deudas",
+      "url": "/dashboard?filter=debt",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     }
   ],
   "screenshots": [

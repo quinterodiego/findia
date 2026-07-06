@@ -82,6 +82,15 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
         <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-192x192.png" />
         <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-192x192.png" />
+
+        {/* Splash screens iOS — usa el ícono 512x512 como fallback hasta tener imágenes específicas */}
+        <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" href="/icons/icon-512x512.png" />
+        <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" href="/icons/icon-512x512.png" />
+        <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" href="/icons/icon-512x512.png" />
+        <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" href="/icons/icon-512x512.png" />
+        <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="/icons/icon-512x512.png" />
+        <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" href="/icons/icon-512x512.png" />
+        <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" href="/icons/icon-512x512.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/logo.ico" />
         <link rel="icon" type="image/png" sizes="16x16" href="/logo.ico" />
         <link rel="manifest" href="/manifest.json?v=3" />

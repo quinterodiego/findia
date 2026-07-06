@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Menu, Users } from 'lucide-react'
+import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Menu, Users, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -45,6 +45,9 @@ import FixedExpensesTable from '@/components/FixedExpensesTable'
 import { useFixedExpenses } from '@/hooks/useFixedExpenses'
 import DashboardAnalytics from '@/components/DashboardAnalytics'
 import DashboardBudget from '@/components/DashboardBudget'
+import { usePullToRefresh } from '@/hooks/usePullToRefresh'
+import PullToRefresh from '@/components/PullToRefresh'
+import NotificationBell from '@/components/NotificationBell'
 
 type TransactionType = 'debt' | 'expense' | 'income' | 'goal'
 
@@ -104,6 +107,7 @@ interface TransactionWithType {
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toasts, removeToast, info, success: toastSuccess, error: toastError } = useToast()
   const [welcomeShown, setWelcomeShown] = useState(false)
   const [showTransactionModal, setShowTransactionModal] = useState(false)
@@ -218,6 +222,7 @@ export default function Dashboard() {
     createIncome,
     updateIncome,
     deleteIncome,
+    fetchIncomes,
   } = useIncomes()
 
   const {
@@ -226,6 +231,7 @@ export default function Dashboard() {
     createExpense,
     updateExpense,
     deleteExpense,
+    fetchExpenses,
   } = useExpenses()
 
   const {
@@ -234,6 +240,7 @@ export default function Dashboard() {
     createGoal,
     updateGoal,
     deleteGoal,
+    fetchGoals,
   } = useGoals()
 
   // Hook para manejar categorías
@@ -284,6 +291,22 @@ export default function Dashboard() {
     totalPaid: totalFixedPaid,
   } = useFixedExpenses(expenses, debts, debtPayments, budgetMonthOffset);
 
+  // Manejar shortcuts de la PWA (?open=expense|income|debt|goal, ?filter=debt|...)
+  useEffect(() => {
+    const open = searchParams.get('open') as TransactionType | null
+    const filter = searchParams.get('filter') as typeof filterType | null
+
+    if (open && ['expense', 'income', 'debt', 'goal'].includes(open)) {
+      setTransactionType(open)
+      setShowTransactionModal(true)
+    }
+    if (filter) {
+      setFilterType(filter)
+    }
+  // Solo al montar
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Evitar dobles cargas (StrictMode/dev y re-hidratación de sesión)
   const hasLoadedRef = useRef(false)
   useEffect(() => {
@@ -294,6 +317,35 @@ export default function Dashboard() {
     fetchStats()
     fetchCards()
   }, [status, session?.user?.id, fetchDebts, fetchStats, fetchCards])
+
+  // Refrescar todos los datos (pull-to-refresh + visibilitychange)
+  const refreshAll = useCallback(async () => {
+    await Promise.all([
+      fetchDebts(),
+      fetchStats(),
+      fetchCards(),
+      fetchIncomes(),
+      fetchExpenses(),
+      fetchGoals(),
+    ])
+  }, [fetchDebts, fetchStats, fetchCards, fetchIncomes, fetchExpenses, fetchGoals])
+
+  // Auto-refresh cuando la PWA vuelve al foco tras 5+ minutos en background
+  const hiddenAtRef = useRef<number | null>(null)
+  useEffect(() => {
+    const STALE_MS = 5 * 60 * 1000
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now()
+      } else if (hiddenAtRef.current && Date.now() - hiddenAtRef.current > STALE_MS) {
+        refreshAll()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [refreshAll])
+
+  const pullToRefresh = usePullToRefresh(refreshAll)
 
   useEffect(() => {
     if (status === 'loading') return
@@ -722,6 +774,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#f7f9fc] dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <PullToRefresh {...pullToRefresh} />
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="w-full max-w-[98%] mx-auto px-3 sm:px-4 lg:px-6">
@@ -744,6 +797,9 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="hidden md:block">
                 <ThemeToggle />
+              </div>
+              <div className="hidden md:block">
+                <NotificationBell />
               </div>
 
               {/* Botón de Presupuesto - Solo Desktop */}
@@ -1023,6 +1079,19 @@ export default function Dashboard() {
                   </motion.span>
                 </button>
               </div>
+              {/* Botón de refresh — solo mobile, solo PWA standalone */}
+              <div className="md:hidden">
+                <button
+                  onClick={refreshAll}
+                  disabled={pullToRefresh.isRefreshing}
+                  className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50"
+                  title="Actualizar datos"
+                  aria-label="Actualizar datos"
+                >
+                  <RefreshCw className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${pullToRefresh.isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
               {/* Botón de menú móvil (visible cuando los demás se ocultan) */}
               <div className="md:hidden">
                 <button
