@@ -9,8 +9,12 @@ import {
   ClipboardList,
   GitCompare,
   TrendingDown,
-  Star,
-  ArrowRight
+  ArrowRight,
+  ArrowDown,
+  CreditCard,
+  Landmark,
+  Layers,
+  Calculator
 } from 'lucide-react'
 import AuthModal from '@/components/AuthModal'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -52,30 +56,6 @@ export default function Home() {
       icon: TrendingDown,
       title: "Seguí tu progreso",
       description: "Registrá tus pagos y mirá cómo disminuye tu deuda con el tiempo."
-    }
-  ]
-
-  const testimonials = [
-    {
-      name: "María González",
-      role: "Profesional de Marketing",
-      avatar: "👩🏻‍💼",
-      text: "FindIA me ayudó a salir de $15,000 en deudas en solo 18 meses. Las estrategias de IA fueron increíbles!",
-      rating: 5
-    },
-    {
-      name: "Carlos Ruiz", 
-      role: "Ingeniero de Software",
-      avatar: "👨🏻‍💻",
-      text: "La interfaz es súper intuitiva y las celebraciones me mantuvieron motivado durante todo el proceso.",
-      rating: 5
-    },
-    {
-      name: "Ana Martín",
-      role: "Emprendedora",
-      avatar: "👩🏻‍🚀",
-      text: "Pasé de tener 5 tarjetas de crédito al máximo a estar completamente libre de deudas. ¡Gracias FindIA!",
-      rating: 5
     }
   ]
 
@@ -202,43 +182,73 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-20 bg-white dark:bg-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+      {/* Cómo funciona el análisis */}
+      <section className="py-20 bg-gradient-to-br from-white to-[#FF3A5F]/5 dark:from-gray-800 dark:to-gray-900">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Historias de Éxito Reales 🌟
+              Una estrategia para tu situación.
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300">
-              Miles de personas han transformado sus vidas financieras con FindIA
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              FindIA utiliza la información que registrás para ayudarte a analizar tus deudas y entender distintas formas de organizar tus pagos.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-600 hover:shadow-xl transition-all duration-300"
-              >
-                <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
-                  ))}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6"
+          >
+            {/* Tus deudas */}
+            <div className="w-full md:flex-1 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">
+                Tus deudas
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                  <CreditCard className="h-4 w-4 text-gray-400 shrink-0" />
+                  Tarjeta
                 </div>
-                <p className="text-gray-700 dark:text-gray-300 mb-6 italic">&quot;{testimonial.text}&quot;</p>
-                <div className="flex items-center">
-                  <div className="text-3xl mr-3">{testimonial.avatar}</div>
-                  <div>
-                    <div className="font-semibold text-gray-900 dark:text-white">{testimonial.name}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">{testimonial.role}</div>
-                  </div>
+                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                  <Landmark className="h-4 w-4 text-gray-400 shrink-0" />
+                  Préstamo
                 </div>
-              </motion.div>
-            ))}
-          </div>
+                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                  <Layers className="h-4 w-4 text-gray-400 shrink-0" />
+                  Cuotas
+                </div>
+              </div>
+            </div>
+
+            <ArrowRight className="hidden md:block h-6 w-6 text-gray-300 dark:text-gray-600 shrink-0" />
+            <ArrowDown className="md:hidden h-6 w-6 text-gray-300 dark:text-gray-600" />
+
+            {/* Cálculo automático - elemento central */}
+            <div className="w-full md:flex-1 bg-gradient-to-br from-[#FF3A5F] to-[#FF007A] rounded-2xl p-8 shadow-lg text-center text-white">
+              <div className="bg-white/20 rounded-xl w-14 h-14 flex items-center justify-center mx-auto mb-4">
+                <Calculator className="h-7 w-7 text-white" />
+              </div>
+              <h3 className="font-semibold mb-2">Cálculo automático</h3>
+              <p className="text-sm text-white/90">
+                FindIA calcula intereses, plazos y ahorro con la información que cargaste.
+              </p>
+            </div>
+
+            <ArrowRight className="hidden md:block h-6 w-6 text-gray-300 dark:text-gray-600 shrink-0" />
+            <ArrowDown className="md:hidden h-6 w-6 text-gray-300 dark:text-gray-600" />
+
+            {/* Estrategia de pago */}
+            <div className="w-full md:flex-1 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+                Estrategia de pago
+              </h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Comparás alternativas y elegís cómo organizar tus pagos.
+              </p>
+            </div>
+          </motion.div>
         </div>
       </section>
 
