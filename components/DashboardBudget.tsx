@@ -71,7 +71,7 @@ export default function DashboardBudget({
             className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-lg hover:from-indigo-600 hover:to-violet-600 transition-all font-medium text-sm flex items-center justify-center gap-2 flex-1 sm:flex-none"
           >
             <TrendingUp className="w-4 h-4" />
-            <span>Ver Tabla</span>
+            <span>Ver presupuesto</span>
           </button>
         </div>
       </div>
@@ -84,7 +84,7 @@ export default function DashboardBudget({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <div className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">Total a Pagar</div>
+            <div className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">Total del mes</div>
             <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(totalFixedAmount)}</div>
           </div>
           <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
@@ -127,10 +127,10 @@ export default function DashboardBudget({
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(item.amount)}</span>
                   {item.dueDate && (
-                    <span className={`text-xs px-2 py-1 rounded ${
+                    <span className={`text-xs ${
                       item.isOverdue
-                        ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 font-semibold'
-                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                        ? 'text-red-600 dark:text-red-400 font-semibold'
+                        : 'text-gray-500 dark:text-gray-400 font-normal'
                     }`}>
                       {new Date(item.dueDate).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}
                     </span>
