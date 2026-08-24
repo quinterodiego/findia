@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'rea
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, Info, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, Bolt, Users, RefreshCw } from 'lucide-react'
+import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, ChevronRight, Bolt, Users, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -1083,31 +1083,31 @@ function Dashboard() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border border-gray-200/50 dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 rounded-xl px-4 py-2.5 shadow-sm border border-gray-200/50 dark:border-gray-700"
           >
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3">
-                <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                   Filtro Global
                 </h2>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   Aplica a todo el dashboard
                 </span>
               </div>
-              <div className="flex items-center gap-3">
-                <label htmlFor="global-date-filter" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex items-center gap-2">
+                <label htmlFor="global-date-filter" className="text-xs font-medium text-gray-600 dark:text-gray-300">
                   Período:
                 </label>
                 <select
                   id="global-date-filter"
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value as 'current-month' | 'all')}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm font-medium"
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm font-medium"
                   aria-label="Filtrar por período"
                 >
                   <option value="current-month">
-                    {new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() + 
+                    {new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).charAt(0).toUpperCase() +
                      new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).slice(1)}
                   </option>
                   <option value="all">Todos los períodos</option>
@@ -1132,11 +1132,11 @@ function Dashboard() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Ingresos Totales</p>
-                      <motion.p 
+                      <motion.p
                         initial={{ scale: 0.8 }}
                         animate={{ scale: 1 }}
                         transition={{ duration: 0.3, delay: 0.2 }}
-                        className="text-3xl font-bold text-green-400 mb-1"
+                        className="text-3xl font-bold text-green-500 dark:text-green-400 mb-1"
                       >
 +{formatCurrency(displayStats.totalIncomes)}
                       </motion.p>
@@ -1144,8 +1144,8 @@ function Dashboard() {
                         {filteredIncomes.length} {filteredIncomes.length === 1 ? 'ingreso' : 'ingresos'} {dateFilter === 'current-month' ? 'este mes' : 'total'}
                       </p>
                     </div>
-                    <div className="w-14 h-14 bg-green-200 rounded-xl flex items-center justify-center">
-                      <TrendingUp className="w-7 h-7 text-green-400" />
+                    <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                      <TrendingUp className="w-7 h-7 text-green-500 dark:text-green-400" />
                     </div>
                   </div>
                 </motion.div>
@@ -1162,11 +1162,11 @@ function Dashboard() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Gastos Totales</p>
                   </div>
-                  <motion.p 
+                  <motion.p
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.3 }}
-                    className="text-3xl font-bold text-red-400 mb-1"
+                    className="text-3xl font-bold text-red-500 dark:text-red-400 mb-1"
                   >
 -{formatCurrency(displayStats.totalExpenses)}
                   </motion.p>
@@ -1175,53 +1175,48 @@ function Dashboard() {
                   </p>
                   {(displayStats.totalFixedExpenses > 0 || displayStats.totalVariableExpenses > 0) && (
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ x: 2 }}
                       onClick={(e) => {
                         e.stopPropagation()
                         setShowExpenseBreakdown(true)
                       }}
-                      className="w-full px-4 py-2 bg-red-200 hover:bg-red-300 text-red-400 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
+                      className="inline-flex items-center gap-1 px-1 -mx-1 py-1 text-xs font-medium text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors cursor-pointer"
                     >
-                      <Info className="w-4 h-4" />
                       Ver detalle
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </motion.button>
                   )}
                 </div>
-                <div className="w-14 h-14 bg-red-200 rounded-xl flex items-center justify-center">
-                  <Target className="w-7 h-7 text-red-400" />
+                <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+                  <Target className="w-7 h-7 text-red-500 dark:text-red-400" />
                 </div>
               </div>
             </motion.div>
 
-            {/* Balance Neto — card destacada */}
+            {/* Balance Neto */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className={`rounded-xl p-6 shadow-xl border-2 transition-all duration-200 hover:shadow-2xl group ${
-                displayStats.netBalance >= 0
-                  ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
-                  : 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
-              }`}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl border border-gray-200/50 transition-all duration-200 hover:shadow-2xl group"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Balance Neto</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Balance Neto</p>
                   <motion.p
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.4 }}
-                    className={`text-4xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                    className={`text-3xl font-bold mb-1 ${displayStats.netBalance >= 0 ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
                   >
                     {displayStats.netBalance >= 0 ? '+' : ''}{formatCurrency(displayStats.netBalance)}
                   </motion.p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
                     {dateFilter === 'current-month' ? 'este mes' : 'total'} · {displayStats.netBalance >= 0 ? 'positivo' : 'negativo'}
                   </p>
                 </div>
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-200 dark:bg-green-800' : 'bg-red-200 dark:bg-red-800'}`}>
-                  <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} />
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${displayStats.netBalance >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                  <DollarSign className={`w-7 h-7 ${displayStats.netBalance >= 0 ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`} />
                 </div>
               </div>
             </motion.div>
@@ -1239,11 +1234,11 @@ function Dashboard() {
                     <p className="text-sm text-gray-600 dark:text-gray-400">Metas de Ahorro</p>
                     <span className="text-xs text-gray-400 dark:text-gray-500">· total</span>
                   </div>
-                  <motion.p 
+                  <motion.p
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.5 }}
-                    className="text-3xl font-bold text-purple-400 mb-1"
+                    className="text-3xl font-bold text-purple-500 dark:text-purple-400 mb-1"
                   >
                     {displayStats.goalsProgress.toFixed(1)}%
                   </motion.p>
@@ -1265,20 +1260,19 @@ function Dashboard() {
                   </div>
                   {goals.length > 0 && (
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ x: 2 }}
                       onClick={() => {
                         setShowGoalsBreakdown(true)
                       }}
-                      className="w-full px-4 py-2 bg-purple-200 hover:bg-purple-300 text-purple-400 rounded-lg transition-colors text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer mt-3"
+                      className="inline-flex items-center gap-1 px-1 -mx-1 py-1 mt-3 text-xs font-medium text-purple-500 dark:text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 transition-colors cursor-pointer"
                     >
-                      <Info className="w-4 h-4" />
                       Ver detalle
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </motion.button>
                   )}
                 </div>
-                <div className="w-14 h-14 bg-purple-200 rounded-xl flex items-center justify-center">
-                  <Trophy className="w-7 h-7 text-purple-400" />
+                <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                  <Trophy className="w-7 h-7 text-purple-500 dark:text-purple-400" />
                 </div>
               </div>
             </motion.div>
@@ -1306,36 +1300,29 @@ function Dashboard() {
             </motion.div>
           )}
 
-          {/* Quick Export */}
-          {!shouldShowSkeleton && (
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-              className="flex justify-end mb-6"
-            >
-              <QuickExport 
-                data={{
-                  incomes,
-                  expenses,
-                  debts,
-                  goals,
-                  stats: displayStats
-                }}
-              />
-            </motion.div>
-          )}
-
           {/* Analytics Section */}
           <DashboardAnalytics
             shouldShowSkeleton={shouldShowSkeleton}
-            incomes={incomes}
-            expenses={expenses}
             displayStats={displayStats}
+            filteredIncomes={filteredIncomes}
             filteredExpenses={filteredExpenses}
+            dateFilter={dateFilter}
             sharedExpensesMap={sharedExpensesMap}
             currentUserId={session?.user?.id}
             formatCurrency={formatCurrency}
+            headerAction={
+              !shouldShowSkeleton ? (
+                <QuickExport
+                  data={{
+                    incomes,
+                    expenses,
+                    debts,
+                    goals,
+                    stats: displayStats
+                  }}
+                />
+              ) : undefined
+            }
           />
 
           {/* Sección de Gastos Compartidos (Acordeón) */}
