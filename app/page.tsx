@@ -5,18 +5,12 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
-import { 
-  Sparkles, 
-  Target, 
-  TrendingUp, 
-  Shield, 
-  Users, 
+import {
+  ClipboardList,
+  GitCompare,
+  TrendingDown,
   Star,
-  ArrowRight,
-  BarChart3,
-  Zap,
-  Heart,
-  Trophy
+  ArrowRight
 } from 'lucide-react'
 import AuthModal from '@/components/AuthModal'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -45,24 +39,19 @@ export default function Home() {
 
   const features = [
     {
-      icon: Target,
-      title: "Seguimiento Inteligente",
-      description: "Rastrea tus gastos y pagos con visualizaciones claras y progreso en tiempo real."
+      icon: ClipboardList,
+      title: "Registrá tus deudas",
+      description: "Cargá cuánto debés, las cuotas, tasas y demás datos de cada deuda."
     },
     {
-      icon: Sparkles,
-      title: "IA Personal Coach",
-      description: "Recibe estrategias personalizadas y consejos inteligentes para optimizar tus pagos."
+      icon: GitCompare,
+      title: "Elegí una estrategia",
+      description: "Compará distintas formas de ordenar tus pagos y encontrá la que mejor se adapte a tu situación."
     },
     {
-      icon: TrendingUp,
-      title: "Progreso Motivador",
-      description: "Celebra cada hito alcanzado con animaciones y seguimiento visual de tu progreso."
-    },
-    {
-      icon: Shield,
-      title: "Datos Seguros",
-      description: "Tus datos financieros se almacenan de forma segura con NextAuth y Google OAuth."
+      icon: TrendingDown,
+      title: "Seguí tu progreso",
+      description: "Registrá tus pagos y mirá cómo disminuye tu deuda con el tiempo."
     }
   ]
 
@@ -88,13 +77,6 @@ export default function Home() {
       text: "Pasé de tener 5 tarjetas de crédito al máximo a estar completamente libre de deudas. ¡Gracias FindIA!",
       rating: 5
     }
-  ]
-
-  const stats = [
-    { number: "10,000+", label: "Usuarios Activos", icon: Users },
-    { number: "$2.5M+", label: "Deuda Eliminada", icon: TrendingUp },
-    { number: "98%", label: "Tasa de Éxito", icon: Trophy },
-    { number: "4.9★", label: "Calificación", icon: Star }
   ]
 
   if (status === 'loading') {
@@ -143,7 +125,7 @@ export default function Home() {
                 onClick={handleGetStarted}
                 className="bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white px-3 sm:px-6 py-2 rounded-lg font-semibold hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 transition-all duration-200 text-sm sm:text-base cursor-pointer transform hover:scale-105"
               >
-                <span className="hidden sm:inline">Empezar Gratis</span>
+                <span className="hidden sm:inline">Empezar gratis</span>
                 <span className="sm:hidden">Empezar</span>
               </button>
             </div>
@@ -152,7 +134,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-24 pb-20 bg-gradient-to-br from-[#FF3A5F]/5 via-white to-[#FF007A]/5 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800">
+      <section className="pt-32 pb-20 sm:pb-24 bg-gradient-to-br from-[#FF3A5F]/5 via-white to-[#FF007A]/5 dark:from-gray-800 dark:via-gray-900 dark:to-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <motion.div
@@ -161,61 +143,29 @@ export default function Home() {
               transition={{ duration: 0.6 }}
             >
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
-                Tu{' '}
+                Organizá{' '}
                 <span className="bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] bg-clip-text text-transparent">
-                  Libertad Financiera
+                  tus deudas.
                 </span>
                 <br />
-                Comienza Hoy 🚀
+                Armá un plan para pagarlas.
               </h1>
-              
-              <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto px-4 sm:px-0">
-                FindIA es tu compañero inteligente para salir de las deudas. 
-                Estrategias personalizadas, seguimiento motivador y IA que te guía paso a paso.
+
+              <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto px-4 sm:px-0">
+                Registrá lo que debés, compará estrategias de pago y seguí tu progreso con la ayuda de IA.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center mb-12 px-4 sm:px-0">
+              <div className="flex justify-center px-4 sm:px-0">
                 <motion.button
                   onClick={handleGetStarted}
-                  className="w-full sm:w-auto bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white px-6 sm:px-8 py-4 rounded-xl font-semibold text-base sm:text-lg hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+                  className="w-full sm:w-auto bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] text-white px-8 py-4 rounded-xl font-semibold text-base sm:text-lg hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <span className="hidden sm:inline">Empezar Mi Transformación</span>
-                  <span className="sm:hidden">Empezar Transformación</span>
+                  <span>Empezar gratis</span>
                   <ArrowRight className="h-5 w-5" />
                 </motion.button>
-                
-                <button 
-                  onClick={() => router.push('/dashboard')}
-                  className="w-full sm:w-auto text-gray-600 hover:text-gray-800 font-semibold text-base sm:text-lg flex items-center justify-center space-x-1 transition-colors duration-200 cursor-pointer"
-                >
-                  <span>Ver Dashboard</span>
-                  <motion.div animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-                    ▶️
-                  </motion.div>
-                </button>
               </div>
-            </motion.div>
-
-            {/* Hero Stats */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto"
-            >
-              {stats.map((stat, index) => (
-                <div key={index} className="text-center">
-                  <div className="bg-white/70 backdrop-blur-sm dark:bg-gray-700 dark:backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-600 hover:shadow-xl transition-all duration-300">
-                    <div className="bg-gradient-to-br from-[#FF3A5F] to-[#FF007A] p-3 rounded-xl w-fit mx-auto mb-3">
-                      <stat.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{stat.number}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-300">{stat.label}</div>
-                  </div>
-                </div>
-              ))}
             </motion.div>
           </div>
         </div>
@@ -223,16 +173,16 @@ export default function Home() {
       {/* Features Section */}
       <section className="py-20 bg-white dark:bg-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              ¿Por qué elegir FindIA? ✨
+              Todo lo que debés, en un solo lugar.
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Herramientas inteligentes diseñadas para acelerar tu camino hacia la libertad financiera
+              Registrá tus deudas, compará formas de pagarlas y seguí tu progreso desde un mismo lugar.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
@@ -246,63 +196,6 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">{feature.title}</h3>
                 <p className="text-gray-600 dark:text-gray-300">{feature.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How it Works */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 to-[#FF3A5F]/5 dark:from-gray-800 dark:to-gray-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              3 Pasos Hacia Tu Libertad 🎯
-            </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300">
-              Proceso simple y efectivo para transformar tu situación financiera
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                step: 1,
-                title: "Registra tus Gastos y Deudas",
-                description: "Añade todos tus gastos y deudas y obtén un panorama claro de tu situación actual",
-                icon: BarChart3,
-                color: "from-blue-400 to-cyan-400"
-              },
-              {
-                step: 2,
-                title: "Recibe tu Estrategia",
-                description: "La IA analiza tu perfil y crea un plan personalizado de pagos",
-                icon: Zap,
-                color: "from-purple-400 to-pink-400"
-              },
-              {
-                step: 3,
-                title: "Ejecuta y Celebra",
-                description: "Sigue el plan, registra pagos y celebra cada hito alcanzado",
-                icon: Heart,
-                color: "from-green-400 to-emerald-400"
-              }
-            ].map((step, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.2 }}
-                className="relative bg-white dark:bg-gray-700 rounded-2xl p-8 shadow-lg text-center hover:shadow-xl transition-all duration-300"
-              >
-                <div className={`bg-gradient-to-r ${step.color} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6`}>
-                  <step.icon className="h-8 w-8 text-white" />
-                </div>
-                <div className="absolute -top-4 -right-4 bg-gray-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
-                  {step.step}
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{step.title}</h3>
-                <p className="text-gray-600 dark:text-gray-300">{step.description}</p>
               </motion.div>
             ))}
           </div>
