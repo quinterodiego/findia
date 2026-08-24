@@ -253,73 +253,62 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A]">
+      <section className="py-16 sm:py-20 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A]">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6">
               Empezá a organizar tus deudas hoy
             </h2>
-            <p className="text-xl text-white/90 mb-8">
+            <p className="text-lg sm:text-xl text-white/90 mb-8">
               Creá tu cuenta gratis y armá un plan para pagarlas.
             </p>
-            <motion.button
-              onClick={handleGetStarted}
-              className="bg-white text-[#FF3A5F] px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-lg cursor-pointer"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Empezar gratis
-            </motion.button>
+            <div className="flex justify-center px-4 sm:px-0">
+              <motion.button
+                onClick={handleGetStarted}
+                className="w-full sm:w-auto bg-white text-[#FF3A5F] px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-lg cursor-pointer"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Empezar gratis
+              </motion.button>
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      <footer className="bg-gray-900 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="md:col-span-2">
-              <div className="flex items-center space-x-2 mb-4">
-                <Image 
-                  src="/images/logo.png" 
-                  alt="FindIA Logo" 
-                  width={40} 
-                  height={40}
-                  className="rounded-xl"
-                />
-                <p className="text-2xl font-bold bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] bg-clip-text text-transparent">
-                  FindIA
-                </p>
-              </div>
-              <p className="text-gray-400 mb-4">
-                Organizá tus deudas, comparás estrategias de pago y seguís tu progreso, todo en un mismo lugar.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-4">Producto</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Características</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Precios</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-4">Soporte</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Centro de Ayuda</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contacto</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacidad</a></li>
-              </ul>
-            </div>
+          <div className="flex items-center space-x-2 mb-4">
+            <Image
+              src="/images/logo.png"
+              alt="FindIA Logo"
+              width={40}
+              height={40}
+              className="rounded-xl"
+            />
+            <p className="text-2xl font-bold bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] bg-clip-text text-transparent">
+              FindIA
+            </p>
           </div>
-          
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 FindIA. Todos los derechos reservados.</p>
+          <p className="text-gray-400 max-w-md">
+            Organizá tus deudas, comparás estrategias de pago y seguís tu progreso, todo en un mismo lugar.
+          </p>
+
+          <div className="border-t border-gray-800 mt-6 pt-4 text-sm text-gray-500">
+            &copy; <span suppressHydrationWarning>{new Date().getFullYear()}</span> FindIA · Creado por{' '}
+            <a
+              href="https://www.diegoquintero.com.ar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-2 transition-colors duration-200 hover:text-gray-300 hover:underline"
+            >
+              Diego Quintero
+            </a>
           </div>
         </div>
       </footer>
