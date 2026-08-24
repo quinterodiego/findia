@@ -291,7 +291,7 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
     return (
       <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 w-full">
         <div className="flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF3A5F] mb-4"></div>
           <p className="text-gray-600 text-sm">Redirigiendo...</p>
         </div>
       </div>
@@ -303,7 +303,7 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
     return (
       <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 w-full">
         <div className="flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF3A5F] mb-4"></div>
           <p className="text-gray-600 text-sm">Creando tu cuenta...</p>
         </div>
       </div>
@@ -338,13 +338,13 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-md mx-auto"
     >
-      <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 pt-12 sm:pt-16">
-        <div className="text-center mb-6">
+      <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 pt-10 sm:pt-14">
+        <div className="text-center mb-5">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            ¡Únete a FindIA! 🚀
+            Creá tu cuenta
           </h2>
           <p className="text-gray-600">
-            Crea tu cuenta y comienza tu camino hacia la libertad financiera
+            Registrate para empezar a usar FindIA.
           </p>
         </div>
 
@@ -375,10 +375,10 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                 onBlur={() => handleBlur('name')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'name')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                  fieldErrors.name 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-[#FF3A5F]'
+                className={`w-full pl-10 pr-4 py-3 bg-white text-gray-900 placeholder:text-gray-400 border rounded-lg focus:outline-none focus:ring-1 transition-colors duration-200 ${
+                  fieldErrors.name
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-400/30'
+                    : 'border-gray-200 focus:border-[#FF3A5F] focus:ring-[#FF3A5F]/20'
                 }`}
                 placeholder="Tu nombre completo"
                 required
@@ -412,10 +412,10 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                 onBlur={() => handleBlur('email')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'email')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                  fieldErrors.email 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-[#FF3A5F]'
+                className={`w-full pl-10 pr-4 py-3 bg-white text-gray-900 placeholder:text-gray-400 border rounded-lg focus:outline-none focus:ring-1 transition-colors duration-200 ${
+                  fieldErrors.email
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-400/30'
+                    : 'border-gray-200 focus:border-[#FF3A5F] focus:ring-[#FF3A5F]/20'
                 }`}
                 placeholder="tu@email.com"
                 required
@@ -449,10 +449,10 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                 onBlur={() => handleBlur('password')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'password')}
-                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                  fieldErrors.password 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-[#FF3A5F]'
+                className={`w-full pl-10 pr-12 py-3 bg-white text-gray-900 placeholder:text-gray-400 border rounded-lg focus:outline-none focus:ring-1 transition-colors duration-200 ${
+                  fieldErrors.password
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-400/30'
+                    : 'border-gray-200 focus:border-[#FF3A5F] focus:ring-[#FF3A5F]/20'
                 }`}
                 placeholder="••••••••"
                 required
@@ -510,10 +510,10 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
                 onBlur={() => handleBlur('confirmPassword')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'confirmPassword')}
-                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-200 ${
-                  fieldErrors.confirmPassword 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-[#FF3A5F]'
+                className={`w-full pl-10 pr-12 py-3 bg-white text-gray-900 placeholder:text-gray-400 border rounded-lg focus:outline-none focus:ring-1 transition-colors duration-200 ${
+                  fieldErrors.confirmPassword
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-400/30'
+                    : 'border-gray-200 focus:border-[#FF3A5F] focus:ring-[#FF3A5F]/20'
                 }`}
                 placeholder="••••••••"
                 required
@@ -556,29 +556,31 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
             )}
           </div>
 
-          <button
+          <motion.button
             type="submit"
             disabled={isLoading || isGoogleLoading}
-            className="w-full bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] focus:ring-2 focus:ring-green-500 focus:ring-offset-2 cursor-pointer flex items-center justify-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:opacity-90 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-[#FF3A5F] focus:ring-offset-2 cursor-pointer flex items-center justify-center gap-2"
             tabIndex={5}
           >
             {isLoading && <AlertCircle className="animate-spin h-5 w-5" />}
             {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
-          </button>
+          </motion.button>
         </form>
 
         {/* Separador */}
-        <div className="flex items-center my-6">
-          <div className="flex-1 border-t border-gray-300"></div>
-          <span className="px-4 text-sm text-gray-500 bg-white">o continúa con</span>
-          <div className="flex-1 border-t border-gray-300"></div>
+        <div className="flex items-center my-5">
+          <div className="flex-1 border-t border-gray-200"></div>
+          <span className="px-4 text-sm text-gray-500 bg-white">o continuá con</span>
+          <div className="flex-1 border-t border-gray-200"></div>
         </div>
 
         {/* Google Login Button */}
         <button
           onClick={handleGoogleSignIn}
           disabled={isLoading || isGoogleLoading}
-          className="w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-[1.02] focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 cursor-pointer"
+          className="w-full bg-white border border-gray-200 text-gray-700 py-3 px-4 rounded-xl font-medium hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 cursor-pointer"
         >
           <svg width="18" height="18" viewBox="0 0 18 18">
             <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
@@ -590,9 +592,9 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
         </button>
 
         {/* Toggle to Login */}
-        <div className="mt-6 text-center pb-6">
+        <div className="mt-5 text-center">
           <p className="text-gray-600">
-            ¿Ya tienes cuenta?{' '}
+            ¿Ya tenés cuenta?{' '}
             <button
               onClick={() => {
                 // Esta función será manejada por el AuthModal
@@ -603,7 +605,7 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
               }}
               className="text-[#FF3A5F] hover:text-[#FF007A] font-semibold transition-colors cursor-pointer"
             >
-              Inicia sesión
+              Iniciá sesión
             </button>
           </p>
         </div>

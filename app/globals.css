@@ -23,6 +23,28 @@
   --ring: #2563eb;
 }
 
+/* Sobrescribe el fondo celeste que el autofill de Chrome/WebKit aplica
+   a los inputs del modal de login, sin desactivar el autofill.
+   Reutilizable: cualquier input de autenticación puede sumar esta clase. */
+input.findia-auth-input:-webkit-autofill,
+input.findia-auth-input:-webkit-autofill:hover,
+input.findia-auth-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px #FAFAFA inset !important;
+  box-shadow: 0 0 0px 1000px #FAFAFA inset !important;
+  -webkit-text-fill-color: #111827 !important;
+  caret-color: #111827 !important;
+  border-color: #E5E7EB !important;
+  transition: background-color 9999s ease-in-out 0s, box-shadow 9999s ease-in-out 0s !important;
+}
+
+input.findia-auth-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #111827 !important;
+  caret-color: #111827 !important;
+  border-color: #FF3A5F !important;
+}
+
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;

@@ -142,16 +142,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <div className="bg-white rounded-2xl shadow-2xl p-8">
-                      <div className="text-center mb-6">
+                    <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 pt-10 sm:pt-14">
+                      <div className="text-center mb-5">
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                          Recuperar Contraseña 🔐
+                          Recuperar contraseña
                         </h2>
                         <p className="text-gray-600">
-                          Te enviaremos un enlace para restablecer tu contraseña
+                          Te enviaremos un enlace para restablecer tu contraseña.
                         </p>
                       </div>
-                      
+
                       <form className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -159,22 +159,24 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                           </label>
                           <input
                             type="email"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-white text-gray-900 placeholder:text-gray-400 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#FF3A5F]/20 focus:border-[#FF3A5F] transition-colors duration-200"
                             placeholder="tu@email.com"
                           />
                         </div>
-                        
-                        <button
+
+                        <motion.button
                           type="submit"
-                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="w-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:opacity-90 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 cursor-pointer"
                         >
-                          Enviar Enlace
-                        </button>
+                          Enviar enlace
+                        </motion.button>
                       </form>
-                      
+
                       <button
                         onClick={() => setMode('login')}
-                        className="mt-4 w-full text-center text-blue-600 hover:text-blue-800 transition-colors"
+                        className="mt-4 w-full text-center text-sm text-gray-500 hover:text-[#FF3A5F] transition-colors duration-200 cursor-pointer"
                       >
                         ← Volver al inicio de sesión
                       </button>

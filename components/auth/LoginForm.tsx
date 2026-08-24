@@ -275,13 +275,13 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-md mx-auto"
     >
-      <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 pt-12 sm:pt-16">
-        <div className="text-center mb-6">
+      <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 pt-10 sm:pt-14">
+        <div className="text-center mb-5">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            ¡Bienvenido de vuelta! 👋
+            Iniciá sesión
           </h2>
           <p className="text-gray-600">
-            Inicia sesión para continuar tu camino hacia la libertad financiera
+            Ingresá para continuar con FindIA.
           </p>
         </div>
 
@@ -320,10 +320,10 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
                 onBlur={() => handleBlur('email')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'email')}
-                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-[#FF3A5F] hover:shadow-sm ${
-                  fieldErrors.email 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-[#FF3A5F]'
+                className={`findia-auth-input w-full pl-10 pr-4 py-3 bg-[#FAFAFA] focus:bg-white text-gray-900 placeholder:text-gray-400 border rounded-lg focus:outline-none focus:ring-1 transition-colors duration-200 ${
+                  fieldErrors.email
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-400/30'
+                    : 'border-gray-200 focus:border-[#FF3A5F] focus:ring-[#FF3A5F]/20'
                 }`}
                 placeholder="tu@email.com"
                 required
@@ -357,10 +357,10 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
                 onBlur={() => handleBlur('password')}
                 onFocus={handleFocus}
                 onKeyDown={(e) => handleKeyDown(e, 'password')}
-                className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:border-transparent transition-all duration-300 hover:border-[#FF3A5F] hover:shadow-sm ${
-                  fieldErrors.password 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:ring-[#FF3A5F]'
+                className={`findia-auth-input w-full pl-10 pr-12 py-3 bg-[#FAFAFA] focus:bg-white text-gray-900 placeholder:text-gray-400 border rounded-lg focus:outline-none focus:ring-1 transition-colors duration-200 ${
+                  fieldErrors.password
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-400/30'
+                    : 'border-gray-200 focus:border-[#FF3A5F] focus:ring-[#FF3A5F]/20'
                 }`}
                 placeholder="••••••••"
                 required
@@ -394,44 +394,46 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
                 type="checkbox"
                 className="h-4 w-4 text-[#FF3A5F] focus:ring-[#FF3A5F] border-gray-300 rounded cursor-pointer"
               />
-              <span className="ml-2 text-sm text-gray-600">Recordarme</span>
+              <span className="ml-2 text-sm text-gray-500">Recordarme</span>
             </label>
-            
+
             {onForgotPassword && (
               <button
                 type="button"
                 onClick={onForgotPassword}
-                className="text-sm text-[#FF3A5F] hover:text-[#FF007A] transition-colors duration-200 cursor-pointer"
+                className="text-sm text-gray-500 hover:text-[#FF3A5F] transition-colors duration-200 cursor-pointer"
                 tabIndex={4}
               >
-                ¿Olvidaste tu contraseña?
+                Olvidé mi contraseña
               </button>
             )}
           </div>
 
-          <button
+          <motion.button
             type="submit"
             disabled={isLoading || isGoogleLoading}
-            className="w-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:from-[#FF3A5F] hover:to-[#FF007A] hover:opacity-90 text-white py-3 px-4 rounded-lg font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] hover:shadow-lg focus:ring-2 focus:ring-[#FF3A5F] focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:opacity-90 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-[#FF3A5F] focus:ring-offset-2 flex items-center justify-center gap-2 cursor-pointer"
             tabIndex={3}
           >
             {isLoading && <AlertCircle className="animate-spin h-5 w-5" />}
             {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-          </button>
+          </motion.button>
         </form>
 
         {/* Separador */}
-        <div className="flex items-center my-6">
-          <div className="flex-1 border-t border-gray-300"></div>
-          <span className="px-4 text-sm text-gray-500 bg-white">o continúa con</span>
-          <div className="flex-1 border-t border-gray-300"></div>
+        <div className="flex items-center my-5">
+          <div className="flex-1 border-t border-gray-200"></div>
+          <span className="px-4 text-sm text-gray-500 bg-white">o continuá con</span>
+          <div className="flex-1 border-t border-gray-200"></div>
         </div>
 
         {/* Google Login Button */}
         <button
           onClick={handleGoogleSignIn}
           disabled={isLoading || isGoogleLoading}
-          className="w-full bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 transform hover:scale-[1.02] hover:shadow-lg focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 cursor-pointer active:scale-[0.98]"
+          className="w-full bg-white border border-gray-200 text-gray-700 py-3 px-4 rounded-xl font-medium hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 cursor-pointer"
         >
           <svg width="18" height="18" viewBox="0 0 18 18">
             <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
@@ -443,9 +445,9 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
         </button>
 
         {/* Toggle to Register */}
-        <div className="mt-6 text-center pb-6">
+        <div className="mt-5 text-center">
           <p className="text-gray-600">
-            ¿No tienes cuenta?{' '}
+            ¿No tenés cuenta?{' '}
             <button
               onClick={() => {
                 // Esta función será manejada por el AuthModal
@@ -456,7 +458,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
               }}
               className="text-[#FF3A5F] hover:text-[#FF007A] font-semibold transition-colors cursor-pointer"
             >
-              Regístrate gratis
+              Registrate gratis
             </button>
           </p>
         </div>
