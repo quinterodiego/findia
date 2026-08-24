@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "patch-package",
-    "migrate:subcategories": "tsx scripts/migrate-subcategories.ts"
+    "migrate:subcategories": "tsx scripts/migrate-subcategories.ts",
+    "seed:mock": "tsx scripts/seed-mock-data.ts"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.3",
