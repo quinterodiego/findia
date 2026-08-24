@@ -13,7 +13,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "FindIA - Tu Asistente Financiero",
-  description: "Gestiona tus finanzas de manera inteligente con la ayuda de IA. Rastrea gastos, recibe sugerencias personalizadas y alcanza tus metas financieras.",
+  description: "Organizá tus deudas, comparás estrategias de pago y seguís tu progreso, todo en un mismo lugar.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -41,12 +41,12 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "FindIA",
     title: "FindIA - Tu Asistente Financiero",
-    description: "Gestiona tus finanzas de manera inteligente con la ayuda de IA. Rastrea gastos, recibe sugerencias personalizadas y alcanza tus metas financieras.",
+    description: "Organizá tus deudas, comparás estrategias de pago y seguís tu progreso, todo en un mismo lugar.",
   },
   twitter: {
     card: "summary",
     title: "FindIA - Tu Asistente Financiero",
-    description: "Gestiona tus finanzas de manera inteligente con la ayuda de IA. Rastrea gastos, recibe sugerencias personalizadas y alcanza tus metas financieras.",
+    description: "Organizá tus deudas, comparás estrategias de pago y seguís tu progreso, todo en un mismo lugar.",
   },
 };
 

@@ -132,7 +132,7 @@ export default function Home() {
               </h1>
 
               <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto px-4 sm:px-0">
-                Registrá lo que debés, compará estrategias de pago y seguí tu progreso con la ayuda de IA.
+                Registrá lo que debés, compará estrategias de pago y seguí tu progreso.
               </p>
 
               <div className="flex justify-center px-4 sm:px-0">
@@ -261,10 +261,10 @@ export default function Home() {
             transition={{ duration: 0.6 }}
           >
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              ¿Listo para tu Transformación? 🚀
+              Empezá a organizar tus deudas hoy
             </h2>
             <p className="text-xl text-white/90 mb-8">
-              Únete a miles de personas que han recuperado su libertad financiera
+              Creá tu cuenta gratis y armá un plan para pagarlas.
             </p>
             <motion.button
               onClick={handleGetStarted}
@@ -272,7 +272,7 @@ export default function Home() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              Comenzar Gratis Ahora ✨
+              Empezar gratis
             </motion.button>
           </motion.div>
         </div>
@@ -296,17 +296,15 @@ export default function Home() {
                 </p>
               </div>
               <p className="text-gray-400 mb-4">
-                Tu compañero inteligente para alcanzar la libertad financiera. 
-                Estrategias personalizadas, seguimiento motivador y resultados reales.
+                Organizá tus deudas, comparás estrategias de pago y seguís tu progreso, todo en un mismo lugar.
               </p>
             </div>
-            
+
             <div>
               <h3 className="font-semibold mb-4">Producto</h3>
               <ul className="space-y-2 text-gray-400">
                 <li><a href="#" className="hover:text-white transition-colors">Características</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Precios</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Testimonios</a></li>
               </ul>
             </div>
             
