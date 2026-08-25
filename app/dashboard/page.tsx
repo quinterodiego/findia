@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'rea
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, ChevronRight, Bolt, Users, RefreshCw } from 'lucide-react'
+import { TrendingUp, Target, Trophy, DollarSign, LogOut, Wallet, Search, Filter, ArrowUpDown, BarChart3, X, Download, FileText, CreditCard, Calculator, BarChart as BarChartIcon, Bell, Lightbulb, FileText as FileTextIcon, ChevronDown, ChevronUp, ChevronRight, Bolt, Users, RefreshCw, Calendar, CheckCircle, Landmark } from 'lucide-react'
 import Image from 'next/image'
 import { useDebts } from '@/hooks/useDebts'
 import { useIncomes } from '@/hooks/useIncomes'
@@ -721,6 +721,56 @@ function Dashboard() {
     }
   }, [filteredIncomes, filteredExpenses, sharedExpensesMap, goals, stats, session?.user?.id])
 
+  const allMovements = useMemo(() => {
+    let list: TransactionWithType[] = [
+      ...debts.map((debt: Debt) => ({ ...debt, type: 'debt' } as TransactionWithType)),
+      ...incomes.map((income: Income) => ({ ...income, type: 'income' } as TransactionWithType)),
+      ...expenses.map((expense: Expense) => ({ ...expense, type: 'expense' } as TransactionWithType)),
+      ...goals.map((goal: Goal) => ({ ...goal, type: 'goal' } as TransactionWithType)),
+    ]
+
+    if (filterType !== 'all') {
+      list = list.filter(t => t.type === filterType)
+    }
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      list = list.filter(t => {
+        const name = String(t.name || '').toLowerCase()
+        const category = String(t.category || '').toLowerCase()
+        const notes = String(t.notes || '').toLowerCase()
+        return name.includes(query) || category.includes(query) || notes.includes(query)
+      })
+    }
+
+    // Filtrar por fecha: aplica a gastos e ingresos; deudas y metas se muestran siempre
+    if (dateFilter === 'current-month') {
+      list = list.filter(t => {
+        if (t.type === 'expense' || t.type === 'income') {
+          const dateStr = String(t.date || '')
+          if (!dateStr) return false
+          const transactionDate = new Date(dateStr + 'T00:00:00')
+          return transactionDate >= currentMonthRange.startDate && transactionDate <= currentMonthRange.endDate
+        }
+        return true
+      })
+    }
+
+    list.sort((a, b) => {
+      if (sortBy === 'date') {
+        const dateA = new Date(a.date || a.createdAt || '').getTime()
+        const dateB = new Date(b.date || b.createdAt || '').getTime()
+        return sortOrder === 'desc' ? dateB - dateA : dateA - dateB
+      } else if (sortBy === 'amount') {
+        return sortOrder === 'desc' ? b.amount - a.amount : a.amount - b.amount
+      } else {
+        return sortOrder === 'desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
+      }
+    })
+
+    return list
+  }, [debts, incomes, expenses, goals, filterType, searchQuery, dateFilter, currentMonthRange, sortBy, sortOrder])
+
   // Si no hay sesión, redirigir al login
   if (status === 'unauthenticated') {
     router.push('/')
@@ -1398,101 +1448,21 @@ function Dashboard() {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="bg-white dark:bg-gray-800 rounded-xl p-4 lg:p-6 shadow-xl border border-gray-200/50"
           >
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Mis Transacciones Financieras
+                Movimientos
               </h3>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 {shouldShowSkeleton ? (
                   <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-4 w-20 rounded"></div>
-                ) : (() => {
-                  const allTransactions: TransactionWithType[] = [
-                    ...debts.map((debt: Debt) => ({ ...debt, type: 'debt' } as TransactionWithType)),
-                    ...incomes.map((income: Income) => ({ ...income, type: 'income' } as TransactionWithType)),
-                    ...expenses.map((expense: Expense) => ({ ...expense, type: 'expense' } as TransactionWithType)),
-                    ...goals.map((goal: Goal) => ({ ...goal, type: 'goal' } as TransactionWithType))
-                  ];
-
-                  let filtered = allTransactions;
-
-                  if (filterType !== 'all') {
-                    filtered = filtered.filter(t => t.type === filterType);
-                  }
-
-                  if (searchQuery) {
-                    const query = searchQuery.toLowerCase();
-                    filtered = filtered.filter(t => {
-                      const name = String(t.name || '').toLowerCase();
-                      const category = String(t.category || '').toLowerCase();
-                      const notes = String(t.notes || '').toLowerCase();
-                      return name.includes(query) || category.includes(query) || notes.includes(query);
-                    });
-                  }
-
-                  // Aplicar filtro de fecha: gastos e ingresos; deudas y metas siempre visibles
-                  if (dateFilter === 'current-month') {
-                    filtered = filtered.filter(t => {
-                      if (t.type === 'expense' || t.type === 'income') {
-                        const dateStr = String(t.date || '');
-                        if (!dateStr) return false;
-                        const transactionDate = new Date(dateStr + 'T00:00:00');
-                        return transactionDate >= currentMonthRange.startDate &&
-                               transactionDate <= currentMonthRange.endDate;
-                      }
-                      return true;
-                    });
-                  }
-
-                  return filtered.length;
-                })()} {(() => {
-                  const count = (() => {
-                    const allTransactions: TransactionWithType[] = [
-                      ...debts.map((debt: Debt) => ({ ...debt, type: 'debt' } as TransactionWithType)),
-                      ...incomes.map((income: Income) => ({ ...income, type: 'income' } as TransactionWithType)),
-                      ...expenses.map((expense: Expense) => ({ ...expense, type: 'expense' } as TransactionWithType)),
-                      ...goals.map((goal: Goal) => ({ ...goal, type: 'goal' } as TransactionWithType))
-                    ];
-
-                    let filtered = allTransactions;
-
-                    if (filterType !== 'all') {
-                      filtered = filtered.filter(t => t.type === filterType);
-                    }
-
-                    if (searchQuery) {
-                      const query = searchQuery.toLowerCase();
-                      filtered = filtered.filter(t => {
-                        const name = String(t.name || '').toLowerCase();
-                        const category = String(t.category || '').toLowerCase();
-                        const notes = String(t.notes || '').toLowerCase();
-                        return name.includes(query) || category.includes(query) || notes.includes(query);
-                      });
-                    }
-
-                    // Aplicar filtro de fecha: gastos e ingresos; deudas y metas siempre visibles
-                    if (dateFilter === 'current-month') {
-                      filtered = filtered.filter(t => {
-                        if (t.type === 'expense' || t.type === 'income') {
-                          const dateStr = String(t.date || t.createdAt || '');
-                          if (!dateStr) return false;
-                          const transactionDate = new Date(dateStr + 'T00:00:00');
-                          return transactionDate >= currentMonthRange.startDate &&
-                                 transactionDate <= currentMonthRange.endDate;
-                        }
-                        return true;
-                      });
-                    }
-
-                    return filtered.length;
-                  })();
-
-                  return count === 1 ? 'transacción' : 'transacciones';
-                })()} {filterType !== 'all' || searchQuery || dateFilter === 'current-month' ? 'encontradas' : 'registradas'}
+                ) : (
+                  `${allMovements.length} ${allMovements.length === 1 ? 'movimiento' : 'movimientos'}`
+                )}
               </div>
             </div>
 
             {/* Filtros y Búsqueda */}
-            <div className="space-y-4 mb-6">
+            <div className="space-y-3 mb-4">
               {/* Barra de búsqueda */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -1501,15 +1471,24 @@ function Dashboard() {
                   placeholder="Buscar por nombre, categoría o notas..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  className="w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
                 />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                    aria-label="Limpiar búsqueda"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               {/* Filtros por tipo */}
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 overflow-x-auto pb-1">
                 <button
                   onClick={() => setFilterType('all')}
-                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
+                  className={`shrink-0 px-4 py-2 rounded-xl transition-colors cursor-pointer text-sm font-medium ${
                     filterType === 'all'
                       ? 'bg-[#FF3A5F] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -1519,95 +1498,97 @@ function Dashboard() {
                 </button>
                 <button
                   onClick={() => setFilterType('income')}
-                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl transition-colors cursor-pointer text-sm font-medium ${
                     filterType === 'income'
-                      ? 'bg-green-400 text-white'
+                      ? 'bg-[#FF3A5F] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  💰 Ingresos
+                  <TrendingUp className="w-4 h-4" />
+                  Ingresos
                 </button>
                 <button
                   onClick={() => setFilterType('expense')}
-                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl transition-colors cursor-pointer text-sm font-medium ${
                     filterType === 'expense'
-                      ? 'bg-orange-400 text-white'
+                      ? 'bg-[#FF3A5F] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  💸 Gastos
+                  <Target className="w-4 h-4" />
+                  Gastos
                 </button>
                 <button
                   onClick={() => setFilterType('goal')}
-                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl transition-colors cursor-pointer text-sm font-medium ${
                     filterType === 'goal'
-                      ? 'bg-purple-400 text-white'
+                      ? 'bg-[#FF3A5F] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  🎯 Metas
+                  <Trophy className="w-4 h-4" />
+                  Metas
                 </button>
                 <button
                   onClick={() => setFilterType('debt')}
-                  className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl transition-colors cursor-pointer text-sm font-medium ${
                     filterType === 'debt'
-                      ? 'bg-red-400 text-white'
+                      ? 'bg-[#FF3A5F] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  💳 Deudas
+                  <CreditCard className="w-4 h-4" />
+                  Deudas
                 </button>
               </div>
 
-              {/* Ordenamiento */}
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="w-4 h-4 text-gray-400" />
-                <label htmlFor="sort-select" className="sr-only">
-                  Ordenar transacciones
-                </label>
-                <select
-                  id="sort-select"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'date' | 'amount' | 'name')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm"
-                  aria-label="Ordenar transacciones"
-                >
-                  <option value="date">Ordenar por fecha</option>
-                  <option value="amount">Ordenar por monto</option>
-                  <option value="name">Ordenar por nombre</option>
-                </select>
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors dark:text-white cursor-pointer"
-                >
-                  {sortOrder === 'desc' ? '⬇️' : '⬆️'}
-                </button>
+              {/* Barra secundaria: período, orden y exportación */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Período:</span>
+                  {dateFilter === 'current-month' ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-[#FF3A5F]/10 text-[#FF3A5F] font-medium">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Mes actual
+                      <button onClick={() => setDateFilter('all')} className="hover:opacity-70 cursor-pointer leading-none" aria-label="Quitar filtro de mes actual">×</button>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Todos los períodos
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">Ordenar:</span>
+                  <label htmlFor="sort-select" className="sr-only">
+                    Ordenar movimientos
+                  </label>
+                  <select
+                    id="sort-select"
+                    value={`${sortBy}-${sortOrder}`}
+                    onChange={(e) => {
+                      const [newSortBy, newSortOrder] = e.target.value.split('-') as ['date' | 'amount' | 'name', 'asc' | 'desc'];
+                      setSortBy(newSortBy);
+                      setSortOrder(newSortOrder);
+                    }}
+                    className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white cursor-pointer text-sm"
+                    aria-label="Ordenar movimientos"
+                  >
+                    <option value="date-desc">Más recientes</option>
+                    <option value="date-asc">Más antiguos</option>
+                    <option value="amount-desc">Monto: mayor a menor</option>
+                    <option value="amount-asc">Monto: menor a mayor</option>
+                    <option value="name-asc">Nombre: A-Z</option>
+                    <option value="name-desc">Nombre: Z-A</option>
+                  </select>
+                  {!shouldShowSkeleton && (
+                    <QuickExport data={{ incomes, expenses, debts, goals, stats: displayStats }} />
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Chips de filtros activos */}
-            {(filterType !== 'all' || searchQuery || dateFilter === 'current-month') && (
-              <div className="flex gap-2 flex-wrap mb-4">
-                {dateFilter === 'current-month' && (
-                  <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-[#FF3A5F]/10 text-[#FF3A5F] font-medium">
-                    📅 Mes actual
-                    <button onClick={() => setDateFilter('all')} className="hover:opacity-70 cursor-pointer leading-none">×</button>
-                  </span>
-                )}
-                {filterType !== 'all' && (
-                  <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">
-                    {filterType === 'income' ? '💰 Ingresos' : filterType === 'expense' ? '💸 Gastos' : filterType === 'debt' ? '💳 Deudas' : '🎯 Metas'}
-                    <button onClick={() => setFilterType('all')} className="hover:opacity-70 cursor-pointer leading-none">×</button>
-                  </span>
-                )}
-                {searchQuery && (
-                  <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium">
-                    🔍 &quot;{searchQuery}&quot;
-                    <button onClick={() => setSearchQuery('')} className="hover:opacity-70 cursor-pointer leading-none">×</button>
-                  </span>
-                )}
-              </div>
-            )}
 
             {debts.length + incomes.length + expenses.length + goals.length === 0 ? (
               <div className="text-center py-12">
@@ -1615,294 +1596,253 @@ function Dashboard() {
                   <Wallet className="w-10 h-10 text-gray-400" />
                 </div>
                 <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No tienes transacciones registradas
+                  No tienes movimientos registrados
                 </h4>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
                   Usa el botón + para agregar deudas, gastos, ingresos o metas de ahorro.
                 </p>
                 <div className="text-center text-gray-400">
-                  <p className="text-sm">👉 Mira el botón flotante en la esquina inferior derecha</p>
+                  <p className="text-sm">Mira el botón flotante en la esquina inferior derecha</p>
                 </div>
               </div>
             ) : shouldShowSkeleton ? (
               <SkeletonTable />
-            ) : (
-              <div className="space-y-4">
-                {(() => {
-                  let allTransactions: TransactionWithType[] = [
-                    ...debts.map((debt: Debt) => ({ ...debt, type: 'debt' } as TransactionWithType)),
-                    ...incomes.map((income: Income) => ({ ...income, type: 'income' } as TransactionWithType)),
-                    ...expenses.map((expense: Expense) => ({ ...expense, type: 'expense' } as TransactionWithType)),
-                    ...goals.map((goal: Goal) => ({ ...goal, type: 'goal' } as TransactionWithType))
-                  ];
-
-                  // Filtrar por tipo
-                  if (filterType !== 'all') {
-                    allTransactions = allTransactions.filter(t => t.type === filterType);
-                  }
-
-                  // Filtrar por búsqueda
-                  if (searchQuery) {
-                    const query = searchQuery.toLowerCase();
-                    allTransactions = allTransactions.filter(t =>
-                      t.name.toLowerCase().includes(query) ||
-                      t.category?.toLowerCase().includes(query) ||
-                      t.notes?.toLowerCase().includes(query)
-                    );
-                  }
-
-                  // Filtrar por fecha: aplica a gastos e ingresos; deudas y metas se muestran siempre
-                  if (dateFilter === 'current-month') {
-                    allTransactions = allTransactions.filter(t => {
-                      if (t.type === 'expense' || t.type === 'income') {
-                        const dateStr = String(t.date || '');
-                        if (!dateStr) return false;
-                        const transactionDate = new Date(dateStr + 'T00:00:00');
-                        return transactionDate >= currentMonthRange.startDate &&
-                               transactionDate <= currentMonthRange.endDate;
-                      }
-                      return true;
-                    });
-                  }
-
-                  // Ordenar
-                  allTransactions.sort((a, b) => {
-                    if (sortBy === 'date') {
-                      const dateA = new Date(a.date || a.createdAt || '').getTime();
-                      const dateB = new Date(b.date || b.createdAt || '').getTime();
-                      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
-                    } else if (sortBy === 'amount') {
-                      return sortOrder === 'desc' ? b.amount - a.amount : a.amount - b.amount;
-                    } else {
-                      return sortOrder === 'desc'
-                        ? b.name.localeCompare(a.name)
-                        : a.name.localeCompare(b.name);
-                    }
-                  });
-
-                  if (allTransactions.length === 0) {
-                    const hasActiveFilters = filterType !== 'all' || searchQuery || dateFilter === 'current-month';
-                    return (
-                      <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Search className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <h4 className="text-base font-medium text-gray-900 dark:text-white mb-1">
-                          Sin resultados
-                        </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                          {searchQuery
-                            ? `No se encontraron transacciones para "${searchQuery}"`
-                            : dateFilter === 'current-month'
-                              ? 'No hay gastos registrados en el mes actual'
-                              : 'No hay transacciones de ese tipo'}
-                        </p>
-                        {hasActiveFilters && (
-                          <button
-                            onClick={() => {
-                              setSearchQuery('');
-                              setFilterType('all');
-                              setDateFilter('all');
-                            }}
-                            className="text-sm text-[#FF3A5F] hover:underline cursor-pointer"
-                          >
-                            Limpiar filtros
-                          </button>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  return allTransactions.map((transaction) => {
-                    const getTransactionIcon = () => {
-                      if (transaction.type === 'debt') {
-                        switch ((transaction as unknown as Debt).debtType) {
-                          case 'prestamo': return '🏦';
-                          case 'tarjeta': return '💳';
-                          case 'credito': return '📈';
-                          default: return '💳';
-                        }
-                      }
-                      switch (transaction.type) {
-                        case 'income': return '💰';
-                        case 'expense': return '💸';
-                        case 'goal': return '🎯';
-                        default: return '📊';
-                      }
-                    };
-
-                    const getTransactionColor = () => {
-                      switch (transaction.type) {
-                        case 'debt': return 'text-red-400 dark:text-red-300';
-                        case 'income': return 'text-green-400 dark:text-green-300';
-                        case 'expense': return 'text-orange-400 dark:text-orange-300';
-                        case 'goal': return 'text-purple-400 dark:text-purple-300';
-                        default: return 'text-gray-400 dark:text-gray-300';
-                      }
-                    };
-
-                    const getTransactionLabel = () => {
-                      if (transaction.type === 'debt') {
-                        switch ((transaction as unknown as Debt).debtType) {
-                          case 'prestamo': return 'Préstamo';
-                          case 'tarjeta': return 'Tarjeta de crédito';
-                          case 'credito': return 'Línea de crédito';
-                          default: return 'Deuda';
-                        }
-                      }
-                      switch (transaction.type) {
-                        case 'income': return 'Ingreso';
-                        case 'expense': return 'Gasto';
-                        case 'goal': return 'Meta';
-                        default: return 'Transacción';
-                      }
-                    };
-
-                        return (
-                      <motion.div 
-                        key={`${transaction.type}-${transaction.id}`}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.3, delay: 0.1 }}
-                        className={`border rounded-xl p-4 hover:shadow-md transition-all duration-300 group cursor-pointer ${
-                          transaction.type === 'debt' && (transaction as unknown as Debt).status === 'overdue'
-                            ? 'border-red-300 dark:border-red-700 bg-red-50/40 dark:bg-red-900/10'
-                            : 'border-gray-200 dark:border-gray-700'
-                        }`}
+            ) : allMovements.length === 0 ? (
+              (() => {
+                const hasActiveFilters = filterType !== 'all' || searchQuery || dateFilter === 'current-month';
+                return (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Search className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h4 className="text-base font-medium text-gray-900 dark:text-white mb-1">
+                      Sin resultados
+                    </h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      {searchQuery
+                        ? `No se encontraron movimientos para "${searchQuery}"`
+                        : dateFilter === 'current-month'
+                          ? 'No hay gastos registrados en el mes actual'
+                          : 'No hay movimientos de ese tipo'}
+                    </p>
+                    {hasActiveFilters && (
+                      <button
                         onClick={() => {
-                          setSelectedTransaction(transaction);
-                          setShowDetailModal(true);
+                          setSearchQuery('');
+                          setFilterType('all');
+                          setDateFilter('all');
                         }}
+                        className="text-sm text-[#FF3A5F] hover:underline cursor-pointer"
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">{getTransactionIcon()}</span>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-semibold text-gray-900 dark:text-white">
-                                  {transaction.name}
-                                </h4>
-                                {transaction.type === 'debt' && (transaction as unknown as Debt).status === 'overdue' && (
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 font-medium">
-                                    Vencida
-                                  </span>
-                                )}
-                              </div>
-                              <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 ${getTransactionColor()}`}>
+                        Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="space-y-2">
+                {allMovements.map((transaction) => {
+                  const isOverdueDebt = transaction.type === 'debt' && (transaction as unknown as Debt).status === 'overdue';
+                  const isPaidDebt = transaction.type === 'debt' && (transaction as unknown as Debt).status === 'paid';
+
+                  const TransactionIcon = (() => {
+                    if (transaction.type === 'debt') {
+                      switch ((transaction as unknown as Debt).debtType) {
+                        case 'prestamo': return Landmark;
+                        case 'credito': return Calculator;
+                        case 'tarjeta': return CreditCard;
+                        default: return CreditCard;
+                      }
+                    }
+                    switch (transaction.type) {
+                      case 'income': return TrendingUp;
+                      case 'expense': return Target;
+                      case 'goal': return Trophy;
+                      default: return Wallet;
+                    }
+                  })();
+
+                  const getTransactionColor = () => {
+                    switch (transaction.type) {
+                      case 'debt': return 'text-red-400 dark:text-red-300';
+                      case 'income': return 'text-green-400 dark:text-green-300';
+                      case 'expense': return 'text-orange-400 dark:text-orange-300';
+                      case 'goal': return 'text-purple-400 dark:text-purple-300';
+                      default: return 'text-gray-400 dark:text-gray-300';
+                    }
+                  };
+
+                  const getTransactionLabel = () => {
+                    if (transaction.type === 'debt') {
+                      switch ((transaction as unknown as Debt).debtType) {
+                        case 'prestamo': return 'Préstamo';
+                        case 'tarjeta': return 'Tarjeta de crédito';
+                        case 'credito': return 'Línea de crédito';
+                        default: return 'Deuda';
+                      }
+                    }
+                    switch (transaction.type) {
+                      case 'income': return 'Ingreso';
+                      case 'expense': return 'Gasto';
+                      case 'goal': return 'Meta';
+                      default: return 'Transacción';
+                    }
+                  };
+
+                  const dateLabel = (() => {
+                    const dateToShow = transaction.type === 'debt'
+                      ? (String((transaction as unknown as Debt).dueDate || transaction.createdAt || transaction.date || ''))
+                      : String(transaction.date || '');
+                    if (!dateToShow) return 'Sin fecha';
+                    let formatted: string;
+                    if (dateToShow.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                      const [year, month, day] = dateToShow.split('-').map(Number);
+                      formatted = new Date(year, month - 1, day).toLocaleDateString('es-AR');
+                    } else {
+                      const dateObj = new Date(dateToShow);
+                      formatted = isNaN(dateObj.getTime()) ? 'Fecha inválida' : dateObj.toLocaleDateString('es-AR');
+                    }
+                    return transaction.type === 'debt' ? `Vence: ${formatted}` : formatted;
+                  })();
+
+                  const notesText = typeof transaction.notes === 'string' ? transaction.notes.trim() : '';
+                  const showNotes = notesText !== '' && notesText !== 'false' && !notesText.includes('seed-mock-data');
+                  const displayColor = isPaidDebt ? 'text-green-400 dark:text-green-300' : getTransactionColor();
+
+                  return (
+                    <motion.div
+                      key={`${transaction.type}-${transaction.id}`}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.1 }}
+                      className={`border rounded-lg p-3 hover:shadow-md transition-all duration-300 group cursor-pointer ${
+                        isOverdueDebt
+                          ? 'border-red-300 dark:border-red-700 bg-red-50/40 dark:bg-red-900/10'
+                          : 'border-gray-200 dark:border-gray-700'
+                      }`}
+                      onClick={() => {
+                        setSelectedTransaction(transaction);
+                        setShowDetailModal(true);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <TransactionIcon className={`w-5 h-5 mt-0.5 shrink-0 ${displayColor}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                {transaction.name}
+                              </h4>
+                              <span className={`text-[11px] leading-none px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 ${displayColor}`}>
                                 {getTransactionLabel()}
                               </span>
+                              {isOverdueDebt && (
+                                <span className="text-[11px] leading-none px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 font-medium">
+                                  Vencida
+                                </span>
+                              )}
+                              {isPaidDebt && (
+                                <span className="text-[11px] leading-none px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 font-medium">
+                                  Pagada
+                                </span>
+                              )}
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <div className={`text-lg font-semibold ${getTransactionColor()}`}>
-                              {transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}{formatCurrency(typeof transaction.amount === 'number' ? transaction.amount : 0)}
-                            </div>
-                            <div className={`text-sm ${
-                              transaction.type === 'debt' && (transaction as unknown as Debt).status === 'overdue'
-                                ? 'text-red-500 dark:text-red-400 font-medium'
-                                : 'text-gray-600 dark:text-gray-400'
-                            }`}>
-                              {(() => {
-                                const dateToShow = transaction.type === 'debt'
-                                  ? (String((transaction as unknown as Debt).dueDate || transaction.createdAt || transaction.date || ''))
-                                  : String(transaction.date || '');
-                                if (!dateToShow) return 'Sin fecha';
-                                let formatted: string;
-                                if (dateToShow.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                                  const [year, month, day] = dateToShow.split('-').map(Number);
-                                  formatted = new Date(year, month - 1, day).toLocaleDateString('es-AR');
-                                } else {
-                                  const dateObj = new Date(dateToShow);
-                                  formatted = isNaN(dateObj.getTime()) ? 'Fecha inválida' : dateObj.toLocaleDateString('es-AR');
-                                }
-                                return transaction.type === 'debt' ? `Vence: ${formatted}` : formatted;
-                              })()}
-                            </div>
+                            {showNotes && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                                {notesText}
+                              </p>
+                            )}
                           </div>
                         </div>
-                        
-                        {transaction.notes && typeof transaction.notes === 'string' && transaction.notes.trim() !== '' && transaction.notes !== 'false' && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                            {transaction.notes}
-                          </p>
-                        )}
-
-                        {transaction.type === 'debt' && typeof transaction.amount === 'number' && typeof transaction.balance === 'number' && (
-                          <div className="mt-3">
-                            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
-                              <span>Progreso de pago</span>
-                              <span>{((transaction.amount - transaction.balance) / transaction.amount * 100).toFixed(1)}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-blue-400 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${((transaction.amount - transaction.balance) / transaction.amount * 100)}%` }}
-                              ></div>
-                            </div>
+                        <div className="text-right shrink-0">
+                          <div className={`text-base font-bold ${displayColor}`}>
+                            {isPaidDebt ? '' : transaction.type === 'debt' ? '-' : transaction.type === 'expense' ? '-' : '+'}{formatCurrency(typeof transaction.amount === 'number' ? transaction.amount : 0)}
                           </div>
-                        )}
-
-                        {transaction.type === 'goal' && (
-                          <div className="mt-3">
-                            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
-                              <span>Progreso de meta</span>
-                              <span>{((transaction.currentAmount || 0) / transaction.amount * 100).toFixed(1)}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div
-                                className="bg-purple-400 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${((transaction.currentAmount || 0) / transaction.amount * 100)}%` }}
-                              ></div>
-                            </div>
+                          <div className={`text-xs mt-0.5 ${isOverdueDebt ? 'text-red-500 dark:text-red-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {dateLabel}
                           </div>
-                        )}
+                        </div>
+                      </div>
 
-                        {transaction.type === 'expense' && (transaction as unknown as Expense).expenseType === 'installments' && typeof (transaction as unknown as Expense).totalInstallments === 'number' && (transaction as unknown as Expense).totalInstallments! > 0 && (() => {
-                          const exp = transaction as unknown as Expense;
-                          const current = exp.currentInstallment || 1;
-                          const total = exp.totalInstallments!;
-                          const done = current > total;
-                          const pct = Math.min((current - 1) / total * 100, 100);
-                          return (
-                            <div className="mt-3">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  Cuota {Math.min(current, total)}/{total}
+                      {transaction.type === 'debt' && typeof transaction.amount === 'number' && typeof transaction.balance === 'number' && (
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                            <span>Progreso de pago</span>
+                            <span>{((transaction.amount - transaction.balance) / transaction.amount * 100).toFixed(1)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
+                            <div
+                              className="bg-blue-400 h-1 rounded-full transition-all duration-300"
+                              style={{ width: `${((transaction.amount - transaction.balance) / transaction.amount * 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {transaction.type === 'goal' && (
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                            <span>Progreso de meta</span>
+                            <span>{((transaction.currentAmount || 0) / transaction.amount * 100).toFixed(1)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
+                            <div
+                              className="bg-purple-400 h-1 rounded-full transition-all duration-300"
+                              style={{ width: `${((transaction.currentAmount || 0) / transaction.amount * 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {transaction.type === 'expense' && (transaction as unknown as Expense).expenseType === 'installments' && typeof (transaction as unknown as Expense).totalInstallments === 'number' && (transaction as unknown as Expense).totalInstallments! > 0 && (() => {
+                        const exp = transaction as unknown as Expense;
+                        const current = exp.currentInstallment || 1;
+                        const total = exp.totalInstallments!;
+                        const done = current > total;
+                        const pct = Math.min((current - 1) / total * 100, 100);
+                        return (
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                Cuota {Math.min(current, total)}/{total}
+                              </span>
+                              {done ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  Pagado
                                 </span>
-                                {done ? (
-                                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">✅ Pagado</span>
-                                ) : (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openConfirmModal(
-                                        `¿Marcar cuota ${current}/${total} como pagada?`,
-                                        'Esta acción no se puede deshacer fácilmente.',
-                                        () => {
-                                          updateExpense(exp.id, { currentInstallment: current + 1 });
-                                          toastSuccess(`Cuota ${current}/${total} marcada como pagada`);
-                                        }
-                                      );
-                                    }}
-                                    className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 font-medium cursor-pointer"
-                                  >
-                                    + Pagar cuota {current}
-                                  </button>
-                                )}
-                              </div>
-                              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                <div
-                                  className={`h-2 rounded-full transition-all duration-300 ${done ? 'bg-green-400' : 'bg-orange-400'}`}
-                                  style={{ width: `${done ? 100 : pct}%` }}
-                                />
-                              </div>
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openConfirmModal(
+                                      `¿Marcar cuota ${current}/${total} como pagada?`,
+                                      'Esta acción no se puede deshacer fácilmente.',
+                                      () => {
+                                        updateExpense(exp.id, { currentInstallment: current + 1 });
+                                        toastSuccess(`Cuota ${current}/${total} marcada como pagada`);
+                                      }
+                                    );
+                                  }}
+                                  className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 font-medium cursor-pointer"
+                                >
+                                  + Pagar cuota {current}
+                                </button>
+                              )}
                             </div>
-                          );
-                        })()}
-                      </motion.div>
-                    );
-                  });
-                })()}
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
+                              <div
+                                className={`h-1 rounded-full transition-all duration-300 ${done ? 'bg-green-400' : 'bg-orange-400'}`}
+                                style={{ width: `${done ? 100 : pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </motion.div>
