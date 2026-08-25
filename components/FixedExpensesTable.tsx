@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calendar, DollarSign, TrendingUp, Search, Filter } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { FixedExpenseItem } from '@/hooks/useFixedExpenses';
 
@@ -52,11 +52,17 @@ export default function FixedExpensesTable({
 
   const getPaymentMethodLabel = (method?: string) => {
     switch (method) {
-      case 'automatic': return 'DbA';
-      case 'manual': return 'Man';
-      case 'transfer': return 'Transf';
-      default: return '-';
+      case 'automatic': return 'Débito automático';
+      case 'manual': return 'Manual';
+      case 'transfer': return 'Transferencia';
+      default: return '—';
     }
+  };
+
+  const getPaymentStatus = (item: FixedExpenseItem): 'paid' | 'partial' | 'pending' => {
+    if (item.amount > 0 && item.paidAmount >= item.amount) return 'paid';
+    if (item.paidAmount > 0) return 'partial';
+    return 'pending';
   };
 
   const getPaymentMethodColor = (method?: string) => {
@@ -108,6 +114,24 @@ export default function FixedExpensesTable({
         </p>
       </div>
 
+      {/* Resumen del presupuesto */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm bg-gray-50 dark:bg-gray-900/40 rounded-lg px-4 py-3 border border-gray-200 dark:border-gray-700">
+        <span className="flex items-baseline gap-1.5">
+          <span className="text-gray-500 dark:text-gray-400">Total del mes</span>
+          <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totalAmount)}</span>
+        </span>
+        <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">·</span>
+        <span className="flex items-baseline gap-1.5">
+          <span className="text-gray-500 dark:text-gray-400">Pagado</span>
+          <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(totalPaid)}</span>
+        </span>
+        <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">·</span>
+        <span className="flex items-baseline gap-1.5">
+          <span className="text-gray-500 dark:text-gray-400">Pendiente</span>
+          <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(totalAmount - totalPaid)}</span>
+        </span>
+      </div>
+
       {/* Filtros y búsqueda */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -130,17 +154,15 @@ export default function FixedExpensesTable({
           <option value="manual">Manual</option>
           <option value="transfer">Transferencia</option>
         </select>
-        <button
-          onClick={() => setShowOverdueOnly(!showOverdueOnly)}
-          className={`px-4 py-2 rounded-lg border transition-colors ${
-            showOverdueOnly
-              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-              : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-          }`}
-        >
-          <Filter className="w-4 h-4 inline mr-2" />
+        <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+          <input
+            type="checkbox"
+            checked={showOverdueOnly}
+            onChange={() => setShowOverdueOnly(!showOverdueOnly)}
+            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-red-500 focus:ring-red-500 cursor-pointer"
+          />
           Solo vencidos
-        </button>
+        </label>
       </div>
 
       {/* Tabla */}
@@ -155,16 +177,16 @@ export default function FixedExpensesTable({
                 Cuotas
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Forma
+                Método
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Importe
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                VTO
+                Vencimiento
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Pagado
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Estado
               </th>
             </tr>
           </thead>
@@ -232,8 +254,29 @@ export default function FixedExpensesTable({
                         {formatDate(item.dueDate)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-400">
-                      {item.paidAmount > 0 ? formatCurrency(item.paidAmount) : '-'}
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const status = getPaymentStatus(item);
+                        if (status === 'paid') {
+                          return (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400">
+                              Pagado
+                            </span>
+                          );
+                        }
+                        if (status === 'partial') {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
+                              Parcial · {formatCurrency(item.paidAmount)}
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                            Pendiente
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );
@@ -250,9 +293,7 @@ export default function FixedExpensesTable({
                 {formatCurrency(totalAmount)}
               </td>
               <td className="px-4 py-3"></td>
-              <td className="px-4 py-3 text-right text-sm font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20">
-                {formatCurrency(totalPaid)}
-              </td>
+              <td className="px-4 py-3"></td>
             </tr>
           </tfoot>
         </table>
