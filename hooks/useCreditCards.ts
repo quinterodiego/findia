@@ -154,22 +154,32 @@ export function useCreditCards() {
   ) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`/api/credit-cards/${cardId}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(paymentData),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
+        // Acá sí falló la persistencia real: el pago no llegó a crearse.
         throw new Error(data.error || 'Error al registrar pago');
       }
-      
-      await fetchCards();
-      await fetchPayments(cardId);
+
+      // A partir de este punto el pago YA está guardado en el backend. Un fallo al
+      // refrescar cards/payments es un problema de actualización de la UI, no de que
+      // el pago no se haya registrado — no debe hacer fallar la función ni sugerirle
+      // al usuario que reintente (evita un pago duplicado).
+      try {
+        await fetchCards();
+        await fetchPayments(cardId);
+      } catch (refreshErr) {
+        console.error('El pago se registró, pero falló el refresco posterior de datos:', refreshErr);
+      }
+
       return data.payment;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error desconocido';

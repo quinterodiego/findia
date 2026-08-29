@@ -75,16 +75,19 @@ export async function POST(
       paymentMethod: body.paymentMethod || 'transfer',
       notes: body.notes,
     });
-    
+
     return NextResponse.json({
       success: true,
       payment,
     });
   } catch (error) {
     console.error('Error en POST /api/credit-cards/[id]/payments:', error);
+    // createCreditCardPayment lanza mensajes claros de validación (importe, saldo,
+    // propiedad de la tarjeta) — se los pasamos al cliente en vez de un genérico.
+    const message = error instanceof Error ? error.message : 'Error al registrar pago';
     return NextResponse.json(
-      { error: 'Error al registrar pago' },
-      { status: 500 }
+      { error: message },
+      { status: 400 }
     );
   }
 }

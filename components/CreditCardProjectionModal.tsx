@@ -1,11 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Sparkles, TrendingUp, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
+import { X, Sparkles, TrendingUp, ChevronRight, RefreshCw } from 'lucide-react'
 import { useToastContext } from '@/components/Toast'
+import { useCreditCards } from '@/hooks/useCreditCards'
 import { formatCurrency } from '@/lib/formatNumber'
-import type { CreditCard, CreditCardConsumption } from '@/types'
+import { parseCivilDate } from '@/lib/formatDate'
+import type { CreditCard, CreditCardConsumption, CreditCardPayment } from '@/types'
 
 interface CreditCardProjectionModalProps {
   isOpen: boolean
@@ -55,7 +57,10 @@ interface ProjectionData {
   interestDetail: Array<{ merchant: string; amount: number; date: string; amountARS?: number; amountUSD?: number }>
 }
 
-export default function CreditCardProjectionModal({ 
+/** Redondea a centavos para evitar arrastre de ruido de punto flotante entre meses encadenados. */
+const roundToCents = (value: number): number => Math.round(value * 100) / 100
+
+export default function CreditCardProjectionModal({
   isOpen, 
   onClose, 
   cards = [],
@@ -63,9 +68,17 @@ export default function CreditCardProjectionModal({
   onCreateCard
 }: CreditCardProjectionModalProps) {
   const { error } = useToastContext()
+  const { fetchCards, fetchPayments } = useCreditCards()
   const [projections, setProjections] = useState<ProjectionData[]>([])
   const [loading, setLoading] = useState(false)
   const [allConsumptions, setAllConsumptions] = useState<Record<string, CreditCardConsumption[]>>({})
+  // Pagos reales (CreditCardPayments) por tarjeta, para el mes actual. Fuente única: el mismo
+  // fetchPayments() que ya usan Gestión de Pagos y el resto de la app — no se duplica lógica.
+  const [allPayments, setAllPayments] = useState<Record<string, CreditCardPayment[]>>({})
+  // Tarjetas recién obtenidas al abrir el modal (currentBalance fresco). Si todavía no llegaron,
+  // se usa el prop `cards` como fallback para no bloquear el primer render.
+  const [freshCards, setFreshCards] = useState<CreditCard[]>([])
+  const effectiveCards = freshCards.length > 0 ? freshCards : cards
   const [visibleMonthOffset, setVisibleMonthOffset] = useState(0) // Offset desde el mes actual (0 = mes actual)
   const monthsToShow = 8 // Mostrar mes actual + 7 meses más
   // Estado para almacenar pagos personalizados: key = `${cardId}-${year}-${month}`
@@ -92,7 +105,7 @@ export default function CreditCardProjectionModal({
   
   // Detectar si es móvil
   const [isMobile, setIsMobile] = useState(false)
-  
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768) // md breakpoint de Tailwind
@@ -101,6 +114,22 @@ export default function CreditCardProjectionModal({
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // Altura real de la primera fila del thead (mes/año), medida para poder anclar
+  // la segunda fila (ARS/USD) justo debajo sin superponerse ni dejar un hueco.
+  const monthHeaderRowRef = useRef<HTMLTableRowElement>(null)
+  const [monthHeaderHeight, setMonthHeaderHeight] = useState(36)
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (monthHeaderRowRef.current) {
+        setMonthHeaderHeight(monthHeaderRowRef.current.getBoundingClientRect().height)
+      }
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [isMobile, loading, projections.length])
 
   // Prevenir scroll del body cuando el modal está abierto
   useEffect(() => {
@@ -114,70 +143,80 @@ export default function CreditCardProjectionModal({
     }
   }, [isOpen, detailModal.isOpen])
 
-  // Cargar todos los consumos una sola vez
-  useEffect(() => {
-    if (isOpen && cards && cards.length > 0) {
-      loadAllConsumptions()
-    }
-  }, [isOpen, cards])
-
-  const loadAllConsumptions = async (): Promise<Record<string, CreditCardConsumption[]>> => {
+  const loadAllConsumptions = async (cardsToUse: CreditCard[]): Promise<Record<string, CreditCardConsumption[]>> => {
     const consumptionsMap: Record<string, CreditCardConsumption[]> = {}
-    
-    if (!cards || cards.length === 0) {
-      setAllConsumptions(consumptionsMap)
-      return consumptionsMap
-    }
-    
-    for (const card of cards) {
+
+    for (const card of cardsToUse) {
       try {
         const response = await fetch(`/api/credit-cards/${card.id}/consumptions`)
         const data = await response.json()
-        if (response.ok && Array.isArray(data.consumptions)) {
-          consumptionsMap[card.id] = data.consumptions
-          if (data.consumptions.length > 0) {
-          }
-        } else {
-          consumptionsMap[card.id] = []
-        }
-    } catch (err) {
+        consumptionsMap[card.id] = response.ok && Array.isArray(data.consumptions) ? data.consumptions : []
+      } catch (err) {
         console.error(`[Proyección] ❌ Error cargando consumos para tarjeta ${card.id}:`, err)
         consumptionsMap[card.id] = []
       }
     }
-    
+
     setAllConsumptions(consumptionsMap)
     return consumptionsMap
   }
 
+  // Pagos reales (CreditCardPayments), vía el mismo fetchPayments() que ya usa Gestión de Pagos —
+  // no se duplica lógica ni se crea otra fuente de datos.
+  const loadAllPayments = async (cardsToUse: CreditCard[]): Promise<Record<string, CreditCardPayment[]>> => {
+    const paymentsMap: Record<string, CreditCardPayment[]> = {}
+
+    for (const card of cardsToUse) {
+      try {
+        paymentsMap[card.id] = await fetchPayments(card.id)
+      } catch (err) {
+        console.error(`[Proyección] ❌ Error cargando pagos para tarjeta ${card.id}:`, err)
+        paymentsMap[card.id] = []
+      }
+    }
+
+    setAllPayments(paymentsMap)
+    return paymentsMap
+  }
+
   const calculateProjections = useCallback(async (forceReload = false) => {
-    if (!cards || cards.length === 0) {
+    let cardsToUse = freshCards.length > 0 ? freshCards : cards
+    if (!cardsToUse || cardsToUse.length === 0) {
       error('Necesitas al menos una tarjeta de crédito para calcular la proyección')
       return
     }
 
     setLoading(true)
     try {
-      // Recargar consumos solo si se fuerza (click en "Recalcular") o si no hay consumos cargados
-      let consumptionsToUse: Record<string, CreditCardConsumption[]>
-      if (forceReload || Object.keys(allConsumptions).length === 0) {
-        consumptionsToUse = await loadAllConsumptions()
-      } else {
-        consumptionsToUse = allConsumptions
+      // Al forzar (abrir el modal o "Recalcular"), traer currentBalance fresco antes de calcular
+      // — reutiliza fetchCards(), no se crea ningún fetch nuevo.
+      if (forceReload) {
+        const latestCards = await fetchCards().catch(() => [] as CreditCard[])
+        if (latestCards.length > 0) {
+          setFreshCards(latestCards)
+          cardsToUse = latestCards
+        }
       }
+
+      // Recargar consumos/pagos solo si se fuerza o si todavía no hay nada cargado
+      const consumptionsToUse = forceReload || Object.keys(allConsumptions).length === 0
+        ? await loadAllConsumptions(cardsToUse)
+        : allConsumptions
+      const paymentsToUse = forceReload || Object.keys(allPayments).length === 0
+        ? await loadAllPayments(cardsToUse)
+        : allPayments
+
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
       const currentDate = new Date()
       const currentMonth = currentDate.getMonth()
       const currentYear = currentDate.getFullYear()
-      
+
       const allProjections: ProjectionData[] = []
 
-      // Calcular proyección para los últimos 12 meses + próximos 12 meses (total 24 meses)
-      // monthOffset negativo = meses anteriores, positivo = meses futuros
-      const monthsBack = 12
+      // Mes actual + 12 meses futuros. Ya no se calculan meses anteriores: ese rango mostraba
+      // una simulación hacia adelante partiendo del currentBalance de hoy, no historial real.
       const monthsForward = 12
-      const totalMonths = monthsBack + monthsForward + 1 // +1 para incluir el mes actual
-      
+
       // Helper: inferir categoría si no fue asignada en la importación
       const inferCategory = (c: CreditCardConsumption): 'Cuotas' | 'Gasto Fijo' | 'Consumo del Mes' | 'Intereses' => {
         // Si tiene más de 1 cuota => Cuotas
@@ -199,11 +238,11 @@ export default function CreditCardProjectionModal({
         return 'Consumo del Mes'
       }
 
-      for (let monthOffset = -monthsBack; monthOffset <= monthsForward; monthOffset++) {
+      for (let monthOffset = 0; monthOffset <= monthsForward; monthOffset++) {
         // Calcular mes y año objetivo
         let targetMonth = currentMonth + monthOffset
         let targetYear = currentYear
-        
+
         // Ajustar año si el mes se sale del rango [0-11]
         while (targetMonth < 0) {
           targetMonth += 12
@@ -213,50 +252,53 @@ export default function CreditCardProjectionModal({
           targetMonth -= 12
           targetYear += 1
         }
-        
+
         // Para cada tarjeta
-        for (const card of cards) {
+        for (const card of cardsToUse) {
           const consumptions = consumptionsToUse[card.id] || []
 
+          // Pagos reales (CreditCardPayments) de esta tarjeta fechados dentro del mes objetivo.
+          // Solo tiene sentido para el mes actual: createCreditCardPayment() ya descontó estos
+          // pagos de card.currentBalance al registrarse, así que se usan para RECONSTRUIR la
+          // deuda previa al pago (no para volver a restarlos, lo que los descontaría dos veces).
+          const realPaymentsThisMonth = roundToCents((paymentsToUse[card.id] || [])
+            .filter(p => {
+              const parsed = parseCivilDate(p.date)
+              return parsed && parsed.year === targetYear && parsed.month === targetMonth + 1
+            })
+            .reduce((sum, p) => sum + p.amount, 0))
+
           // Calcular saldo inicial (Deuda anterior)
-          let previousDebt = monthOffset === 0 ? card.currentBalance : 0
-          let previousDebtARS = monthOffset === 0 ? card.currentBalance : 0 // Por ahora asumir todo en pesos
+          let previousDebt = monthOffset === 0 ? roundToCents(card.currentBalance + realPaymentsThisMonth) : 0
+          let previousDebtARS = monthOffset === 0 ? roundToCents(card.currentBalance + realPaymentsThisMonth) : 0 // Por ahora asumir todo en pesos
           let previousDebtUSD = 0
-          
+
           if (monthOffset !== 0) {
-            // Buscar la proyección del mes anterior para esta tarjeta
+            // Buscar la proyección del mes anterior para esta tarjeta (siempre existe: el rango
+            // ahora arranca en el mes actual y avanza secuencialmente hacia adelante)
             let prevMonth = targetMonth - 1
             let prevYear = targetYear
-            
+
             if (prevMonth < 0) {
               prevMonth = 11
               prevYear -= 1
             }
-            
-            const prevProj = allProjections.find(p => 
-              p.cardId === card.id && 
+
+            const prevProj = allProjections.find(p =>
+              p.cardId === card.id &&
               p.year === prevYear &&
               p.month === prevMonth + 1 // Los meses en ProjectionData son 1-12, no 0-11
             )
-            
+
             if (prevProj) {
               previousDebt = prevProj.balance
               previousDebtARS = prevProj.balanceARS || prevProj.balance
               previousDebtUSD = prevProj.balanceUSD || 0
             } else {
-              // Si no hay proyección anterior y estamos en el pasado, estimar basándose en los consumos
-              if (monthOffset < 0) {
-                // Para meses pasados, intentar calcular el saldo basándose en los consumos cargados
-                // Por ahora usar el currentBalance como base (sería más complejo calcular hacia atrás)
-                previousDebt = card.currentBalance
-                previousDebtARS = card.currentBalance
-                previousDebtUSD = 0
-              } else {
-                // Para meses futuros sin proyección anterior, usar el saldo actual
-                previousDebt = card.currentBalance
-                previousDebtARS = card.currentBalance
-                previousDebtUSD = 0
-              }
+              // Fallback defensivo (no debería ocurrir dado el rango secuencial de arriba)
+              previousDebt = card.currentBalance
+              previousDebtARS = card.currentBalance
+              previousDebtUSD = 0
             }
           }
 
@@ -291,33 +333,37 @@ export default function CreditCardProjectionModal({
             // Parsear fecha del consumo - soportar múltiples formatos
             let dateParts: string[] = []
             let parsedDate: Date | null = null
-            
+            let civilParsed: { year: number; month: number; day: number } | null = null
+
             if (consumption.date.includes('/')) {
               dateParts = consumption.date.split('/')
             } else if (consumption.date.includes('-') && consumption.date.length >= 10) {
-              // Formato ISO (YYYY-MM-DD)
-              parsedDate = new Date(consumption.date)
+              // Formato ISO (YYYY-MM-DD): fecha CIVIL, sin pasar por Date/UTC
+              civilParsed = parseCivilDate(consumption.date)
             } else {
               // Intentar parsear directamente
               parsedDate = new Date(consumption.date)
             }
-            
+
             let consumptionMonth = -1
             let consumptionYear = -1
-            
+
             if (dateParts.length === 3) {
               const [day, month, year] = dateParts.map(Number)
               if (day && month && year) {
                 consumptionMonth = month - 1 // JavaScript months are 0-indexed
                 consumptionYear = year < 100 ? 2000 + year : year
               }
+            } else if (civilParsed) {
+              consumptionMonth = civilParsed.month - 1
+              consumptionYear = civilParsed.year
             } else if (parsedDate && !isNaN(parsedDate.getTime())) {
               consumptionMonth = parsedDate.getMonth()
               consumptionYear = parsedDate.getFullYear()
             } else {
               continue
             }
-            
+
             // Calcular cuántos meses han pasado desde el consumo hasta el mes objetivo
             const monthsDiff = (targetYear - consumptionYear) * 12 + (targetMonth - consumptionMonth)
             
@@ -330,53 +376,48 @@ export default function CreditCardProjectionModal({
             if (monthOffset === 0 || monthOffset === 1) {
             }
             
-            // Si la cuota corresponde a este mes o futuro
-            // monthsDiff >= 1 significa que al menos pasó un mes desde el consumo (primera cuota)
-            // installmentNumber <= consumption.installments significa que aún hay cuotas pendientes
-            // IMPORTANTE: También incluir cuotas que ya vencieron pero aún no se han pagado
-            // (monthsDiff > consumption.installments pero currentInstallment < installments)
+            // El calendario manda: una compra de N cuotas genera COMO MÁXIMO N cargos, nunca más.
+            // monthsDiff >= 1 => al menos pasó un mes desde la compra (primera cuota).
+            // installmentNumber <= consumption.installments => todavía existe esa cuota en el calendario.
+            // Fuera de ese rango (installmentNumber > installments) la cuota simplemente no existe —
+            // ya no se "extiende" la compra más allá de su última cuota por estar "vencida e impaga".
             const isWithinInstallmentRange = monthsDiff >= 1 && installmentNumber <= consumption.installments
-            const isOverdueButUnpaid = monthsDiff > consumption.installments && 
-                                       (consumption.currentInstallment || 0) < consumption.installments
-            
-            if (isWithinInstallmentRange || isOverdueButUnpaid) {
-              // Para cuotas vencidas, usar la última cuota pendiente
-              const effectiveInstallmentNumber = isOverdueButUnpaid 
-                ? consumption.installments 
-                : installmentNumber
-              
-              // Verificar que esta cuota aún no se haya pagado
-              // La cuota está pagada si effectiveInstallmentNumber <= currentInstallment
-              if (effectiveInstallmentNumber > (consumption.currentInstallment || 0)) {
+
+            if (isWithinInstallmentRange) {
+              // currentInstallment sigue actuando como filtro de estado (no repetir una cuota que
+              // ya se marcó como avanzada/pagada), pero nunca puede crear cuotas más allá de la última.
+              if (installmentNumber > (consumption.currentInstallment || 0)) {
                 // El amount ya es la cuota mensual, no el total
                 // Para calcular el total original: amount * installments
-                const monthlyPayment = consumption.monthlyPayment || consumption.amount || 0
+                // monthlyPayment es un valor tipeado por el usuario al cargar el consumo (no lo
+                // calculamos dividiendo amount/installments) — solo lo normalizamos a centavos acá.
+                const monthlyPayment = roundToCents(consumption.monthlyPayment || consumption.amount || 0)
                 const totalOriginal = monthlyPayment * (consumption.installments || 1)
-                
+
                 // Obtener montos por moneda
                 const consumptionAny = consumption as any
                 const montoPesosRaw = consumptionAny.montoPesos !== undefined && consumptionAny.montoPesos !== null ? consumptionAny.montoPesos : null
                 const montoUSDRaw = consumptionAny.montoUSD !== undefined && consumptionAny.montoUSD !== null ? consumptionAny.montoUSD : null
-                
+
                 const montoPesos = montoPesosRaw !== null ? montoPesosRaw : (montoUSDRaw !== null ? 0 : monthlyPayment)
                 const montoUSD = montoUSDRaw !== null ? montoUSDRaw : 0
-                
+
                 // Si montoUSD > 0, entonces el consumo está en USD
                 // Si montoUSD = 0 y montoPesos > 0, entonces está en ARS
                 // Si ambos son 0 o null, asumir ARS
-                const amountARS = montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : monthlyPayment)
-                const amountUSD = montoUSD > 0 ? montoUSD : 0
-                
+                const amountARS = roundToCents(montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : monthlyPayment))
+                const amountUSD = roundToCents(montoUSD > 0 ? montoUSD : 0)
+
                 installmentsDetail.push({
                   merchant: consumption.merchant || 'Consumo',
                   amount: monthlyPayment,
-                  installment: `${effectiveInstallmentNumber}/${consumption.installments}`,
+                  installment: `${installmentNumber}/${consumption.installments}`,
                   amountARS,
                   amountUSD
                 })
-                totalInstallments += monthlyPayment
-                totalInstallmentsARS += amountARS
-                totalInstallmentsUSD += amountUSD
+                totalInstallments = roundToCents(totalInstallments + monthlyPayment)
+                totalInstallmentsARS = roundToCents(totalInstallmentsARS + amountARS)
+                totalInstallmentsUSD = roundToCents(totalInstallmentsUSD + amountUSD)
                 
               } else {
               }
@@ -417,29 +458,33 @@ export default function CreditCardProjectionModal({
             // Intentar parsear fecha en formato dd/mm/yyyy
             let dateParts: string[] = []
             let parsedDate: Date | null = null
-            
+            let civilParsed: { year: number; month: number; day: number } | null = null
+
             // Si es formato dd/mm/yyyy
             if (consumption.date.includes('/')) {
               dateParts = consumption.date.split('/')
             }
-            // Si es formato ISO (YYYY-MM-DD)
+            // Si es formato ISO (YYYY-MM-DD): fecha CIVIL, sin pasar por Date/UTC
             else if (consumption.date.includes('-') && consumption.date.length >= 10) {
-              parsedDate = new Date(consumption.date)
+              civilParsed = parseCivilDate(consumption.date)
             }
             // Intentar parsear directamente
             else {
               parsedDate = new Date(consumption.date)
             }
-            
+
             let consumptionMonth = -1
             let consumptionYear = -1
-            
+
             if (dateParts.length === 3) {
               const [day, month, year] = dateParts.map(Number)
               if (day && month && year) {
                 consumptionMonth = month - 1 // JavaScript months are 0-indexed
                 consumptionYear = year < 100 ? 2000 + year : year // Manejar años de 2 dígitos
               }
+            } else if (civilParsed) {
+              consumptionMonth = civilParsed.month - 1
+              consumptionYear = civilParsed.year
             } else if (parsedDate && !isNaN(parsedDate.getTime())) {
               consumptionMonth = parsedDate.getMonth()
               consumptionYear = parsedDate.getFullYear()
@@ -447,69 +492,33 @@ export default function CreditCardProjectionModal({
               continue
             }
             
-            // Para "Consumo del Mes": solo incluir consumos sin cuotas (1/1 o sin installments)
-            // Para el MES ACTUAL: incluir consumos del mes actual o sin cuotas pendientes
-            if (monthOffset === 0) {
-              // Verificar si el consumo es del mes actual o es un consumo sin cuotas (pago único)
-              const isCurrentMonth = consumptionMonth === targetMonth && consumptionYear === targetYear
-              const hasNoInstallments = !consumption.installments || consumption.installments === 1
-              
-              // Para el mes actual, incluimos:
-              // - Consumos del mes actual sin cuotas
-              // - O consumos del mes actual que aún tienen saldo pendiente
-              if (isCurrentMonth || (hasNoInstallments && consumptionMonth <= targetMonth && consumptionYear <= targetYear)) {
-                const consumptionAny = consumption as any
-                const montoPesosRaw = consumptionAny.montoPesos !== undefined && consumptionAny.montoPesos !== null ? consumptionAny.montoPesos : null
-                const montoUSDRaw = consumptionAny.montoUSD !== undefined && consumptionAny.montoUSD !== null ? consumptionAny.montoUSD : null
-                
-                const montoPesos = montoPesosRaw !== null ? montoPesosRaw : (montoUSDRaw !== null ? 0 : consumption.amount || 0)
-                const montoUSD = montoUSDRaw !== null ? montoUSDRaw : 0
-                
-                // Si montoUSD > 0, entonces el consumo está en USD
-                // Si montoUSD = 0 y montoPesos > 0, entonces está en ARS
-                // Si ambos son 0 o null, asumir ARS
-                const amountARS = montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : consumption.amount || 0)
-                const amountUSD = montoUSD > 0 ? montoUSD : 0
-                
-                newConsumptions += consumption.amount || 0
-                newConsumptionsARS += amountARS
-                newConsumptionsUSD += amountUSD
-                consumptionsDetail.push({
-                  merchant: consumption.merchant || 'Consumo',
-                  amount: consumption.amount || 0,
-                  date: consumption.date,
-                  amountARS,
-                  amountUSD
-                })
-                
-              }
-            } else {
-              // Para meses pasados y futuros: contar consumos hechos en ese mes específico
-              if (consumptionMonth === targetMonth && consumptionYear === targetYear) {
-                const consumptionAny = consumption as any
-                const montoPesosRaw = consumptionAny.montoPesos !== undefined && consumptionAny.montoPesos !== null ? consumptionAny.montoPesos : null
-                const montoUSDRaw = consumptionAny.montoUSD !== undefined && consumptionAny.montoUSD !== null ? consumptionAny.montoUSD : null
-                
-                const montoPesos = montoPesosRaw !== null ? montoPesosRaw : (montoUSDRaw !== null ? 0 : consumption.amount || 0)
-                const montoUSD = montoUSDRaw !== null ? montoUSDRaw : 0
-                
-                // Si montoUSD > 0, entonces el consumo está en USD
-                // Si montoUSD = 0 y montoPesos > 0, entonces está en ARS
-                // Si ambos son 0 o null, asumir ARS
-                const amountARS = montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : consumption.amount || 0)
-                const amountUSD = montoUSD > 0 ? montoUSD : 0
-                
-                newConsumptions += consumption.amount || 0
-                newConsumptionsARS += amountARS
-                newConsumptionsUSD += amountUSD
-                consumptionsDetail.push({
-                  merchant: consumption.merchant || 'Consumo',
-                  amount: consumption.amount || 0,
-                  date: consumption.date,
-                  amountARS,
-                  amountUSD
-                })
-              }
+            // "Consumo del Mes" pertenece únicamente al mes/año exacto de su fecha — sin excepción
+            // para el mes actual. Un consumo de un mes anterior ya está reflejado en la Deuda
+            // anterior (currentBalance); volver a sumarlo acá sería contarlo dos veces.
+            if (consumptionMonth === targetMonth && consumptionYear === targetYear) {
+              const consumptionAny = consumption as any
+              const montoPesosRaw = consumptionAny.montoPesos !== undefined && consumptionAny.montoPesos !== null ? consumptionAny.montoPesos : null
+              const montoUSDRaw = consumptionAny.montoUSD !== undefined && consumptionAny.montoUSD !== null ? consumptionAny.montoUSD : null
+
+              const montoPesos = montoPesosRaw !== null ? montoPesosRaw : (montoUSDRaw !== null ? 0 : consumption.amount || 0)
+              const montoUSD = montoUSDRaw !== null ? montoUSDRaw : 0
+
+              // Si montoUSD > 0, entonces el consumo está en USD
+              // Si montoUSD = 0 y montoPesos > 0, entonces está en ARS
+              // Si ambos son 0 o null, asumir ARS
+              const amountARS = roundToCents(montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : consumption.amount || 0))
+              const amountUSD = roundToCents(montoUSD > 0 ? montoUSD : 0)
+
+              newConsumptions = roundToCents(newConsumptions + (consumption.amount || 0))
+              newConsumptionsARS = roundToCents(newConsumptionsARS + amountARS)
+              newConsumptionsUSD = roundToCents(newConsumptionsUSD + amountUSD)
+              consumptionsDetail.push({
+                merchant: consumption.merchant || 'Consumo',
+                amount: consumption.amount || 0,
+                date: consumption.date,
+                amountARS,
+                amountUSD
+              })
             }
           }
           
@@ -525,9 +534,9 @@ export default function CreditCardProjectionModal({
           
           // Si hay un valor personalizado, usarlo
           if (customInterest) {
-            interest = customInterest.ars + customInterest.usd
-            interestARS = customInterest.ars
-            interestUSD = customInterest.usd
+            interestARS = roundToCents(customInterest.ars)
+            interestUSD = roundToCents(customInterest.usd)
+            interest = roundToCents(interestARS + interestUSD)
             interestDetail.push({
               merchant: 'Interés personalizado',
               amount: interest,
@@ -539,12 +548,12 @@ export default function CreditCardProjectionModal({
             // Calcular intereses sobre el saldo pendiente
             // Los intereses se calculan sobre: Deuda anterior + Cuotas pendientes que aún no vencieron + Nuevos consumos del mes
             // Esto representa el saldo total pendiente antes de cualquier pago en este mes
-            const balanceForInterest = previousDebt + totalInstallments + newConsumptions
-            
+            const balanceForInterest = roundToCents(previousDebt + totalInstallments + newConsumptions)
+
             // Verificar que la tasa de interés esté definida y sea mayor a 0
             const interestRate = card.interestRate || 0
-            const calculatedInterest = balanceForInterest > 0 && interestRate > 0 
-              ? (balanceForInterest * interestRate) / 100 
+            const calculatedInterest = balanceForInterest > 0 && interestRate > 0
+              ? roundToCents((balanceForInterest * interestRate) / 100)
               : 0
             
             // Sumar consumos con categoría "Intereses"
@@ -572,44 +581,45 @@ export default function CreditCardProjectionModal({
               if (effectiveCategory !== 'Intereses') {
                 continue
               }
-              
+
               // Parsear fecha del consumo
               let dateParts: string[] = []
               let parsedDate: Date | null = null
-              
+              let civilParsed: { year: number; month: number; day: number } | null = null
+
               if (consumption.date.includes('/')) {
                 dateParts = consumption.date.split('/')
               } else if (consumption.date.includes('-') && consumption.date.length >= 10) {
-                parsedDate = new Date(consumption.date)
+                // Formato ISO (YYYY-MM-DD): fecha CIVIL, sin pasar por Date/UTC
+                civilParsed = parseCivilDate(consumption.date)
               } else {
                 parsedDate = new Date(consumption.date)
               }
-              
+
               let consumptionMonth = -1
               let consumptionYear = -1
-              
+
               if (dateParts.length === 3) {
                 const [day, month, year] = dateParts.map(Number)
                 if (day && month && year) {
                   consumptionMonth = month - 1
                   consumptionYear = year < 100 ? 2000 + year : year
                 }
+              } else if (civilParsed) {
+                consumptionMonth = civilParsed.month - 1
+                consumptionYear = civilParsed.year
               } else if (parsedDate && !isNaN(parsedDate.getTime())) {
                 consumptionMonth = parsedDate.getMonth()
                 consumptionYear = parsedDate.getFullYear()
               } else {
                 continue
               }
-              
-              // Para intereses: proyectar en todos los meses futuros desde el mes en que se registró
-              // Si es un mes pasado, solo incluir si es del mes específico
-              // Si es el mes actual o futuro, incluir si el consumo es del mes actual o anterior
-              const consumptionDate = new Date(consumptionYear, consumptionMonth, 1)
-              const targetDate = new Date(targetYear, targetMonth, 1)
-              const shouldInclude = monthOffset < 0 
-                ? (consumptionMonth === targetMonth && consumptionYear === targetYear) // Meses pasados: solo del mes específico
-                : (consumptionDate <= targetDate) // Mes actual y futuros: incluir si el consumo es del mes actual o anterior
-              
+
+              // Un interés/gasto es un evento PUNTUAL: solo corresponde al mes/año exacto de su
+              // fecha, nunca se repite en meses futuros (a diferencia de "Gasto Fijo", que sí es
+              // recurrente por naturaleza y no se toca acá).
+              const shouldInclude = consumptionMonth === targetMonth && consumptionYear === targetYear
+
               if (shouldInclude) {
                 const consumptionAny = consumption as any
                 const montoPesosRaw = consumptionAny.montoPesos !== undefined && consumptionAny.montoPesos !== null ? consumptionAny.montoPesos : null
@@ -621,12 +631,12 @@ export default function CreditCardProjectionModal({
                 // Si montoUSD > 0, entonces el consumo está en USD
                 // Si montoUSD = 0 y montoPesos > 0, entonces está en ARS
                 // Si ambos son 0 o null, asumir ARS
-                const amountARS = montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : consumption.amount || 0)
-                const amountUSD = montoUSD > 0 ? montoUSD : 0
-                
-                interestConsumptions += consumption.amount || 0
-                interestConsumptionsARS += amountARS
-                interestConsumptionsUSD += amountUSD
+                const amountARS = roundToCents(montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : consumption.amount || 0))
+                const amountUSD = roundToCents(montoUSD > 0 ? montoUSD : 0)
+
+                interestConsumptions = roundToCents(interestConsumptions + (consumption.amount || 0))
+                interestConsumptionsARS = roundToCents(interestConsumptionsARS + amountARS)
+                interestConsumptionsUSD = roundToCents(interestConsumptionsUSD + amountUSD)
                 interestDetail.push({
                   merchant: consumption.merchant || 'Interés',
                   amount: consumption.amount || 0,
@@ -636,11 +646,11 @@ export default function CreditCardProjectionModal({
                 })
               }
             }
-            
+
             // El interés total es el calculado más los consumos de tipo "Intereses"
-            interest = calculatedInterest + interestConsumptions
-            interestARS = interestConsumptionsARS
-            interestUSD = interestConsumptionsUSD
+            interest = roundToCents(calculatedInterest + interestConsumptions)
+            interestARS = roundToCents(interestConsumptionsARS)
+            interestUSD = roundToCents(interestConsumptionsUSD)
           }
 
           // Calcular gastos fijos: solo consumos con categoría "Gasto Fijo"
@@ -655,9 +665,9 @@ export default function CreditCardProjectionModal({
           
           // Si hay un valor personalizado, usarlo
           if (customFixedExpenses) {
-            fixedExpenses = customFixedExpenses.ars + customFixedExpenses.usd
-            fixedExpensesARS = customFixedExpenses.ars
-            fixedExpensesUSD = customFixedExpenses.usd
+            fixedExpensesARS = roundToCents(customFixedExpenses.ars)
+            fixedExpensesUSD = roundToCents(customFixedExpenses.usd)
+            fixedExpenses = roundToCents(fixedExpensesARS + fixedExpensesUSD)
             fixedExpensesDetail.push({
               merchant: 'Gasto Fijo personalizado',
               amount: fixedExpenses,
@@ -675,28 +685,33 @@ export default function CreditCardProjectionModal({
               if (effectiveCategory !== 'Gasto Fijo') {
                 continue
               }
-              
+
               // Parsear fecha del consumo
               let dateParts: string[] = []
               let parsedDate: Date | null = null
-              
+              let civilParsed: { year: number; month: number; day: number } | null = null
+
               if (consumption.date.includes('/')) {
                 dateParts = consumption.date.split('/')
               } else if (consumption.date.includes('-') && consumption.date.length >= 10) {
-                parsedDate = new Date(consumption.date)
+                // Formato ISO (YYYY-MM-DD): fecha CIVIL, sin pasar por Date/UTC
+                civilParsed = parseCivilDate(consumption.date)
               } else {
                 parsedDate = new Date(consumption.date)
               }
-              
+
               let consumptionMonth = -1
               let consumptionYear = -1
-              
+
               if (dateParts.length === 3) {
                 const [day, month, year] = dateParts.map(Number)
                 if (day && month && year) {
                   consumptionMonth = month - 1
                   consumptionYear = year < 100 ? 2000 + year : year
                 }
+              } else if (civilParsed) {
+                consumptionMonth = civilParsed.month - 1
+                consumptionYear = civilParsed.year
               } else if (parsedDate && !isNaN(parsedDate.getTime())) {
                 consumptionMonth = parsedDate.getMonth()
                 consumptionYear = parsedDate.getFullYear()
@@ -704,15 +719,14 @@ export default function CreditCardProjectionModal({
                 continue
               }
               
-              // Para gastos fijos: proyectar en todos los meses futuros desde el mes en que se registró
-              // Si es un mes pasado, solo incluir si es del mes específico
-              // Si es el mes actual o futuro, incluir si el consumo es del mes actual o anterior
-              const consumptionDate = new Date(consumptionYear, consumptionMonth, 1)
-              const targetDate = new Date(targetYear, targetMonth, 1)
-              const shouldInclude = monthOffset < 0 
-                ? (consumptionMonth === targetMonth && consumptionYear === targetYear) // Meses pasados: solo del mes específico
-                : (consumptionDate <= targetDate) // Mes actual y futuros: incluir si el consumo es del mes actual o anterior
-              
+              // Un Gasto Fijo se proyecta desde el MES/AÑO de su fecha de inicio (sin importar el
+              // día) y en todos los meses futuros del horizonte. Comparación por mes/año, no por
+              // fecha completa — así un gasto cargado el 15 ya aparece ese mismo mes, no recién
+              // el siguiente. La recurrencia hacia adelante sigue siendo indefinida (sin fecha de fin).
+              const startMonthIndex = consumptionYear * 12 + consumptionMonth
+              const targetMonthIndex = targetYear * 12 + targetMonth
+              const shouldInclude = targetMonthIndex >= startMonthIndex
+
               if (shouldInclude) {
                 const consumptionAny = consumption as any
                 const montoPesosRaw = consumptionAny.montoPesos !== undefined && consumptionAny.montoPesos !== null ? consumptionAny.montoPesos : null
@@ -724,12 +738,12 @@ export default function CreditCardProjectionModal({
                 // Si montoUSD > 0, entonces el consumo está en USD
                 // Si montoUSD = 0 y montoPesos > 0, entonces está en ARS
                 // Si ambos son 0 o null, asumir ARS
-                const amountARS = montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : consumption.amount || 0)
-                const amountUSD = montoUSD > 0 ? montoUSD : 0
-                
-                fixedExpenses += consumption.amount || 0
-                fixedExpensesARS += amountARS
-                fixedExpensesUSD += amountUSD
+                const amountARS = roundToCents(montoUSD > 0 ? 0 : (montoPesos > 0 ? montoPesos : consumption.amount || 0))
+                const amountUSD = roundToCents(montoUSD > 0 ? montoUSD : 0)
+
+                fixedExpenses = roundToCents(fixedExpenses + (consumption.amount || 0))
+                fixedExpensesARS = roundToCents(fixedExpensesARS + amountARS)
+                fixedExpensesUSD = roundToCents(fixedExpensesUSD + amountUSD)
                 fixedExpensesDetail.push({
                   merchant: consumption.merchant || 'Gasto Fijo',
                   amount: consumption.amount || 0,
@@ -746,26 +760,29 @@ export default function CreditCardProjectionModal({
           }
 
           // Total del mes = cuotas + consumos nuevos + intereses + gastos fijos
-          const monthlyTotal = totalInstallments + newConsumptions + interest + fixedExpenses
-          const monthlyTotalARS = totalInstallmentsARS + newConsumptionsARS + interestARS + fixedExpensesARS
-          const monthlyTotalUSD = totalInstallmentsUSD + newConsumptionsUSD + interestUSD + fixedExpensesUSD
+          const monthlyTotal = roundToCents(totalInstallments + newConsumptions + interest + fixedExpenses)
+          const monthlyTotalARS = roundToCents(totalInstallmentsARS + newConsumptionsARS + interestARS + fixedExpensesARS)
+          const monthlyTotalUSD = roundToCents(totalInstallmentsUSD + newConsumptionsUSD + interestUSD + fixedExpensesUSD)
 
           // Total a Pagar = Deuda anterior + Total del mes
-          const totalToPay = previousDebt + monthlyTotal
-          const totalToPayARS = previousDebtARS + monthlyTotalARS
-          const totalToPayUSD = previousDebtUSD + monthlyTotalUSD
+          const totalToPay = roundToCents(previousDebt + monthlyTotal)
+          const totalToPayARS = roundToCents(previousDebtARS + monthlyTotalARS)
+          const totalToPayUSD = roundToCents(previousDebtUSD + monthlyTotalUSD)
 
-          // Pago del mes: usar valor personalizado si existe, sino 0
+          // Pago del mes: en el mes actual es el pago REAL (CreditCardPayments), no editable.
+          // En meses futuros sigue siendo una simulación manual, como hasta ahora.
           const paymentKey = `${card.id}-${targetYear}-${targetMonth + 1}`
           const customPayment = payments[paymentKey]
-          const payment = customPayment ? (customPayment.ars + customPayment.usd) : 0
-          const paymentARS = customPayment?.ars || 0
-          const paymentUSD = customPayment?.usd || 0
+          const payment = monthOffset === 0 ? realPaymentsThisMonth : roundToCents(customPayment ? (customPayment.ars + customPayment.usd) : 0)
+          const paymentARS = monthOffset === 0 ? realPaymentsThisMonth : roundToCents(customPayment?.ars || 0)
+          const paymentUSD = monthOffset === 0 ? 0 : roundToCents(customPayment?.usd || 0)
 
-          // Saldo = Total a Pagar - Pago del mes
-          const balance = totalToPay - payment
-          const balanceARS = totalToPayARS - paymentARS
-          const balanceUSD = totalToPayUSD - paymentUSD
+          // Saldo = Total a Pagar - Pago del mes. Este valor alimenta la Deuda anterior del mes
+          // siguiente, así que queda redondeado a centavos acá — es el punto crítico para que no
+          // se arrastre ruido de punto flotante de un mes al otro.
+          const balance = roundToCents(totalToPay - payment)
+          const balanceARS = roundToCents(totalToPayARS - paymentARS)
+          const balanceUSD = roundToCents(totalToPayUSD - paymentUSD)
 
           allProjections.push({
             month: targetMonth + 1,
@@ -816,13 +833,15 @@ export default function CreditCardProjectionModal({
     } finally {
       setLoading(false)
     }
-  }, [cards, allConsumptions, payments, fixedExpensesCustom, interestCustom, error])
+  }, [cards, freshCards, allConsumptions, allPayments, payments, fixedExpensesCustom, interestCustom, error, fetchCards, fetchPayments])
 
+  // Al abrir el modal, traer siempre datos frescos (tarjetas, consumos y pagos reales) antes de calcular.
   useEffect(() => {
-    if (isOpen && Object.keys(allConsumptions).length > 0) {
-      calculateProjections()
+    if (isOpen && cards && cards.length > 0) {
+      calculateProjections(true)
     }
-  }, [isOpen, allConsumptions, calculateProjections])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -860,7 +879,7 @@ export default function CreditCardProjectionModal({
   }
 
   // Si no hay tarjetas, mostrar mensaje
-  if (!cards || cards.length === 0) {
+  if (!effectiveCards || effectiveCards.length === 0) {
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -925,37 +944,23 @@ export default function CreditCardProjectionModal({
       }))).sort()
     : []
 
-  // Encontrar el índice del mes actual
+  // El mes actual siempre es el primero del rango: la proyección ya no genera meses anteriores.
   const currentDate = new Date()
   const currentMonth = currentDate.getMonth() + 1 // 1-12
   const currentYear = currentDate.getFullYear()
   const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
-  const currentMonthIndex = allMonthKeys.length > 0 ? allMonthKeys.findIndex(key => key === currentMonthKey) : -1
-  
-  // Si no encontramos el mes actual, usar índice 0
-  // visibleMonthOffset puede ser negativo (meses pasados) o positivo (meses futuros)
-  const startIndex = allMonthKeys.length > 0
-    ? (currentMonthIndex >= 0 
-        ? Math.max(0, Math.min(allMonthKeys.length - monthsToShow, currentMonthIndex + visibleMonthOffset))
-        : Math.max(0, Math.min(allMonthKeys.length - monthsToShow, visibleMonthOffset)))
-    : 0
-  
+
+  // visibleMonthOffset nunca es negativo: no existe navegación hacia meses anteriores.
+  const maxStartIndex = Math.max(0, allMonthKeys.length - monthsToShow)
+  const startIndex = Math.max(0, Math.min(maxStartIndex, visibleMonthOffset))
+
   // Obtener el rango de meses visibles
   const visibleMonthKeys = allMonthKeys.length > 0
     ? allMonthKeys.slice(startIndex, startIndex + monthsToShow)
     : []
-  
-  // Verificar si hay más meses hacia atrás
-  const canGoBack = startIndex > 0
-  // Verificar si hay más meses hacia adelante (permitir hasta 12 meses desde el mes actual)
-  // El último mes visible debe ser como máximo currentMonthIndex + 12
-  // Si mostramos 8 meses, el startIndex máximo sería currentMonthIndex + 12 - 7 (para que el último sea currentMonthIndex + 12)
-  const maxForwardIndex = currentMonthIndex >= 0 
-    ? Math.min(allMonthKeys.length - monthsToShow, currentMonthIndex + 12 - monthsToShow + 1)
-    : allMonthKeys.length - monthsToShow
-  const canGoForward = currentMonthIndex >= 0 
-    ? startIndex < maxForwardIndex && (startIndex + monthsToShow - 1) < (currentMonthIndex + 12)
-    : startIndex < maxForwardIndex
+
+  const canGoForward = startIndex < maxStartIndex
+  const canGoToCurrentMonth = visibleMonthOffset > 0
 
   return (
     <AnimatePresence>
@@ -1037,40 +1042,15 @@ export default function CreditCardProjectionModal({
           <div className={`bg-green-50 dark:bg-green-900/20 ${isMobile ? 'px-2 py-1.5' : 'px-4 py-2'} flex items-center justify-between border-b border-green-200 dark:border-green-800 shrink-0`}>
             <div className="flex items-center gap-1 md:gap-2 flex-1 md:flex-none">
                     <button
-                onClick={() => setVisibleMonthOffset(Math.max(-allMonthKeys.length + monthsToShow, visibleMonthOffset - 1))}
-                disabled={!canGoBack}
-                className="px-2 md:px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer flex items-center gap-0.5 md:gap-1 text-xs md:text-sm"
-              >
-                <ChevronLeft className="w-3 h-3 md:w-4 md:h-4" />
-                <span className="hidden md:inline">Anterior</span>
-                    </button>
-                    <button
-                onClick={() => {
-                  // Volver al mes actual
-                  setVisibleMonthOffset(0)
-                }}
-                className="px-2 md:px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors cursor-pointer text-xs md:text-sm"
+                onClick={() => setVisibleMonthOffset(0)}
+                disabled={!canGoToCurrentMonth}
+                className="px-2 md:px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer text-xs md:text-sm"
               >
                 <span className="hidden md:inline">Mes Actual</span>
                 <span className="md:hidden">Hoy</span>
                     </button>
                     <button
-                onClick={() => {
-                  // Calcular el máximo offset permitido (hasta 12 meses desde el mes actual)
-                  // El último mes visible debe ser currentMonthIndex + 12
-                  // Si mostramos 8 meses, el startIndex máximo sería currentMonthIndex + 12 - 7
-                  // Por lo tanto, el visibleMonthOffset máximo sería 12 - 7 = 5
-                  if (currentMonthIndex >= 0) {
-                    const maxOffset = 12 - monthsToShow + 1 // Máximo offset para llegar a 12 meses
-                    const maxStartIndex = Math.min(allMonthKeys.length - monthsToShow, currentMonthIndex + 12 - monthsToShow + 1)
-                    const maxOffsetFromStart = maxStartIndex - currentMonthIndex
-                    const finalMaxOffset = Math.min(maxOffset, maxOffsetFromStart)
-                    setVisibleMonthOffset(Math.min(finalMaxOffset, visibleMonthOffset + 1))
-                  } else {
-                    const maxOffset = allMonthKeys.length - monthsToShow
-                    setVisibleMonthOffset(Math.min(maxOffset, visibleMonthOffset + 1))
-                  }
-                }}
+                onClick={() => setVisibleMonthOffset(Math.min(maxStartIndex, visibleMonthOffset + 1))}
                 disabled={!canGoForward}
                 className="px-2 md:px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer flex items-center gap-0.5 md:gap-1 text-xs md:text-sm"
                     >
@@ -1110,245 +1090,16 @@ export default function CreditCardProjectionModal({
               <div className="h-full flex items-center justify-center">
                 <p className="text-gray-500 dark:text-gray-400">Cargando consumos...</p>
                     </div>
-            ) : isMobile ? (
-              // Vista móvil: Cards en lugar de tabla - Mostrar solo un mes a la vez para todas las tarjetas
-              <div className="h-full overflow-auto bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-2 md:p-4">
-                <div className="space-y-3">
-                  {/* Mostrar solo el mes actual según visibleMonthOffset */}
-                  {(() => {
-                    if (!visibleMonthKeys || visibleMonthKeys.length === 0) {
-                      return (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                          <p>No hay proyecciones disponibles. Calcula las proyecciones para ver los datos.</p>
-                        </div>
-                      )
-                    }
-                    const displayedMonthKey = visibleMonthKeys[0] // El primer mes visible es el que se muestra
-                    if (!displayedMonthKey) {
-                      return (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                          <p>Cargando proyecciones...</p>
-                        </div>
-                      )
-                    }
-                    const currentDate = new Date()
-                    const currentMonth = currentDate.getMonth() + 1
-                    const currentYear = currentDate.getFullYear()
-                    const globalCurrentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
-                    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-                    
-                    return cards.map((card) => {
-                      const cardProjections = projections.filter(p => p.cardId === card.id)
-                      const [year, month] = displayedMonthKey.split('-').map(Number)
-                      const proj = cardProjections.find(p => {
-                        const projMonth = String(p.month).padStart(2, '0')
-                        return p.year === year && projMonth === String(month).padStart(2, '0')
-                      })
-                      
-                      if (!proj) return null
-                      
-                      const isCurrentMonth = displayedMonthKey === globalCurrentMonthKey
-                      
-                      return (
-                        <div
-                          key={`${card.id}-${displayedMonthKey}`}
-                          className={`bg-white dark:bg-gray-800 rounded-lg border-2 shadow-sm ${
-                            isCurrentMonth 
-                              ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
-                              : 'border-gray-200 dark:border-gray-700'
-                          }`}
-                        >
-                          {/* Header del mes */}
-                          <div className={`px-3 py-2 rounded-t-lg ${
-                            isCurrentMonth 
-                              ? 'bg-green-600 dark:bg-green-700 text-white' 
-                              : 'bg-gray-100 dark:bg-gray-700'
-                          }`}>
-                            <div className="flex items-center justify-between">
-                              <h3 className="font-bold text-sm">
-                                {card.name} - {monthNames[proj.month - 1]} {proj.year}
-                              </h3>
-                              {isCurrentMonth && (
-                                <span className="text-xs bg-white/20 px-2 py-0.5 rounded">Actual</span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Contenido */}
-                          <div className="p-3 space-y-2.5">
-                            {/* Deuda anterior */}
-                            <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Deuda anterior</span>
-                              <div className="text-right">
-                                <div className="text-sm font-semibold">{formatCurrency(proj.previousDebtARS || 0)}</div>
-                                {(proj.previousDebtUSD || 0) > 0 && (
-                                  <div className="text-xs text-gray-500">{formatCurrency(proj.previousDebtUSD || 0)} USD</div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {/* Cuotas */}
-                            {(proj.installmentsARS || 0) > 0 || (proj.installmentsUSD || 0) > 0 ? (
-                              <div 
-                                className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded px-2 -mx-2"
-                                onClick={() => {
-                                  if (proj.installmentsDetail && proj.installmentsDetail.length > 0) {
-                                    setDetailModal({
-                                      isOpen: true,
-                                      category: 'Cuotas',
-                                      cardId: card.id,
-                                      month: proj.month,
-                                      year: proj.year,
-                                      monthKey: displayedMonthKey
-                                    })
-                                  }
-                                }}
-                              >
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Cuotas</span>
-                                <div className="text-right">
-                                  <div className="text-sm font-semibold">{formatCurrency(proj.installmentsARS || 0)}</div>
-                                  {(proj.installmentsUSD || 0) > 0 && (
-                                    <div className="text-xs text-gray-500">{formatCurrency(proj.installmentsUSD || 0)} USD</div>
-                                  )}
-                                </div>
-                              </div>
-                            ) : null}
-                            
-                            {/* Gastos Fijos */}
-                            {(proj.fixedExpensesARS || 0) > 0 || (proj.fixedExpensesUSD || 0) > 0 ? (
-                              <div 
-                                className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded px-2 -mx-2"
-                                onClick={() => {
-                                  if (proj.fixedExpensesDetail && proj.fixedExpensesDetail.length > 0) {
-                                    setDetailModal({
-                                      isOpen: true,
-                                      category: 'Gastos Fijos',
-                                      cardId: card.id,
-                                      month: proj.month,
-                                      year: proj.year,
-                                      monthKey: displayedMonthKey
-                                    })
-                                  }
-                                }}
-                              >
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Gastos Fijos</span>
-                                <div className="text-right">
-                                  <div className="text-sm font-semibold">{formatCurrency(proj.fixedExpensesARS || 0)}</div>
-                                  {(proj.fixedExpensesUSD || 0) > 0 && (
-                                    <div className="text-xs text-gray-500">{formatCurrency(proj.fixedExpensesUSD || 0)} USD</div>
-                                  )}
-                                </div>
-                              </div>
-                            ) : null}
-                            
-                            {/* Consumos del mes */}
-                            {(proj.consumptionsARS || 0) > 0 || (proj.consumptionsUSD || 0) > 0 ? (
-                              <div 
-                                className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded px-2 -mx-2"
-                                onClick={() => {
-                                  if (proj.consumptionsDetail && proj.consumptionsDetail.length > 0) {
-                                    setDetailModal({
-                                      isOpen: true,
-                                      category: 'Consumos del mes',
-                                      cardId: card.id,
-                                      month: proj.month,
-                                      year: proj.year,
-                                      monthKey: displayedMonthKey
-                                    })
-                                  }
-                                }}
-                              >
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Consumos del mes</span>
-                                <div className="text-right">
-                                  <div className="text-sm font-semibold">{formatCurrency(proj.consumptionsARS || 0)}</div>
-                                  {(proj.consumptionsUSD || 0) > 0 && (
-                                    <div className="text-xs text-gray-500">{formatCurrency(proj.consumptionsUSD || 0)} USD</div>
-                                  )}
-                                </div>
-                              </div>
-                            ) : null}
-                            
-                            {/* Intereses y Gastos */}
-                            {(proj.interestARS || 0) > 0 || (proj.interestUSD || 0) > 0 ? (
-                              <div 
-                                className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded px-2 -mx-2"
-                                onClick={() => {
-                                  if (proj.interestDetail && proj.interestDetail.length > 0) {
-                                    setDetailModal({
-                                      isOpen: true,
-                                      category: 'Intereses y Gastos',
-                                      cardId: card.id,
-                                      month: proj.month,
-                                      year: proj.year,
-                                      monthKey: displayedMonthKey
-                                    })
-                                  }
-                                }}
-                              >
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Intereses y Gastos</span>
-                                <div className="text-right">
-                                  <div className="text-sm font-semibold">{formatCurrency(proj.interestARS || 0)}</div>
-                                  {(proj.interestUSD || 0) > 0 && (
-                                    <div className="text-xs text-gray-500">{formatCurrency(proj.interestUSD || 0)} USD</div>
-                                  )}
-                                </div>
-                              </div>
-                            ) : null}
-                            
-                            {/* Total del mes */}
-                            <div className="flex justify-between items-center py-2 border-t-2 border-gray-300 dark:border-gray-600 pt-3">
-                              <span className="text-sm font-semibold text-gray-900 dark:text-white">Total del mes</span>
-                              <div className="text-right">
-                                <div className="text-base font-bold">{formatCurrency(proj.monthlyTotalARS || 0)}</div>
-                                {(proj.monthlyTotalUSD || 0) > 0 && (
-                                  <div className="text-xs text-gray-500">{formatCurrency(proj.monthlyTotalUSD || 0)} USD</div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {/* Total a Pagar */}
-                            <div className="flex justify-between items-center py-2 bg-gray-50 dark:bg-gray-700/50 rounded px-3 -mx-2">
-                              <span className="text-sm font-semibold text-gray-900 dark:text-white">Total a Pagar</span>
-                              <div className="text-right">
-                                <div className="text-base font-bold text-green-700 dark:text-green-400">{formatCurrency(proj.totalToPayARS || 0)}</div>
-                                {(proj.totalToPayUSD || 0) > 0 && (
-                                  <div className="text-xs text-gray-500">{formatCurrency(proj.totalToPayUSD || 0)} USD</div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {/* Saldo */}
-                            <div className="flex justify-between items-center py-2 bg-gray-100 dark:bg-gray-800 rounded px-3 -mx-2">
-                              <span className="text-sm font-semibold text-gray-900 dark:text-white">Saldo</span>
-                              <div className="text-right">
-                                <div className={`text-base font-bold ${
-                                  (proj.balanceARS || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
-                                }`}>
-                                  {formatCurrency(proj.balanceARS || 0)}
-                                </div>
-                                {(proj.balanceUSD || 0) > 0 && (
-                                  <div className="text-xs text-gray-500">{formatCurrency(proj.balanceUSD || 0)} USD</div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
-              </div>
             ) : (
               <div className="h-full overflow-auto bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl">
-                    <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-xs md:text-sm lg:text-base">
+                  <table className="w-full border-collapse text-xs md:text-sm lg:text-base tabular-nums">
                     <thead>
                       {/* Primera fila: Mes/Año */}
-                      <tr className="bg-green-600 dark:bg-green-700 text-white">
-                        <th rowSpan={2} className="border border-gray-300 dark:border-gray-600 px-1 md:px-2 py-1 md:py-2 text-left font-semibold sticky left-0 z-20 bg-green-600 dark:bg-green-700 min-w-[40px] md:min-w-[60px] text-xs md:text-sm">
+                      <tr ref={monthHeaderRowRef} className="bg-green-600 dark:bg-green-700 text-white">
+                        <th rowSpan={2} className="hidden md:table-cell border border-gray-300 dark:border-gray-600 px-1 md:px-2 py-1 md:py-2 text-left font-semibold sticky left-0 top-0 z-30 bg-green-600 dark:bg-green-700 min-w-[40px] md:min-w-[60px] text-xs md:text-sm">
                           TC
                         </th>
-                        <th rowSpan={2} className="border border-gray-300 dark:border-gray-600 px-1 md:px-2 py-1 md:py-2 text-left font-semibold sticky left-[40px] md:left-[60px] z-20 bg-green-600 dark:bg-green-700 min-w-[80px] md:min-w-[120px] text-xs md:text-sm">
+                        <th rowSpan={2} className="border border-gray-300 dark:border-gray-600 pl-3 pr-2 py-1 md:pl-4 md:pr-2 md:py-2 text-left font-semibold sticky left-0 md:left-[60px] top-0 z-30 bg-green-600 dark:bg-green-700 min-w-[130px] md:min-w-[150px] lg:min-w-[160px] text-xs md:text-sm">
                           Categoría
                         </th>
                         {visibleMonthKeys.map((monthKey: string) => {
@@ -1364,14 +1115,14 @@ export default function CreditCardProjectionModal({
                             <th
                               key={monthKey}
                               colSpan={2}
-                              className={`border-2 px-2 py-1 text-center font-semibold ${
-                                isCurrentMonth 
-                                  ? 'shadow-lg' 
+                              className={`sticky top-0 z-20 border-2 border-l-4 border-l-green-900 dark:border-l-green-950 px-2 py-1 text-center font-semibold ${
+                                isCurrentMonth
+                                  ? 'shadow-lg'
                                   : 'border-gray-300 dark:border-gray-600 bg-green-700 dark:bg-green-800'
                               }`}
                               style={isCurrentMonth ? {
                                 backgroundColor: '#66BB6A',
-                                borderColor: '#2E7D32'
+                                borderColor: '#66BB6A'
                               } : {}}
                             >
                               {isCurrentMonth && <span className="text-yellow-300 mr-1">●</span>}
@@ -1386,29 +1137,29 @@ export default function CreditCardProjectionModal({
                           const isCurrentMonth = monthKey === currentMonthKey
                           return (
                             <React.Fragment key={monthKey}>
-                              <th 
-                                className={`border-2 px-2 py-1 text-center font-semibold min-w-[90px] ${
-                                  isCurrentMonth 
-                                    ? '' 
+                              <th
+                                className={`sticky z-20 border-2 px-2 py-1 text-center font-semibold min-w-[90px] ${
+                                  isCurrentMonth
+                                    ? ''
                                     : 'border-gray-300 dark:border-gray-600 bg-green-700 dark:bg-green-800'
                                 }`}
-                                style={isCurrentMonth ? {
-                                  backgroundColor: '#66BB6A',
-                                  borderColor: '#2E7D32'
-                                } : {}}
+                                style={{
+                                  top: monthHeaderHeight,
+                                  ...(isCurrentMonth ? { backgroundColor: '#66BB6A', borderColor: '#66BB6A' } : {})
+                                }}
                               >
                                 ARS
                               </th>
-                              <th 
-                                className={`border-2 px-2 py-1 text-center font-semibold min-w-[90px] ${
-                                  isCurrentMonth 
-                                    ? '' 
+                              <th
+                                className={`sticky z-20 border-2 px-2 py-1 text-center font-semibold min-w-[90px] ${
+                                  isCurrentMonth
+                                    ? ''
                                     : 'border-gray-300 dark:border-gray-600 bg-green-700 dark:bg-green-800'
                                 }`}
-                                style={isCurrentMonth ? {
-                                  backgroundColor: '#66BB6A',
-                                  borderColor: '#2E7D32'
-                                } : {}}
+                                style={{
+                                  top: monthHeaderHeight,
+                                  ...(isCurrentMonth ? { backgroundColor: '#66BB6A', borderColor: '#66BB6A' } : {})
+                                }}
                               >
                                 USD
                               </th>
@@ -1419,9 +1170,9 @@ export default function CreditCardProjectionModal({
                     </thead>
                     <tbody>
                       {/* Filas por tarjeta */}
-                      {cards.map((card) => {
+                      {effectiveCards.map((card) => {
                         const cardProjections = projections.filter(p => p.cardId === card.id)
-                        
+
                         // Deuda anterior
                         const previousDebtRow = visibleMonthKeys.map((monthKey: string) => {
                           const [year, month] = monthKey.split('-').map(Number)
@@ -1571,15 +1322,17 @@ export default function CreditCardProjectionModal({
                           <React.Fragment key={card.id}>
                             {/* Nombre de la tarjeta */}
                             <tr className="bg-green-700 dark:bg-green-800 text-white">
-                              <td colSpan={visibleMonthKeys.length * 2 + 2} className="px-2 py-1.5 font-bold">
+                              <td className="hidden md:table-cell sticky left-0 z-10 bg-green-700 dark:bg-green-800 px-2 py-1.5"></td>
+                              <td className="sticky left-0 md:left-[60px] z-10 bg-green-700 dark:bg-green-800 px-2 py-1.5 font-bold whitespace-nowrap">
                                 {card.name}
                               </td>
+                              <td colSpan={visibleMonthKeys.length * 2} className="bg-green-700 dark:bg-green-800 px-2 py-1.5"></td>
                             </tr>
                             
                             {/* Deuda anterior */}
                             <tr className="bg-gray-50 dark:bg-gray-800">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
                                 Deuda anterior
                               </td>
                               {previousDebtRow.map((amount: { ars: number; usd: number }, idx: number) => {
@@ -1592,19 +1345,19 @@ export default function CreditCardProjectionModal({
                                         isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
                                       }`}
                                       style={isCurrentMonth ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                     >
                                       {formatCurrency(amount.ars)}
                                     </td>
-                                    <td 
+                                    <td
                                       className={`border-2 px-2 py-1.5 text-right ${
-                                        isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
+                                        isCurrentMonth ? '' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                       }`}
                                       style={isCurrentMonth ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                     >
                                       {formatCurrency(amount.usd)}
@@ -1616,8 +1369,8 @@ export default function CreditCardProjectionModal({
 
                             {/* Cuotas */}
                             <tr className="bg-gray-50 dark:bg-gray-800">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
                                 Cuotas
                               </td>
                               {installmentsRow.map((item: { ars: number; usd: number; proj?: any }, idx: number) => {
@@ -1639,8 +1392,8 @@ export default function CreditCardProjectionModal({
                                         monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
                                       } ${hasDetails ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors' : ''}`}
                                       style={monthKey === currentMonthKey ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                       title={hasDetails ? 'Click para ver detalles' : ''}
                                     >
@@ -1656,11 +1409,11 @@ export default function CreditCardProjectionModal({
                                         monthKey: monthKey
                                       })}
                                       className={`border-2 px-2 py-1.5 text-right ${
-                                        monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
+                                        monthKey === currentMonthKey ? '' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                       } ${hasDetails ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors' : ''}`}
                                       style={monthKey === currentMonthKey ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                       title={hasDetails ? 'Click para ver detalles' : ''}
                                     >
@@ -1673,8 +1426,8 @@ export default function CreditCardProjectionModal({
 
                             {/* Gastos Fijos */}
                             <tr className="bg-gray-50 dark:bg-gray-800">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
                                 Gastos Fijos
                               </td>
                               {fixedExpensesRow.map((item: { ars: number; usd: number; proj?: any }, idx: number) => {
@@ -1703,7 +1456,7 @@ export default function CreditCardProjectionModal({
                                     {isFutureMonth ? (
                                       <>
                                         <td
-                                          className="border-2 border-gray-300 dark:border-gray-600 px-2 py-1.5 text-right"
+                                          className="border-2 border-gray-300 dark:border-gray-600 px-2 py-1.5 text-right hover:bg-white dark:hover:bg-gray-600/40 transition-colors"
                                         >
                       <input
                                             type="text"
@@ -1714,11 +1467,11 @@ export default function CreditCardProjectionModal({
                                               setTimeout(() => calculateProjections(), 100)
                                             }}
                                             className="w-full text-right bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 rounded px-1 py-0.5 dark:text-white"
-                        placeholder="0"
+                        placeholder="$0"
                       />
                                         </td>
                                         <td
-                                          className="border-2 border-gray-300 dark:border-gray-600 px-2 py-1.5 text-right"
+                                          className="border-2 border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 text-right hover:bg-white dark:hover:bg-gray-600/40 transition-colors"
                                         >
                       <input
                                             type="text"
@@ -1729,7 +1482,7 @@ export default function CreditCardProjectionModal({
                                               setTimeout(() => calculateProjections(), 100)
                                             }}
                                             className="w-full text-right bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 rounded px-1 py-0.5 dark:text-white"
-                        placeholder="0"
+                        placeholder="$0"
                       />
                                         </td>
                                       </>
@@ -1748,8 +1501,8 @@ export default function CreditCardProjectionModal({
                                             monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
                                           } ${hasDetails ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors' : ''}`}
                                           style={monthKey === currentMonthKey ? {
-                                            backgroundColor: '#A5D6A7',
-                                            borderColor: '#2E7D32'
+                                            backgroundColor: '#E8F5E9',
+                                            borderColor: '#66BB6A'
                                           } : {}}
                                           title={hasDetails ? 'Click para ver detalles' : ''}
                                         >
@@ -1765,11 +1518,11 @@ export default function CreditCardProjectionModal({
                                             monthKey: monthKey
                                           })}
                                           className={`border-2 px-2 py-1.5 text-right ${
-                                            monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
+                                            monthKey === currentMonthKey ? '' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                           } ${hasDetails ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors' : ''}`}
                                           style={monthKey === currentMonthKey ? {
-                                            backgroundColor: '#A5D6A7',
-                                            borderColor: '#2E7D32'
+                                            backgroundColor: '#E8F5E9',
+                                            borderColor: '#66BB6A'
                                           } : {}}
                                           title={hasDetails ? 'Click para ver detalles' : ''}
                                         >
@@ -1784,8 +1537,8 @@ export default function CreditCardProjectionModal({
 
                             {/* Consumos del mes */}
                             <tr className="bg-gray-50 dark:bg-gray-800">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
                                 Consumos del mes
                               </td>
                               {consumptionsRow.map((item: { ars: number; usd: number; proj?: any }, idx: number) => {
@@ -1807,8 +1560,8 @@ export default function CreditCardProjectionModal({
                                         monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
                                       } ${hasDetails ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors' : ''}`}
                                       style={monthKey === currentMonthKey ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                       title={hasDetails ? 'Click para ver detalles' : ''}
                                     >
@@ -1824,11 +1577,11 @@ export default function CreditCardProjectionModal({
                                         monthKey: monthKey
                                       })}
                                       className={`border-2 px-2 py-1.5 text-right ${
-                                        monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
+                                        monthKey === currentMonthKey ? '' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                       } ${hasDetails ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors' : ''}`}
                                       style={monthKey === currentMonthKey ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                       title={hasDetails ? 'Click para ver detalles' : ''}
                                     >
@@ -1841,8 +1594,8 @@ export default function CreditCardProjectionModal({
 
                             {/* Intereses y Gastos */}
                             <tr className="bg-gray-50 dark:bg-gray-800">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
                                 Intereses y Gastos
                               </td>
                               {interestRow.map((item: { ars: number; usd: number; proj?: any }, idx: number) => {
@@ -1871,7 +1624,7 @@ export default function CreditCardProjectionModal({
                                     {isFutureMonth ? (
                                       <>
                                         <td
-                                          className="border-2 border-gray-300 dark:border-gray-600 px-2 py-1.5 text-right"
+                                          className="border-2 border-gray-300 dark:border-gray-600 px-2 py-1.5 text-right hover:bg-white dark:hover:bg-gray-600/40 transition-colors"
                                         >
                       <input
                                             type="text"
@@ -1882,11 +1635,11 @@ export default function CreditCardProjectionModal({
                                               setTimeout(() => calculateProjections(), 100)
                                             }}
                                             className="w-full text-right bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 rounded px-1 py-0.5 dark:text-white"
-                                            placeholder="0"
+                                            placeholder="$0"
                                           />
                                         </td>
                                         <td
-                                          className="border-2 border-gray-300 dark:border-gray-600 px-2 py-1.5 text-right"
+                                          className="border-2 border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 text-right hover:bg-white dark:hover:bg-gray-600/40 transition-colors"
                                         >
                                           <input
                                             type="text"
@@ -1897,7 +1650,7 @@ export default function CreditCardProjectionModal({
                                               setTimeout(() => calculateProjections(), 100)
                                             }}
                                             className="w-full text-right bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 rounded px-1 py-0.5 dark:text-white"
-                                            placeholder="0"
+                                            placeholder="$0"
                                           />
                                         </td>
                                       </>
@@ -1916,8 +1669,8 @@ export default function CreditCardProjectionModal({
                                             monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
                                           } ${hasDetails ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors' : ''}`}
                                           style={monthKey === currentMonthKey ? {
-                                            backgroundColor: '#A5D6A7',
-                                            borderColor: '#2E7D32'
+                                            backgroundColor: '#E8F5E9',
+                                            borderColor: '#66BB6A'
                                           } : {}}
                                           title={hasDetails ? 'Click para ver detalles' : ''}
                                         >
@@ -1933,11 +1686,11 @@ export default function CreditCardProjectionModal({
                                             monthKey: monthKey
                                           })}
                                           className={`border-2 px-2 py-1.5 text-right ${
-                                            monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
+                                            monthKey === currentMonthKey ? '' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                           } ${hasDetails ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors' : ''}`}
                                           style={monthKey === currentMonthKey ? {
-                                            backgroundColor: '#A5D6A7',
-                                            borderColor: '#2E7D32'
+                                            backgroundColor: '#E8F5E9',
+                                            borderColor: '#66BB6A'
                                           } : {}}
                                           title={hasDetails ? 'Click para ver detalles' : ''}
                                         >
@@ -1950,10 +1703,10 @@ export default function CreditCardProjectionModal({
                               })}
                             </tr>
 
-                            {/* Total del mes */}
+                            {/* Total del mes — primera fila de resumen: cierra el bloque de conceptos del mes */}
                             <tr className="bg-green-100 dark:bg-green-900/30">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-green-100 dark:bg-green-900/30 font-semibold"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-green-100 dark:bg-green-900/30 font-semibold">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 border-t-2 border-t-green-300 dark:border-t-green-800 px-2 py-1.5 sticky left-0 z-10 bg-green-100 dark:bg-green-950 font-semibold"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 border-t-2 border-t-green-300 dark:border-t-green-800 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-green-100 dark:bg-green-950 font-semibold">
                                 Total del mes
                               </td>
                               {monthlyTotalRow.map((item: { ars: number; usd: number }, idx: number) => {
@@ -1961,24 +1714,24 @@ export default function CreditCardProjectionModal({
                                 const isCurrentMonth = monthKey === currentMonthKey
                                 return (
                                   <React.Fragment key={`${card.id}-monthlyTotal-${monthKey}`}>
-                                    <td 
-                                      className={`border-2 px-2 py-1.5 text-right font-semibold ${
+                                    <td
+                                      className={`border-2 border-t-green-300 dark:border-t-green-800 px-2 py-1.5 text-right font-semibold ${
                                         isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
                                       }`}
                                       style={isCurrentMonth ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                     >
                                       {formatCurrency(item.ars)}
                                     </td>
-                                    <td 
-                                      className={`border-2 px-2 py-1.5 text-right font-semibold ${
-                                        isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
+                                    <td
+                                      className={`border-2 border-t-green-300 dark:border-t-green-800 px-2 py-1.5 text-right font-semibold ${
+                                        isCurrentMonth ? '' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                       }`}
                                       style={isCurrentMonth ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                     >
                                       {formatCurrency(item.usd)}
@@ -1988,10 +1741,10 @@ export default function CreditCardProjectionModal({
                               })}
                             </tr>
 
-                            {/* Total a Pagar */}
+                            {/* Total a Pagar — el número acumulado más relevante de la fila: máximo peso visual */}
                             <tr className="bg-green-100 dark:bg-green-900/30">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-green-100 dark:bg-green-900/30 font-semibold"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-green-100 dark:bg-green-900/30 font-semibold">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 z-10 bg-green-100 dark:bg-green-950 font-bold"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-green-100 dark:bg-green-950 font-bold">
                                 Total a Pagar
                               </td>
                               {totalToPayRow.map((item: { ars: number; usd: number }, idx: number) => {
@@ -1999,24 +1752,24 @@ export default function CreditCardProjectionModal({
                                 const isCurrentMonth = monthKey === currentMonthKey
                                 return (
                                   <React.Fragment key={`${card.id}-totalToPay-${monthKey}`}>
-                                    <td 
-                                      className={`border-2 px-2 py-1.5 text-right font-semibold ${
+                                    <td
+                                      className={`border-2 px-2 py-1.5 text-right font-bold ${
                                         isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
                                       }`}
                                       style={isCurrentMonth ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                     >
                                       {formatCurrency(item.ars)}
                                     </td>
-                                    <td 
-                                      className={`border-2 px-2 py-1.5 text-right font-semibold ${
-                                        isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
+                                    <td
+                                      className={`border-2 px-2 py-1.5 text-right font-bold ${
+                                        isCurrentMonth ? '' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                       }`}
                                       style={isCurrentMonth ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                     >
                                       {formatCurrency(item.usd)}
@@ -2026,10 +1779,10 @@ export default function CreditCardProjectionModal({
                               })}
                             </tr>
 
-                            {/* Pago del mes */}
-                            <tr className="bg-gray-50 dark:bg-gray-800">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-gray-50 dark:bg-gray-800 font-medium">
+                            {/* Pago del mes — única fila de salida de dinero real/manual: diferenciada, pero deliberadamente NO verde */}
+                            <tr className="bg-gray-100 dark:bg-gray-700/60">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 border-t-2 border-t-gray-400 dark:border-t-gray-500 px-2 py-1.5 sticky left-0 z-10 bg-gray-100 dark:bg-gray-700 font-semibold"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 border-t-2 border-t-gray-400 dark:border-t-gray-500 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-gray-100 dark:bg-gray-700 font-semibold">
                                 Pago del mes
                               </td>
                               {paymentRow.map((item: { ars: number; usd: number }, idx: number) => {
@@ -2057,13 +1810,32 @@ export default function CreditCardProjectionModal({
                                   <React.Fragment key={`${card.id}-payment-${monthKey}`}>
                                     {isCurrentMonth ? (
                                       <>
-                                        <td 
+                                        {/* Mes actual: pago REAL (CreditCardPayments), no editable acá — se registra desde Gestión de Pagos */}
+                                        <td
                                           className="border-2 px-2 py-1.5 text-right"
                                           style={{
-                                            backgroundColor: '#A5D6A7',
-                                            borderColor: '#2E7D32'
+                                            backgroundColor: '#E8F5E9',
+                                            borderColor: '#66BB6A'
                                           }}
+                                          title="Pago real registrado en Gestión de Pagos de Tarjeta"
                                         >
+                                          {formatCurrency(item.ars)}
+                                        </td>
+                                        <td
+                                          className="border-2 px-2 py-1.5 text-right"
+                                          style={{
+                                            backgroundColor: '#E8F5E9',
+                                            borderColor: '#66BB6A'
+                                          }}
+                                          title="Pago real registrado en Gestión de Pagos de Tarjeta"
+                                        >
+                                          {formatCurrency(item.usd)}
+                                        </td>
+                                      </>
+                                    ) : (
+                                      <>
+                                        {/* Meses futuros: simulación manual, no persiste ni afecta el saldo real */}
+                                        <td className="border-2 px-2 py-1.5 text-right border-gray-300 dark:border-gray-600 border-t-2 border-t-gray-400 dark:border-t-gray-500 hover:bg-white dark:hover:bg-gray-600/40 transition-colors">
                                           <input
                                             type="text"
                                             inputMode="decimal"
@@ -2074,16 +1846,11 @@ export default function CreditCardProjectionModal({
                                               setTimeout(() => calculateProjections(), 100)
                                             }}
                                             className="w-full text-right bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 rounded px-1 py-0.5 dark:text-white"
-                                            placeholder="0"
+                                            placeholder="$0"
+                                            title="Pago proyectado (simulación manual, no se guarda)"
                                           />
                                         </td>
-                                        <td 
-                                          className="border-2 px-2 py-1.5 text-right"
-                                          style={{
-                                            backgroundColor: '#A5D6A7',
-                                            borderColor: '#2E7D32'
-                                          }}
-                                        >
+                                        <td className="border-2 px-2 py-1.5 text-right border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600 border-t-2 border-t-gray-400 dark:border-t-gray-500 hover:bg-white dark:hover:bg-gray-600/40 transition-colors">
                                           <input
                                             type="text"
                                             inputMode="decimal"
@@ -2094,33 +1861,9 @@ export default function CreditCardProjectionModal({
                                               setTimeout(() => calculateProjections(), 100)
                                             }}
                                             className="w-full text-right bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 rounded px-1 py-0.5 dark:text-white"
-                                            placeholder="0"
+                                            placeholder="$0"
+                                            title="Pago proyectado (simulación manual, no se guarda)"
                                           />
-                                        </td>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <td 
-                                          className={`border-2 px-2 py-1.5 text-right ${
-                                            monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
-                                          }`}
-                                          style={monthKey === currentMonthKey ? {
-                                            backgroundColor: '#A5D6A7',
-                                            borderColor: '#2E7D32'
-                                          } : {}}
-                                        >
-                                          {formatCurrency(item.ars)}
-                                        </td>
-                                        <td 
-                                          className={`border-2 px-2 py-1.5 text-right ${
-                                            monthKey === currentMonthKey ? '' : 'border-gray-300 dark:border-gray-600'
-                                          }`}
-                                          style={monthKey === currentMonthKey ? {
-                                            backgroundColor: '#A5D6A7',
-                                            borderColor: '#2E7D32'
-                                          } : {}}
-                                        >
-                                          {formatCurrency(item.usd)}
                                         </td>
                                       </>
                                     )}
@@ -2129,10 +1872,10 @@ export default function CreditCardProjectionModal({
                               })}
                             </tr>
 
-                            {/* Saldo */}
+                            {/* Saldo — número final: mayor peso visual, borde superior que cierra el bloque de resumen */}
                             <tr className="bg-green-100 dark:bg-green-900/30">
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-green-100 dark:bg-green-900/30 font-semibold"></td>
-                              <td className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-[60px] z-10 bg-green-100 dark:bg-green-900/30 font-semibold">
+                              <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 border-t-2 border-t-green-400 dark:border-t-green-600 px-2 py-1.5 sticky left-0 z-10 bg-green-100 dark:bg-green-950 font-bold"></td>
+                              <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 border-t-2 border-t-green-400 dark:border-t-green-600 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-green-100 dark:bg-green-950 font-bold">
                                 Saldo
                               </td>
                               {balanceRow.map((item: { ars: number; usd: number }, idx: number) => {
@@ -2140,24 +1883,24 @@ export default function CreditCardProjectionModal({
                                 const isCurrentMonth = monthKey === currentMonthKey
                                 return (
                                   <React.Fragment key={`${card.id}-balance-${monthKey}`}>
-                                    <td 
-                                      className={`border-2 px-2 py-1.5 text-right font-semibold ${
+                                    <td
+                                      className={`border-2 border-t-green-400 dark:border-t-green-600 px-2 py-1.5 text-right font-bold ${
                                         isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
                                       }`}
                                       style={isCurrentMonth ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                     >
                                       {formatCurrency(item.ars)}
                                     </td>
-                                    <td 
-                                      className={`border-2 px-2 py-1.5 text-right font-semibold ${
-                                        isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
+                                    <td
+                                      className={`border-2 border-t-green-400 dark:border-t-green-600 px-2 py-1.5 text-right font-bold ${
+                                        isCurrentMonth ? '' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                       }`}
                                       style={isCurrentMonth ? {
-                                        backgroundColor: '#A5D6A7',
-                                        borderColor: '#2E7D32'
+                                        backgroundColor: '#E8F5E9',
+                                        borderColor: '#66BB6A'
                                       } : {}}
                                     >
                                       {formatCurrency(item.usd)}
@@ -2172,7 +1915,8 @@ export default function CreditCardProjectionModal({
 
                       {/* Posición Global */}
                       <tr className="bg-green-600 dark:bg-green-700 text-white font-bold">
-                        <td colSpan={2} className="border border-gray-300 dark:border-gray-600 px-2 py-1.5 sticky left-0 z-10 bg-green-600 dark:bg-green-700">
+                        <td className="hidden md:table-cell border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 z-10 bg-green-600 dark:bg-green-700"></td>
+                        <td className="border border-gray-300 dark:border-gray-600 border-r-2 border-r-gray-400 dark:border-r-gray-500 px-2 py-1.5 sticky left-0 md:left-[60px] z-10 bg-green-600 dark:bg-green-700">
                           Posición Global
                         </td>
                         {visibleMonthKeys.map((monthKey: string) => {
@@ -2187,24 +1931,24 @@ export default function CreditCardProjectionModal({
                           
                           return (
                             <React.Fragment key={monthKey}>
-                              <td 
+                              <td
                                 className={`border-2 px-2 py-1.5 text-right ${
-                                  isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
+                                  isCurrentMonth ? 'text-gray-900' : 'border-gray-300 dark:border-gray-600'
                                 }`}
                                 style={isCurrentMonth ? {
-                                  backgroundColor: '#A5D6A7',
-                                  borderColor: '#2E7D32'
+                                  backgroundColor: '#E8F5E9',
+                                  borderColor: '#66BB6A'
                                 } : {}}
                               >
                                 {formatCurrency(totalBalanceARS)}
                               </td>
-                              <td 
+                              <td
                                 className={`border-2 px-2 py-1.5 text-right ${
-                                  isCurrentMonth ? '' : 'border-gray-300 dark:border-gray-600'
+                                  isCurrentMonth ? 'text-gray-900' : 'border-r-2 border-r-gray-400 dark:border-r-gray-500 border-gray-300 dark:border-gray-600'
                                 }`}
                                 style={isCurrentMonth ? {
-                                  backgroundColor: '#A5D6A7',
-                                  borderColor: '#2E7D32'
+                                  backgroundColor: '#E8F5E9',
+                                  borderColor: '#66BB6A'
                                 } : {}}
                               >
                                 {formatCurrency(totalBalanceUSD)}
@@ -2215,7 +1959,6 @@ export default function CreditCardProjectionModal({
                       </tr>
                         </tbody>
                       </table>
-                    </div>
                     </div>
             )}
                   </div>
@@ -2252,7 +1995,7 @@ export default function CreditCardProjectionModal({
                              projMonth === String(detailModal.month).padStart(2, '0')
                     })
                     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-                    const card = cards.find(c => c.id === detailModal.cardId)
+                    const card = effectiveCards.find(c => c.id === detailModal.cardId)
                     return (
                       <p className="text-blue-100 text-sm mt-1">
                         {card?.name} - {monthNames[detailModal.month - 1]} {detailModal.year}

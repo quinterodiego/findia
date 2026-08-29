@@ -74,12 +74,9 @@ export function useFixedExpenses(
             dueDateForTargetMonth = new Date(targetYear, targetMonth, lastDayOfTargetMonth);
           }
           
-          // Si estamos viendo el mes actual y la fecha ya pasó, usar la del próximo mes
-          // Si estamos viendo el próximo mes, siempre usar la fecha del mes objetivo
-          if (monthOffset === 0 && dueDateForTargetMonth < currentDate) {
-            dueDateForTargetMonth = new Date(targetYear, targetMonth + 1, Math.min(dayOfMonth, new Date(targetYear, targetMonth + 2, 0).getDate()));
-          }
-          
+          // El vencimiento permanece dentro del mes calendario objetivo. Si ya pasó
+          // y sigue pendiente, isOverdue lo marca como vencido en vez de trasladarlo al mes siguiente.
+
           const isOverdue = monthOffset === 0 && dueDateForTargetMonth < currentDate;
           const daysUntilDue = Math.ceil((dueDateForTargetMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
           
@@ -125,12 +122,9 @@ export function useFixedExpenses(
             dueDateForTargetMonth = new Date(targetYear, targetMonth, lastDayOfTargetMonth);
           }
           
-          // Si estamos viendo el mes actual y la fecha ya pasó, usar la del próximo mes
-          // Si estamos viendo el próximo mes, siempre usar la fecha del mes objetivo
-          if (monthOffset === 0 && dueDateForTargetMonth < currentDate) {
-            dueDateForTargetMonth = new Date(targetYear, targetMonth + 1, Math.min(dayOfMonth, new Date(targetYear, targetMonth + 2, 0).getDate()));
-          }
-          
+          // El vencimiento permanece dentro del mes calendario objetivo. Si ya pasó
+          // y sigue pendiente, isOverdue lo marca como vencido en vez de trasladarlo al mes siguiente.
+
           const isOverdue = monthOffset === 0 && dueDateForTargetMonth < currentDate;
           const daysUntilDue = Math.ceil((dueDateForTargetMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
           
@@ -180,12 +174,9 @@ export function useFixedExpenses(
             dueDateForTargetMonth = new Date(targetYear, targetMonth, lastDayOfTargetMonth);
           }
           
-          // Si estamos viendo el mes actual y la fecha ya pasó, usar la del próximo mes
-          // Si estamos viendo el próximo mes, siempre usar la fecha del mes objetivo
-          if (monthOffset === 0 && dueDateForTargetMonth < currentDate) {
-            dueDateForTargetMonth = new Date(targetYear, targetMonth + 1, Math.min(dayOfMonth, new Date(targetYear, targetMonth + 2, 0).getDate()));
-          }
-          
+          // El vencimiento permanece dentro del mes calendario objetivo. Si ya pasó
+          // y sigue pendiente, isOverdue lo marca como vencido en vez de trasladarlo al mes siguiente.
+
           const isOverdue = monthOffset === 0 && dueDateForTargetMonth < currentDate;
           const daysUntilDue = Math.ceil((dueDateForTargetMonth.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
           

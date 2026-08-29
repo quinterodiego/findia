@@ -2775,6 +2775,24 @@ export async function createCreditCardPayment(
     notes?: string;
   }
 ): Promise<CreditCardPayment> {
+  // Validación ANTES de insertar nada: el backend es la autoridad final, no el frontend.
+  // Si alguna condición falla acá, no se appendea ningún pago ni se toca currentBalance —
+  // así no puede quedar una fila huérfana en CreditCardPayments.
+  const userCards = await getCreditCardsByUser(userId);
+  const targetCard = userCards.find(c => c.id === paymentData.creditCardId);
+  if (!targetCard) {
+    throw new Error('La tarjeta no existe o no pertenece al usuario.');
+  }
+  if (!Number.isFinite(paymentData.amount)) {
+    throw new Error('El importe debe ser un número válido.');
+  }
+  if (paymentData.amount <= 0) {
+    throw new Error('El importe debe ser mayor a $0.');
+  }
+  if (paymentData.amount > targetCard.currentBalance) {
+    throw new Error('El importe no puede superar el saldo actual.');
+  }
+
   try {
     // Verificar y crear la hoja si no existe
     const exists = await sheetExists(SHEETS.CREDIT_CARD_PAYMENTS);
@@ -2802,7 +2820,7 @@ export async function createCreditCardPayment(
       notes: paymentData.notes,
       createdAt: now,
     };
-    
+
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEETS.CREDIT_CARD_PAYMENTS}!A2`,
@@ -2820,19 +2838,15 @@ export async function createCreditCardPayment(
         ]],
       },
     });
-    
-    // Actualizar el balance de la tarjeta
+
+    // Actualizar el balance de la tarjeta (usa el saldo ya validado arriba, sin re-consultarlo)
     try {
-      const card = await getCreditCardsByUser(userId);
-      const targetCard = card.find(c => c.id === paymentData.creditCardId);
-      if (targetCard) {
-        await updateCreditCard(paymentData.creditCardId, userId, {
-          currentBalance: Math.max(0, targetCard.currentBalance - paymentData.amount),
-        });
-      }
+      await updateCreditCard(paymentData.creditCardId, userId, {
+        currentBalance: Math.max(0, targetCard.currentBalance - paymentData.amount),
+      });
     } catch (err) {
     }
-    
+
     return newPayment;
   } catch (error) {
     console.error('Error registrando pago de tarjeta:', error);

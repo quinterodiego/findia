@@ -355,81 +355,110 @@ async function main() {
   console.log(`  ✅ ${goalsData.length} metas creadas`)
 
   // ==========================================================================
-  // CREDIT CARDS
+  // CREDIT CARDS + CREDIT CARD PAYMENTS
   // ==========================================================================
-  console.log('💳 Creando tarjetas de crédito...')
+  // Nota sobre currentBalance: este script no puede usar createCreditCardPayment() en forma
+  // directa (importar lib/googleSheets.ts acá rompería la carga de variables de entorno, ver
+  // el resto de este archivo que ya evita ese import por la misma razón). Para que el resultado
+  // sea idéntico al que produciría ese flujo real, el currentBalance sembrado se calcula
+  // explícitamente como saldoInicial - pagos, en vez de escribirse como un número suelto.
+  console.log('💳 Creando tarjetas de crédito y sus pagos...')
 
-  const cardVisa = {
-    id: generateId(), name: 'Visa Banco Nación', bank: 'Banco Nación', cardNumber: '**** **** **** 4521',
-    limit: 1200000, currentBalance: 580000, cutDate: 5, paymentDate: 15, interestRate: 8.5,
-    status: 'active', createdAt: nowIso, updatedAt: nowIso,
+  const existingCardsResp = await sheets.spreadsheets.values
+    .get({ spreadsheetId: SPREADSHEET_ID, range: 'CreditCards!A2:M' })
+    .catch(() => ({ data: { values: [] as string[][] } }))
+  const existingCardNames = new Set(
+    (existingCardsResp.data.values || []).filter(r => r[1] === userId).map(r => r[2])
+  )
+
+  if (existingCardNames.has('Visa Banco Nación') || existingCardNames.has('Mastercard Santander')) {
+    console.log('  ⏭️  Ya existen tarjetas mock para este usuario (Visa Banco Nación / Mastercard Santander).')
+    console.log('      Se omite esta sección completa (tarjetas, consumos y pagos) para no duplicar pagos.')
+  } else {
+    const cardVisaId = generateId()
+    const cardMastercardId = generateId()
+
+    // Pagos reales que se van a sembrar sobre cada tarjeta.
+    const cardPaymentsData = [
+      { cardId: cardVisaId, amount: 200000, date: isoDate(addMonths(now, -1)), paymentMethod: 'transfer' },
+      { cardId: cardMastercardId, amount: 100000, date: isoDate(addMonths(now, -1)), paymentMethod: 'debit' },
+    ]
+    const totalPaidByCard = (cardId: string) =>
+      cardPaymentsData.filter(p => p.cardId === cardId).reduce((sum, p) => sum + p.amount, 0)
+
+    // Saldo ANTES de esos pagos. currentBalance sembrado = saldoInicial - pagos, así que
+    // matemáticamente: saldoInicial - pagosRegistrados = currentBalance final, siempre.
+    // Los valores finales (580.000 / 320.000) son intencionalmente los mismos que ya estaban
+    // sembrados antes de esta corrección, para no invalidar todo lo ya validado en Estrategias
+    // y Plan de pago con esos números.
+    const cardVisaStartingBalance = 780000
+    const cardMastercardStartingBalance = 420000
+
+    const cardVisa = {
+      id: cardVisaId, name: 'Visa Banco Nación', bank: 'Banco Nación', cardNumber: '**** **** **** 4521',
+      limit: 1200000, currentBalance: cardVisaStartingBalance - totalPaidByCard(cardVisaId),
+      cutDate: 5, paymentDate: 15, interestRate: 8.5, status: 'active', createdAt: nowIso, updatedAt: nowIso,
+    }
+    const cardMastercard = {
+      id: cardMastercardId, name: 'Mastercard Santander', bank: 'Santander', cardNumber: '**** **** **** 7788',
+      limit: 800000, currentBalance: cardMastercardStartingBalance - totalPaidByCard(cardMastercardId),
+      cutDate: 20, paymentDate: 30, interestRate: 9.0, status: 'active', createdAt: nowIso, updatedAt: nowIso,
+    }
+    const creditCards = [cardVisa, cardMastercard]
+
+    await appendRows(
+      'CreditCards',
+      'A2',
+      creditCards.map(c => [
+        c.id, userId, c.name, c.bank, c.cardNumber, c.limit, c.currentBalance,
+        c.cutDate, c.paymentDate, c.interestRate, c.status, c.createdAt, c.updatedAt,
+      ])
+    )
+    console.log(`  ✅ ${creditCards.length} tarjetas creadas (saldo = saldo inicial - pagos sembrados)`)
+
+    // CREDIT CARD CONSUMPTIONS
+    console.log('🛒 Creando consumos de tarjeta...')
+
+    const consumptionsData = [
+      { cardId: cardVisa.id, merchant: 'Supermercado Coto', amount: 45000, installments: 1, currentInstallment: 1, monthlyPayment: 45000, date: ddmmyyyy(addDays(now, -3)) },
+      { cardId: cardVisa.id, merchant: 'MercadoLibre - Auriculares', amount: 60000, installments: 3, currentInstallment: 1, monthlyPayment: 20000, date: ddmmyyyy(addDays(now, -9)) },
+      { cardId: cardVisa.id, merchant: 'Farmacity', amount: 12000, installments: 1, currentInstallment: 1, monthlyPayment: 12000, date: ddmmyyyy(addDays(now, -14)) },
+      { cardId: cardMastercard.id, merchant: 'Netflix', amount: 6500, installments: 1, currentInstallment: 1, monthlyPayment: 6500, date: ddmmyyyy(addDays(now, -6)) },
+      { cardId: cardMastercard.id, merchant: 'Despegar - Pasajes', amount: 240000, installments: 6, currentInstallment: 2, monthlyPayment: 40000, date: ddmmyyyy(addMonths(now, -1)) },
+      { cardId: cardMastercard.id, merchant: 'YPF Full', amount: 30000, installments: 1, currentInstallment: 1, monthlyPayment: 30000, date: ddmmyyyy(addDays(now, -2)) },
+      { cardId: cardMastercard.id, merchant: 'Zara', amount: 55000, installments: 1, currentInstallment: 1, monthlyPayment: 55000, date: ddmmyyyy(addDays(now, -20)) },
+    ]
+
+    await appendRows(
+      'CreditCardConsumptions',
+      'A2',
+      consumptionsData.map(c => [
+        generateId(), c.cardId, userId, c.merchant, c.amount, c.installments, c.currentInstallment,
+        c.monthlyPayment, c.date, '', '', 'Dato de prueba generado por seed-mock-data.ts', nowIso,
+        c.amount, 0,
+      ])
+    )
+    console.log(`  ✅ ${consumptionsData.length} consumos creados`)
+
+    // CREDIT CARD PAYMENTS
+    console.log('💸 Creando pagos de tarjeta...')
+
+    await createSheetWithHeaders('CreditCardPayments', [
+      'id', 'creditCardId', 'userId', 'amount', 'date', 'paymentMethod', 'notes', 'createdAt',
+    ])
+
+    await appendRows(
+      'CreditCardPayments',
+      'A2',
+      cardPaymentsData.map(p => [
+        generateId(), p.cardId, userId, p.amount, p.date, p.paymentMethod,
+        'Dato de prueba generado por seed-mock-data.ts', nowIso,
+      ])
+    )
+    console.log(`  ✅ ${cardPaymentsData.length} pagos de tarjeta creados`)
+    console.log(`      Visa: saldo inicial $${cardVisaStartingBalance} - pagos $${totalPaidByCard(cardVisaId)} = saldo final $${cardVisa.currentBalance}`)
+    console.log(`      Mastercard: saldo inicial $${cardMastercardStartingBalance} - pagos $${totalPaidByCard(cardMastercardId)} = saldo final $${cardMastercard.currentBalance}`)
   }
-  const cardMastercard = {
-    id: generateId(), name: 'Mastercard Santander', bank: 'Santander', cardNumber: '**** **** **** 7788',
-    limit: 800000, currentBalance: 320000, cutDate: 20, paymentDate: 30, interestRate: 9.0,
-    status: 'active', createdAt: nowIso, updatedAt: nowIso,
-  }
-  const creditCards = [cardVisa, cardMastercard]
-
-  await appendRows(
-    'CreditCards',
-    'A2',
-    creditCards.map(c => [
-      c.id, userId, c.name, c.bank, c.cardNumber, c.limit, c.currentBalance,
-      c.cutDate, c.paymentDate, c.interestRate, c.status, c.createdAt, c.updatedAt,
-    ])
-  )
-  console.log(`  ✅ ${creditCards.length} tarjetas creadas`)
-
-  // ==========================================================================
-  // CREDIT CARD CONSUMPTIONS
-  // ==========================================================================
-  console.log('🛒 Creando consumos de tarjeta...')
-
-  const consumptionsData = [
-    { cardId: cardVisa.id, merchant: 'Supermercado Coto', amount: 45000, installments: 1, currentInstallment: 1, monthlyPayment: 45000, date: ddmmyyyy(addDays(now, -3)) },
-    { cardId: cardVisa.id, merchant: 'MercadoLibre - Auriculares', amount: 60000, installments: 3, currentInstallment: 1, monthlyPayment: 20000, date: ddmmyyyy(addDays(now, -9)) },
-    { cardId: cardVisa.id, merchant: 'Farmacity', amount: 12000, installments: 1, currentInstallment: 1, monthlyPayment: 12000, date: ddmmyyyy(addDays(now, -14)) },
-    { cardId: cardMastercard.id, merchant: 'Netflix', amount: 6500, installments: 1, currentInstallment: 1, monthlyPayment: 6500, date: ddmmyyyy(addDays(now, -6)) },
-    { cardId: cardMastercard.id, merchant: 'Despegar - Pasajes', amount: 240000, installments: 6, currentInstallment: 2, monthlyPayment: 40000, date: ddmmyyyy(addMonths(now, -1)) },
-    { cardId: cardMastercard.id, merchant: 'YPF Full', amount: 30000, installments: 1, currentInstallment: 1, monthlyPayment: 30000, date: ddmmyyyy(addDays(now, -2)) },
-    { cardId: cardMastercard.id, merchant: 'Zara', amount: 55000, installments: 1, currentInstallment: 1, monthlyPayment: 55000, date: ddmmyyyy(addDays(now, -20)) },
-  ]
-
-  await appendRows(
-    'CreditCardConsumptions',
-    'A2',
-    consumptionsData.map(c => [
-      generateId(), c.cardId, userId, c.merchant, c.amount, c.installments, c.currentInstallment,
-      c.monthlyPayment, c.date, '', '', 'Dato de prueba generado por seed-mock-data.ts', nowIso,
-      c.amount, 0,
-    ])
-  )
-  console.log(`  ✅ ${consumptionsData.length} consumos creados`)
-
-  // ==========================================================================
-  // CREDIT CARD PAYMENTS
-  // ==========================================================================
-  console.log('💸 Creando pagos de tarjeta...')
-
-  await createSheetWithHeaders('CreditCardPayments', [
-    'id', 'creditCardId', 'userId', 'amount', 'date', 'paymentMethod', 'notes', 'createdAt',
-  ])
-
-  const cardPaymentsData = [
-    { cardId: cardVisa.id, amount: 200000, date: isoDate(addMonths(now, -1)), paymentMethod: 'transfer' },
-    { cardId: cardMastercard.id, amount: 100000, date: isoDate(addMonths(now, -1)), paymentMethod: 'debit' },
-  ]
-
-  await appendRows(
-    'CreditCardPayments',
-    'A2',
-    cardPaymentsData.map(p => [
-      generateId(), p.cardId, userId, p.amount, p.date, p.paymentMethod,
-      'Dato de prueba generado por seed-mock-data.ts', nowIso,
-    ])
-  )
-  console.log(`  ✅ ${cardPaymentsData.length} pagos de tarjeta creados`)
 
   console.log('\n✨ ¡Datos de prueba generados con éxito para', email, '!')
   console.log('Todos los registros tienen "Dato de prueba generado por seed-mock-data.ts" en su campo de notas, para poder identificarlos y borrarlos fácilmente más adelante si hace falta.')

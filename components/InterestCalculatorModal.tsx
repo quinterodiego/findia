@@ -2,210 +2,149 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Calculator, AlertCircle, TrendingUp, DollarSign, Calendar, Clock, Percent } from 'lucide-react'
-import { useToastContext } from '@/components/Toast'
-import { formatCurrency } from '@/lib/formatNumber'
-
-interface InterestCalculation {
-  id: string
-  cardId: string
-  cardName: string
-  consumptionId: string
-  consumptionName: string
-  originalAmount: number
-  interestRate: number
-  daysOverdue: number
-  interestAmount: number
-  totalAmount: number
-  calculationDate: string
-  status: 'calculated' | 'paid' | 'pending'
-}
+import { X, Calculator } from 'lucide-react'
+import { useCreditCards } from '@/hooks/useCreditCards'
+import { formatCurrency, formatNumber } from '@/lib/formatNumber'
 
 interface InterestCalculatorModalProps {
   isOpen: boolean
   onClose: () => void
-  selectedCard?: any
-  consumptions?: any[]
 }
 
-export default function InterestCalculatorModal({ 
-  isOpen, 
-  onClose, 
-  selectedCard,
-  consumptions = []
+const MAX_MONTHS = 120 // 10 años: horizonte exploratorio razonable, más allá deja de ser útil
+
+interface MonthlyBreakdownEntry {
+  month: number
+  startingBalance: number
+  interest: number
+  endingBalance: number
+}
+
+interface CompoundInterestResult {
+  initialAmount: number
+  monthlyRate: number
+  months: number
+  totalInterest: number
+  finalAmount: number
+  breakdown: MonthlyBreakdownEntry[]
+}
+
+const roundToCents = (value: number): number => Math.round(value * 100) / 100
+
+/**
+ * Motor único de esta calculadora: interés compuesto mensual, misma convención que
+ * simulateDebtPayoff() (CreditCardCenter.tsx) usa para CreditCard.interestRate —
+ * un porcentaje MENSUAL aplicado directo sobre el saldo de cada período.
+ */
+function calculateCompoundInterest(initialAmount: number, monthlyRatePercent: number, months: number): CompoundInterestResult {
+  const breakdown: MonthlyBreakdownEntry[] = []
+  let balance = initialAmount
+
+  for (let month = 1; month <= months; month++) {
+    const startingBalance = balance
+    const interest = roundToCents(startingBalance * (monthlyRatePercent / 100))
+    balance = roundToCents(startingBalance + interest)
+    breakdown.push({ month, startingBalance, interest, endingBalance: balance })
+  }
+
+  return {
+    initialAmount,
+    monthlyRate: monthlyRatePercent,
+    months,
+    totalInterest: roundToCents(balance - initialAmount),
+    finalAmount: balance,
+    breakdown,
+  }
+}
+
+const formatRate = (rate: number): string => `${formatNumber(rate, { maximumFractionDigits: 2 })}%`
+
+export default function InterestCalculatorModal({
+  isOpen,
+  onClose,
 }: InterestCalculatorModalProps) {
-  const [calculations, setCalculations] = useState<InterestCalculation[]>([])
-  const [showCalculator, setShowCalculator] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const { success, error } = useToastContext()
+  const { cards, fetchCards } = useCreditCards()
 
-  // Calculator form state
-  const [calculatorData, setCalculatorData] = useState({
-    consumptionId: '',
-    consumptionName: '',
-    originalAmount: '',
-    interestRate: '',
-    daysOverdue: '',
-    paymentDate: ''
-  })
+  const [selectedCardId, setSelectedCardId] = useState('')
+  const [amount, setAmount] = useState('') // dígitos crudos, mismo patrón que "Límite" en Nueva Tarjeta
+  const [monthlyRate, setMonthlyRate] = useState('') // string con coma decimal admitida
+  const [months, setMonths] = useState('') // dígitos crudos, sin decimales posibles
+  const [errors, setErrors] = useState<{ amount?: string; rate?: string; months?: string }>({})
+  const [result, setResult] = useState<CompoundInterestResult | null>(null)
 
-  // Cargar cálculos existentes
+  // Simulación puramente temporal: cerrar el modal descarta todo. Como el componente
+  // padre mantiene esta instancia montada entre aperturas, hay que resetear a mano.
   useEffect(() => {
-    if (isOpen) {
-      loadCalculations()
-    }
+    if (!isOpen) return
+    fetchCards()
+    setSelectedCardId('')
+    setAmount('')
+    setMonthlyRate('')
+    setMonths('')
+    setErrors({})
+    setResult(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
-  const loadCalculations = async () => {
-    try {
-      setLoading(true)
-      // Por ahora simulamos datos, después conectaremos con la API
-      const mockCalculations: InterestCalculation[] = [
-        {
-          id: '1',
-          cardId: '1',
-          cardName: 'Visa Platinum',
-          consumptionId: '1',
-          consumptionName: 'Amazon',
-          originalAmount: 50000,
-          interestRate: 2.5,
-          daysOverdue: 15,
-          interestAmount: 1875,
-          totalAmount: 51875,
-          calculationDate: '2024-01-30',
-          status: 'calculated'
-        },
-        {
-          id: '2',
-          cardId: '1',
-          cardName: 'Visa Platinum',
-          consumptionId: '2',
-          consumptionName: 'Supermercado',
-          originalAmount: 85000,
-          interestRate: 2.5,
-          daysOverdue: 5,
-          interestAmount: 1062.5,
-          totalAmount: 86062.5,
-          calculationDate: '2024-01-25',
-          status: 'paid'
-        }
-      ]
-      setCalculations(mockCalculations)
-    } catch (err) {
-      error('Error al cargar cálculos')
-    } finally {
-      setLoading(false)
+  const handleCardSelect = (cardId: string) => {
+    setSelectedCardId(cardId)
+    setResult(null)
+    const card = cards.find(c => c.id === cardId)
+    if (card) {
+      setMonthlyRate(String(card.interestRate).replace('.', ','))
     }
   }
 
-  const calculateInterest = () => {
-    if (!calculatorData.originalAmount || !calculatorData.interestRate || !calculatorData.daysOverdue) {
-      error('Por favor completa todos los campos obligatorios')
+  const handleCalculate = () => {
+    const errs: { amount?: string; rate?: string; months?: string } = {}
+
+    const amountNum = Number(amount)
+    if (!amount || !Number.isFinite(amountNum) || amountNum <= 0) {
+      errs.amount = 'Ingresá un monto válido, mayor a $0.'
+    }
+
+    const rateNum = Number(monthlyRate.replace(',', '.'))
+    if (!monthlyRate || !Number.isFinite(rateNum) || rateNum <= 0) {
+      errs.rate = 'Ingresá una tasa mensual válida, mayor a 0%.'
+    }
+
+    const monthsNum = Number(months)
+    if (!months || !Number.isInteger(monthsNum) || monthsNum < 1) {
+      errs.months = 'Ingresá una cantidad de meses entera, de 1 en adelante.'
+    } else if (monthsNum > MAX_MONTHS) {
+      errs.months = `El período no puede superar los ${MAX_MONTHS} meses.`
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      setResult(null)
       return
     }
 
-    const originalAmount = parseFloat(calculatorData.originalAmount)
-    const interestRate = parseFloat(calculatorData.interestRate)
-    const daysOverdue = parseInt(calculatorData.daysOverdue)
-
-    // Cálculo de interés simple: (Monto * Tasa * Días) / 365
-    const interestAmount = (originalAmount * interestRate * daysOverdue) / 365
-    const totalAmount = originalAmount + interestAmount
-
-    const newCalculation: InterestCalculation = {
-      id: Date.now().toString(),
-      cardId: selectedCard?.id || '',
-      cardName: selectedCard?.name || '',
-      consumptionId: calculatorData.consumptionId,
-      consumptionName: calculatorData.consumptionName,
-      originalAmount: originalAmount,
-      interestRate: interestRate,
-      daysOverdue: daysOverdue,
-      interestAmount: interestAmount,
-      totalAmount: totalAmount,
-      calculationDate: new Date().toISOString().split('T')[0],
-      status: 'calculated'
-    }
-
-    setCalculations(prev => [...prev, newCalculation])
-    success('Cálculo de interés realizado exitosamente')
-    resetCalculator()
-    setShowCalculator(false)
+    setErrors({})
+    setResult(calculateCompoundInterest(amountNum, rateNum, monthsNum))
   }
 
-  const resetCalculator = () => {
-    setCalculatorData({
-      consumptionId: '',
-      consumptionName: '',
-      originalAmount: '',
-      interestRate: '',
-      daysOverdue: '',
-      paymentDate: ''
-    })
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'calculated': return <Calculator className="w-4 h-4 text-blue-500" />
-      case 'paid': return <DollarSign className="w-4 h-4 text-green-500" />
-      case 'pending': return <Clock className="w-4 h-4 text-yellow-500" />
-      default: return <Calculator className="w-4 h-4 text-blue-500" />
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'calculated': return 'Calculado'
-      case 'paid': return 'Pagado'
-      case 'pending': return 'Pendiente'
-      default: return 'Calculado'
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'calculated': return 'bg-blue-100 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-      case 'paid': return 'bg-green-100 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-      case 'pending': return 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-      default: return 'bg-blue-100 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-    }
-  }
-
-  const getTotalInterest = () => {
-    return calculations.reduce((sum, calc) => sum + calc.interestAmount, 0)
-  }
-
-  const getTotalOverdue = () => {
-    return calculations.reduce((sum, calc) => sum + calc.totalAmount, 0)
-  }
-
-  const getOverdueConsumptions = () => {
-    return consumptions.filter(consumption => {
-      const paymentDate = new Date(consumption.date)
-      const today = new Date()
-      const daysDiff = Math.floor((today.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24))
-      return daysDiff > 30 // Consideramos vencido después de 30 días
-    })
-  }
+  const selectedCard = cards.find(c => c.id === selectedCardId)
 
   if (!isOpen) return null
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={onClose}
         />
-        
+
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden"
+          className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
         >
           {/* Header */}
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -215,298 +154,178 @@ export default function InterestCalculatorModal({
                   Calculadora de Intereses
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {selectedCard ? `Cálculos para ${selectedCard.name}` : 'Calcula intereses por mora'}
+                  Simulá cuánto puede crecer un monto según la tasa mensual y el tiempo.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    resetCalculator()
-                    setShowCalculator(true)
-                  }}
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 cursor-pointer"
-                >
-                  <Calculator className="w-4 h-4" />
-                  Calcular Interés
-                </button>
-                <button
-                  onClick={onClose}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                </button>
-              </div>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
             </div>
           </div>
 
           {/* Content */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-            {showCalculator ? (
-              /* Calculator Form */
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)] space-y-6">
+            {/* Selector opcional de tarjeta */}
+            <div>
+              <label htmlFor="ic-card-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Usar datos de una tarjeta (opcional)
+              </label>
+              <select
+                id="ic-card-select"
+                value={selectedCardId}
+                onChange={(e) => handleCardSelect(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF3A5F]/30 focus:border-[#FF3A5F] bg-white dark:bg-gray-800 text-gray-900 dark:text-white cursor-pointer"
               >
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    Calcular Interés por Mora
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Consumo
-                      </label>
-                      <select
-                        value={calculatorData.consumptionId}
-                        onChange={(e) => {
-                          const consumption = consumptions.find(c => c.id === e.target.value)
-                          setCalculatorData(prev => ({
-                            ...prev,
-                            consumptionId: e.target.value,
-                            consumptionName: consumption?.merchant || '',
-                            originalAmount: consumption?.amount?.toString() || prev.originalAmount
-                          }))
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="">Seleccionar consumo</option>
-                        {consumptions.map(consumption => (
-                          <option key={consumption.id} value={consumption.id}>
-                            {consumption.merchant} - {formatCurrency(consumption.amount)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                <option value="">Ninguna / Cálculo manual</option>
+                {cards.map(card => (
+                  <option key={card.id} value={card.id}>{card.name}</option>
+                ))}
+              </select>
+              {selectedCard && (
+                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  Tasa configurada en esta tarjeta: {formatRate(selectedCard.interestRate)} mensual
+                </p>
+              )}
+            </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Monto Original *
-                      </label>
-                      <input
-                        type="number"
-                        value={calculatorData.originalAmount}
-                        onChange={(e) => setCalculatorData(prev => ({ ...prev, originalAmount: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                        placeholder="0"
-                      />
-                    </div>
+            {/* Formulario */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="ic-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Monto
+                </label>
+                <input
+                  id="ic-amount"
+                  type="text"
+                  inputMode="numeric"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF3A5F]/30 focus:border-[#FF3A5F] bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${errors.amount ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                  placeholder="$ 100.000"
+                  value={amount ? `$ ${formatNumber(Number(amount), { maximumFractionDigits: 0 })}` : ''}
+                  onChange={(e) => {
+                    const digitsOnly = e.target.value.replace(/[^0-9]/g, '')
+                    setAmount(digitsOnly)
+                    setErrors(prev => ({ ...prev, amount: undefined }))
+                    setResult(null)
+                  }}
+                />
+                {errors.amount && <p className="mt-1 text-xs text-red-500">{errors.amount}</p>}
+              </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Tasa de Interés (% anual) *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={calculatorData.interestRate}
-                        onChange={(e) => setCalculatorData(prev => ({ ...prev, interestRate: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                        placeholder="30.0"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Días de Mora *
-                      </label>
-                      <input
-                        type="number"
-                        value={calculatorData.daysOverdue}
-                        onChange={(e) => setCalculatorData(prev => ({ ...prev, daysOverdue: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                        placeholder="30"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Preview Calculation */}
-                  {calculatorData.originalAmount && calculatorData.interestRate && calculatorData.daysOverdue && (
-                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <h5 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                        Vista Previa del Cálculo
-                      </h5>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-blue-700 dark:text-blue-300">Monto original:</span>
-                          <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            {formatCurrency(parseFloat(calculatorData.originalAmount || '0'))}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-blue-700 dark:text-blue-300">Tasa anual:</span>
-                          <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            {calculatorData.interestRate}%
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-blue-700 dark:text-blue-300">Días de mora:</span>
-                          <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            {calculatorData.daysOverdue} días
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-blue-700 dark:text-blue-300">Interés calculado:</span>
-                          <span className="font-semibold text-blue-900 dark:text-blue-100 ml-2">
-                            {formatCurrency((parseFloat(calculatorData.originalAmount || '0') * parseFloat(calculatorData.interestRate || '0') * parseInt(calculatorData.daysOverdue || '0')) / 365)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3 mt-6">
-                    <button
-                      onClick={calculateInterest}
-                      disabled={loading}
-                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-lg transition-colors font-semibold cursor-pointer"
-                    >
-                      {loading ? 'Calculando...' : 'Calcular Interés'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowCalculator(false)
-                        resetCalculator()
-                      }}
-                      className="px-6 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors font-semibold cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
+              <div>
+                <label htmlFor="ic-rate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tasa mensual (%)
+                </label>
+                <div className="relative">
+                  <input
+                    id="ic-rate"
+                    type="text"
+                    inputMode="decimal"
+                    className={`w-full pl-3 pr-7 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF3A5F]/30 focus:border-[#FF3A5F] bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${errors.rate ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                    placeholder="Ej: 8,5"
+                    value={monthlyRate}
+                    onChange={(e) => {
+                      let v = e.target.value.replace(/[^0-9,]/g, '')
+                      const parts = v.split(',')
+                      if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('')
+                      setMonthlyRate(v)
+                      setErrors(prev => ({ ...prev, rate: undefined }))
+                      setResult(null)
+                    }}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 dark:text-gray-500 pointer-events-none">%</span>
                 </div>
-              </motion.div>
-            ) : (
-              /* Calculations List and Summary */
-              <div className="space-y-6">
-                {/* Summary Cards */}
+                {errors.rate && <p className="mt-1 text-xs text-red-500">{errors.rate}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="ic-months" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Meses
+                </label>
+                <input
+                  id="ic-months"
+                  type="text"
+                  inputMode="numeric"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF3A5F]/30 focus:border-[#FF3A5F] bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${errors.months ? 'border-red-400 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                  placeholder="Ej: 3"
+                  value={months}
+                  onChange={(e) => {
+                    setMonths(e.target.value.replace(/[^0-9]/g, ''))
+                    setErrors(prev => ({ ...prev, months: undefined }))
+                    setResult(null)
+                  }}
+                />
+                {errors.months && <p className="mt-1 text-xs text-red-500">{errors.months}</p>}
+              </div>
+            </div>
+
+            <button
+              onClick={handleCalculate}
+              className="px-6 py-2 bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:opacity-90 transition-opacity text-white rounded-lg font-semibold flex items-center gap-2 cursor-pointer"
+            >
+              <Calculator className="w-4 h-4" />
+              Calcular
+            </button>
+
+            {/* Resultado */}
+            {result ? (
+              <div className="space-y-4 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white pt-4">Resultado</h4>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                      <span className="text-sm font-medium text-red-700 dark:text-red-300">Total Intereses</span>
-                    </div>
-                    <div className="text-2xl font-bold text-red-900 dark:text-red-100">
-                      {formatCurrency(getTotalInterest())}
-                    </div>
+                  <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Monto inicial</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">{formatCurrency(result.initialAmount)}</p>
                   </div>
-
-                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
-                    <div className="flex items-center gap-2 mb-2">
-                      <TrendingUp className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                      <span className="text-sm font-medium text-orange-700 dark:text-orange-300">Total Vencido</span>
-                    </div>
-                    <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-                      {formatCurrency(getTotalOverdue())}
-                    </div>
+                  <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Interés generado</p>
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">{formatCurrency(result.totalInterest)}</p>
                   </div>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Cálculos</span>
-                    </div>
-                    <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                      {calculations.length}
-                    </div>
+                  <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Monto final</p>
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">{formatCurrency(result.finalAmount)}</p>
                   </div>
                 </div>
 
-                {/* Overdue Consumptions Alert */}
-                {getOverdueConsumptions().length > 0 && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                      <span className="font-semibold text-red-900 dark:text-red-100">
-                        Consumos Vencidos Detectados
-                      </span>
-                    </div>
-                    <p className="text-sm text-red-700 dark:text-red-300 mb-3">
-                      Tienes {getOverdueConsumptions().length} consumos que pueden generar intereses por mora.
-                    </p>
-                    <div className="space-y-2">
-                      {getOverdueConsumptions().map(consumption => (
-                        <div key={consumption.id} className="flex items-center justify-between text-sm">
-                          <span className="text-red-700 dark:text-red-300">
-                            {consumption.merchant} - {formatCurrency(consumption.amount)}
-                          </span>
-                          <span className="text-red-600 dark:text-red-400 font-semibold">
-                            {Math.floor((new Date().getTime() - new Date(consumption.date).getTime()) / (1000 * 60 * 60 * 24))} días
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {result.months} {result.months === 1 ? 'mes' : 'meses'} · Tasa {formatRate(result.monthlyRate)} mensual
+                </p>
 
-                {/* Calculations List */}
-                {loading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full mx-auto mb-4"></div>
-                    <p className="text-gray-600 dark:text-gray-400">Cargando cálculos...</p>
+                {/* Desglose mes a mes */}
+                <div>
+                  <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Desglose mes a mes</h5>
+                  <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-xl">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-gray-100 dark:bg-gray-700">
+                        <tr>
+                          <th className="text-left p-2.5 font-semibold text-gray-700 dark:text-gray-300">Mes</th>
+                          <th className="text-right p-2.5 font-semibold text-gray-700 dark:text-gray-300">Saldo inicial</th>
+                          <th className="text-right p-2.5 font-semibold text-gray-700 dark:text-gray-300">Interés</th>
+                          <th className="text-right p-2.5 font-semibold text-gray-700 dark:text-gray-300">Saldo final</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.breakdown.map(row => (
+                          <tr key={row.month} className="border-t border-gray-100 dark:border-gray-700">
+                            <td className="p-2.5 text-gray-600 dark:text-gray-300">{row.month}</td>
+                            <td className="p-2.5 text-right text-gray-700 dark:text-gray-300">{formatCurrency(row.startingBalance)}</td>
+                            <td className="p-2.5 text-right text-green-600 dark:text-green-400">{formatCurrency(row.interest)}</td>
+                            <td className="p-2.5 text-right font-medium text-gray-900 dark:text-white">{formatCurrency(row.endingBalance)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ) : calculations.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Calculator className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      No tienes cálculos de interés
-                    </h4>
-                    <p className="text-gray-600 dark:text-gray-400 mb-6">
-                      Calcula intereses por mora para tus consumos vencidos
-                    </p>
-                    <button
-                      onClick={() => setShowCalculator(true)}
-                      className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-semibold cursor-pointer"
-                    >
-                      Realizar Primer Cálculo
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {calculations.map((calculation, index) => (
-                      <motion.div
-                        key={calculation.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.1 }}
-                        className={`p-4 rounded-xl border transition-all duration-200 ${getStatusColor(calculation.status)}`}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h5 className="font-semibold text-gray-900 dark:text-white">
-                                {calculation.consumptionName}
-                              </h5>
-                              {getStatusIcon(calculation.status)}
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(calculation.calculationDate).toLocaleDateString('es-CO')}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Percent className="w-3 h-3" />
-                                {calculation.interestRate}% anual
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {calculation.daysOverdue} días
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                              {formatCurrency(calculation.totalAmount)}
-                            </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              +{formatCurrency(calculation.interestAmount)} interés
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-5 border-t border-gray-100 dark:border-gray-700">
+                <Calculator className="w-7 h-7 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Completá los datos y presioná &ldquo;Calcular&rdquo; para ver el resultado.
+                </p>
               </div>
             )}
           </div>

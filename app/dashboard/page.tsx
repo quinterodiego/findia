@@ -2557,8 +2557,6 @@ function Dashboard() {
       <InterestCalculatorModal
         isOpen={showInterestCalculatorModal}
         onClose={() => setShowInterestCalculatorModal(false)}
-        selectedCard={selectedCreditCard}
-        consumptions={[]} // Aquí irían los consumos reales
       />
 
       {/* Modal de Proyecciones */}

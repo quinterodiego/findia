@@ -26,6 +26,31 @@ export default function FixedExpensesTable({
   const [filterPaymentMethod, setFilterPaymentMethod] = useState<'all' | 'automatic' | 'manual' | 'transfer'>('all');
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
 
+  const getPaymentMethodLabel = (method?: string) => {
+    switch (method) {
+      case 'automatic': return 'Débito automático';
+      case 'manual': return 'Manual';
+      case 'transfer': return 'Transferencia';
+      default: return '—';
+    }
+  };
+
+  const getPaymentStatus = (item: FixedExpenseItem): 'paid' | 'partial' | 'pending' | 'scheduled' => {
+    // Los gastos fijos y en cuotas no tienen un registro real de pagos: su paidAmount
+    // es una suposición (monto completo o 0), no un dato verificado como en las deudas.
+    if (item.type !== 'debt') return 'scheduled';
+    if (item.amount > 0 && item.paidAmount >= item.amount) return 'paid';
+    if (item.paidAmount > 0) return 'partial';
+    return 'pending';
+  };
+
+  // Un vencimiento solo puede afirmarse cuando hay tracking real (deuda) con fecha
+  // pasada y sin pago suficiente. Un "Programado" con fecha pasada no cuenta: FindIA
+  // no tiene información para confirmar si sigue impago.
+  const isConfirmedOverdue = (item: FixedExpenseItem): boolean => {
+    return item.type === 'debt' && item.isOverdue === true && getPaymentStatus(item) !== 'paid';
+  };
+
   const filteredExpenses = useMemo(() => {
     let filtered = fixedExpenses;
 
@@ -42,28 +67,40 @@ export default function FixedExpensesTable({
       filtered = filtered.filter(item => item.paymentMethod === filterPaymentMethod);
     }
 
-    // Filtro de vencidos
+    // Filtro de vencidos: solo registros que realmente pueden confirmarse como vencidos
     if (showOverdueOnly) {
-      filtered = filtered.filter(item => item.isOverdue === true);
+      filtered = filtered.filter(item => isConfirmedOverdue(item));
     }
 
     return filtered;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fixedExpenses, searchQuery, filterPaymentMethod, showOverdueOnly]);
 
-  const getPaymentMethodLabel = (method?: string) => {
-    switch (method) {
-      case 'automatic': return 'Débito automático';
-      case 'manual': return 'Manual';
-      case 'transfer': return 'Transferencia';
-      default: return '—';
-    }
-  };
+  // Desglosa el importe de cada ítem según el mismo estado que ya usa la tabla
+  // (getPaymentStatus), de modo que Pagado + Pendiente + Programado sea siempre
+  // igual a la suma de item.amount (= totalAmount), sin contar nada dos veces.
+  const budgetBreakdown = useMemo(() => {
+    let paid = 0;
+    let pending = 0;
+    let scheduled = 0;
 
-  const getPaymentStatus = (item: FixedExpenseItem): 'paid' | 'partial' | 'pending' => {
-    if (item.amount > 0 && item.paidAmount >= item.amount) return 'paid';
-    if (item.paidAmount > 0) return 'partial';
-    return 'pending';
-  };
+    fixedExpenses.forEach(item => {
+      const status = getPaymentStatus(item);
+      if (status === 'scheduled') {
+        scheduled += item.amount;
+      } else if (status === 'paid') {
+        paid += item.amount;
+      } else if (status === 'partial') {
+        paid += item.paidAmount;
+        pending += item.amount - item.paidAmount;
+      } else {
+        pending += item.amount;
+      }
+    });
+
+    return { paid, pending, scheduled };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixedExpenses]);
 
   const getPaymentMethodColor = (method?: string) => {
     switch (method) {
@@ -120,16 +157,33 @@ export default function FixedExpensesTable({
           <span className="text-gray-500 dark:text-gray-400">Total del mes</span>
           <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totalAmount)}</span>
         </span>
-        <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">·</span>
-        <span className="flex items-baseline gap-1.5">
-          <span className="text-gray-500 dark:text-gray-400">Pagado</span>
-          <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(totalPaid)}</span>
-        </span>
-        <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">·</span>
-        <span className="flex items-baseline gap-1.5">
-          <span className="text-gray-500 dark:text-gray-400">Pendiente</span>
-          <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(totalAmount - totalPaid)}</span>
-        </span>
+        {budgetBreakdown.paid > 0 && (
+          <>
+            <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">·</span>
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-gray-500 dark:text-gray-400">Pagado</span>
+              <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(budgetBreakdown.paid)}</span>
+            </span>
+          </>
+        )}
+        {budgetBreakdown.pending > 0 && (
+          <>
+            <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">·</span>
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-gray-500 dark:text-gray-400">Pendiente</span>
+              <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(budgetBreakdown.pending)}</span>
+            </span>
+          </>
+        )}
+        {budgetBreakdown.scheduled > 0 && (
+          <>
+            <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">·</span>
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-gray-500 dark:text-gray-400">Programado</span>
+              <span className="font-semibold text-blue-600 dark:text-blue-400">{formatCurrency(budgetBreakdown.scheduled)}</span>
+            </span>
+          </>
+        )}
       </div>
 
       {/* Filtros y búsqueda */}
@@ -201,7 +255,11 @@ export default function FixedExpensesTable({
               </tr>
             ) : (
               filteredExpenses.map((item) => {
-                const isOverdue = item.isOverdue;
+                const confirmedOverdue = isConfirmedOverdue(item);
+                // Fecha pasada de un "Programado" (sin tracking real): ámbar suave, nunca rojo,
+                // para no comunicar una alerta que FindIA no puede confirmar. No aplica a una
+                // deuda ya pagada cuya fecha original quedó atrás: ahí no corresponde ninguna alerta.
+                const passedUnconfirmed = item.type !== 'debt' && item.isOverdue === true;
                 const isDueSoon = item.daysUntilDue !== undefined && item.daysUntilDue >= 0 && item.daysUntilDue <= 3;
 
                 return (
@@ -236,17 +294,23 @@ export default function FixedExpensesTable({
                       {item.installments || '-'}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getPaymentMethodColor(item.paymentMethod)}`}>
-                        {getPaymentMethodLabel(item.paymentMethod)}
-                      </span>
+                      {item.paymentMethod ? (
+                        <span className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getPaymentMethodColor(item.paymentMethod)}`}>
+                          {getPaymentMethodLabel(item.paymentMethod)}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">
                       {formatCurrency(item.amount)}
                     </td>
                     <td className="px-4 py-3">
                       <div className={`text-sm ${
-                        isOverdue
+                        confirmedOverdue
                           ? 'text-red-600 dark:text-red-400 font-semibold bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded'
+                          : passedUnconfirmed
+                          ? 'text-amber-700 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded'
                           : isDueSoon
                           ? 'text-orange-600 dark:text-orange-400 font-medium bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded'
                           : 'text-gray-600 dark:text-gray-400'
@@ -271,8 +335,15 @@ export default function FixedExpensesTable({
                             </span>
                           );
                         }
+                        if (status === 'scheduled') {
+                          return (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                              Programado
+                            </span>
+                          );
+                        }
                         return (
-                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400">
                             Pendiente
                           </span>
                         );
