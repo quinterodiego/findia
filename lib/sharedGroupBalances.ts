@@ -114,6 +114,9 @@ export function validateSharedGroupExpenseInput(
   if (!input.splits || input.splits.length === 0) {
     return { valid: false, error: 'Debe haber al menos un split' }
   }
+  if (input.splits.length < 2) {
+    return { valid: false, error: 'Un gasto compartido requiere al menos 2 participantes' }
+  }
 
   const seenMemberIds = new Set<string>()
   for (const split of input.splits) {

@@ -128,6 +128,13 @@ export function useSharedGroups() {
    * del summary YA cargado en `groups` (si está disponible) para no volver a
    * pedirlos — solo se hacen 3 fetches nuevos (members, expenses, settlements),
    * los únicos datos que el summary de la lista no trae.
+   *
+   * `groupDetail` (el gate que saca el spinner en DetailView) recién se
+   * confirma DESPUÉS de que members/expenses/settlements/balance también
+   * están listos. Antes se confirmaba primero y esos fetches quedaban en
+   * vuelo, así que un grupo recién creado se veía brevemente (o, con Sheets
+   * lento, de forma persistente) como "Miembros (0)" con datos reales ya
+   * existentes en el backend — no era el dato real, era ese hueco de estado.
    */
   const openGroup = useCallback(
     async (groupId: string) => {
@@ -136,18 +143,23 @@ export function useSharedGroups() {
       try {
         const cached = groups.find((g) => g.group.id === groupId);
         if (cached) {
+          await Promise.all([fetchMembers(groupId), fetchExpenses(groupId), fetchSettlements(groupId)]);
           setGroupDetail(cached.group);
           setMyMemberId(cached.myMemberId);
           setBalance(cached.balances);
         } else {
-          // No estaba en el summary (ej. se entró por otra vía) -- pedirlo directo.
-          const data = await requestJson<{ group: SharedGroup; myMemberId: string }>(`/api/shared-groups/${groupId}`);
+          // No estaba en el summary (ej. se entró por otra vía, o el grupo se
+          // acaba de crear y el summary local todavía no lo incluye) -- se
+          // piden en paralelo el detalle del grupo y el resto de los datos.
+          const [data] = await Promise.all([
+            requestJson<{ group: SharedGroup; myMemberId: string }>(`/api/shared-groups/${groupId}`),
+            fetchMembers(groupId),
+            fetchExpenses(groupId),
+            fetchSettlements(groupId),
+            fetchBalance(groupId),
+          ]);
           setGroupDetail(data.group);
           setMyMemberId(data.myMemberId);
-        }
-        await Promise.all([fetchMembers(groupId), fetchExpenses(groupId), fetchSettlements(groupId)]);
-        if (!cached) {
-          await fetchBalance(groupId);
         }
       } catch (err) {
         setDetailError(err instanceof SharedGroupsApiError ? err.message : 'Error desconocido');

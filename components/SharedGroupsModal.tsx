@@ -701,10 +701,18 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
                       onChange={(e) => setNewGroupName(e.target.value)}
                       placeholder="Casa"
                       autoFocus
-                      className="w-full px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
                     />
                   </div>
                   {formError && <FormErrorBanner message={formError} />}
+                  <button
+                    onClick={handleCreateGroup}
+                    disabled={hook.actionLoading || !newGroupName.trim()}
+                    className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold ${PRIMARY_BUTTON}`}
+                    style={{ minHeight: 44 }}
+                  >
+                    {hook.actionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Crear grupo'}
+                  </button>
                 </div>
               )}
 
@@ -827,23 +835,11 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
               </div>
             )}
 
-            {view === 'create-group' && (
-              <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={handleCreateGroup}
-                  disabled={hook.actionLoading || !newGroupName.trim()}
-                  className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold ${PRIMARY_BUTTON}`}
-                  style={{ minHeight: 44 }}
-                >
-                  {hook.actionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Crear grupo'}
-                </button>
-              </div>
-            )}
-
             {view === 'detail' && hook.groupDetail && (
               <div className="shrink-0 p-3 border-t border-gray-200 dark:border-gray-700 flex gap-2">
                 <button
                   onClick={openAddExpense}
+                  disabled={hook.members.length < 2 || activity.length === 0}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm ${PRIMARY_BUTTON}`}
                   style={{ minHeight: 44 }}
                 >
@@ -851,7 +847,8 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
                 </button>
                 <button
                   onClick={openSettle}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                  disabled={hook.balance.length === 0}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   style={{ minHeight: 44 }}
                 >
                   <Wallet className="w-4 h-4" /> Saldar
@@ -895,7 +892,7 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
                       setFormError(null)
                       setShowAddMemberForm(true)
                     }}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                    className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold ${PRIMARY_BUTTON}`}
                     style={{ minHeight: 44 }}
                   >
                     <UserPlus className="w-5 h-5" /> Agregar persona
@@ -1021,7 +1018,7 @@ function RenamePrompt({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           autoFocus
-          className="w-full px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white mb-4"
+          className="w-full px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white mb-4"
         />
         <div className="flex gap-2">
           <button
@@ -1241,16 +1238,29 @@ function DetailView({
       <div>
         <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Actividad</h3>
         {activity.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Aún no hay movimientos.</p>
-            <button
-              onClick={onGoAddExpense}
-              className={`px-4 py-2.5 rounded-xl font-semibold text-sm ${PRIMARY_BUTTON}`}
-              style={{ minHeight: 44 }}
-            >
-              Agregar primer gasto
-            </button>
-          </div>
+          hook.members.length === 1 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Agregá a alguien para empezar a dividir gastos.</p>
+              <button
+                onClick={onGoMembers}
+                className={`px-4 py-2.5 rounded-xl font-semibold text-sm ${PRIMARY_BUTTON}`}
+                style={{ minHeight: 44 }}
+              >
+                Agregar miembro
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Aún no hay movimientos.</p>
+              <button
+                onClick={onGoAddExpense}
+                className={`px-4 py-2.5 rounded-xl font-semibold text-sm ${PRIMARY_BUTTON}`}
+                style={{ minHeight: 44 }}
+              >
+                Agregar primer gasto
+              </button>
+            </div>
+          )
         ) : (
           <div className="space-y-2">
             {activity.map((item) => {
@@ -1414,7 +1424,7 @@ function AddExpenseView({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Supermercado"
           autoFocus
-          className="w-full px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
+          className="w-full px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
         />
       </div>
 
@@ -1428,7 +1438,7 @@ function AddExpenseView({
             value={amountInput}
             onChange={(e) => setAmountInput(e.target.value)}
             placeholder="45.000"
-            className="w-full pl-7 pr-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            className="w-full pl-7 pr-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>
       </div>
@@ -1460,7 +1470,7 @@ function AddExpenseView({
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value as 'pesos' | 'usd')}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
                 >
                   <option value="pesos">Pesos</option>
                   <option value="usd">USD</option>
@@ -1472,7 +1482,7 @@ function AddExpenseView({
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
                 />
               </div>
             </div>
@@ -1559,7 +1569,7 @@ function AddExpenseView({
                               inputMode="decimal"
                               value={exactAmounts[memberId] || ''}
                               onChange={(e) => setExactAmount(memberId, e.target.value)}
-                              className="w-full pl-6 pr-2 py-2 text-sm text-right border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                              className="w-full pl-6 pr-2 py-2 text-sm text-right border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
                             />
                           </div>
                         </div>
@@ -1672,7 +1682,7 @@ function SettleView({
           <select
             value={paidBy}
             onChange={(e) => setPaidBy(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
           >
             {hook.members.map((m) => (
               <option key={m.id} value={m.id}>
@@ -1686,7 +1696,7 @@ function SettleView({
           <select
             value={paidTo}
             onChange={(e) => setPaidTo(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
           >
             {hook.members.map((m) => (
               <option key={m.id} value={m.id}>
@@ -1706,7 +1716,7 @@ function SettleView({
             inputMode="decimal"
             value={amountInput}
             onChange={(e) => setAmountInput(e.target.value)}
-            className="w-full pl-7 pr-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            className="w-full pl-7 pr-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>
         {maxAmount !== null && (
@@ -1722,7 +1732,7 @@ function SettleView({
           <select
             value={currency}
             onChange={(e) => setCurrency(e.target.value as 'pesos' | 'usd')}
-            className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
           >
             <option value="pesos">Pesos</option>
             <option value="usd">USD</option>
@@ -1734,7 +1744,7 @@ function SettleView({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>
       </div>
@@ -1745,7 +1755,7 @@ function SettleView({
           type="text"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+          className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
         />
       </div>
     </div>
@@ -1804,7 +1814,7 @@ function MembersView({
               value={newMemberName}
               onChange={(e) => setNewMemberName(e.target.value)}
               autoFocus
-              className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
           </div>
           <div>
@@ -1813,7 +1823,7 @@ function MembersView({
               type="email"
               value={newMemberEmail}
               onChange={(e) => setNewMemberEmail(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">Podés agregarla aunque todavía no use FindIA.</p>
@@ -1826,6 +1836,7 @@ function MembersView({
       {hook.members.map((member) => {
         const isMe = member.id === hook.myMemberId
         const isEditing = editingMemberId === member.id
+        const isGroupCreator = !!member.userId && member.userId === hook.groupDetail?.createdBy
         if (isEditing) {
           return (
             <div key={member.id} className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
@@ -1833,14 +1844,14 @@ function MembersView({
                 type="text"
                 value={editMemberName}
                 onChange={(e) => setEditMemberName(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
               />
               <input
                 type="email"
                 value={editMemberEmail}
                 onChange={(e) => setEditMemberEmail(e.target.value)}
                 placeholder="Email (opcional)"
-                className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
               />
               <div className="flex gap-2">
                 <button
@@ -1867,20 +1878,27 @@ function MembersView({
               </p>
               {member.email && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{member.email}</p>}
             </div>
-            {isCreator && !isMe && (
-              <div className="flex gap-1 shrink-0">
-                <button onClick={() => onStartEdit(member)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" aria-label="Editar miembro">
-                  <Pencil className="w-4 h-4 text-gray-500" />
-                </button>
-                <button
-                  onClick={() => onDeleteRequest(member.id)}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                  aria-label="Eliminar miembro"
-                >
-                  <Trash2 className="w-4 h-4 text-gray-500" />
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              {isGroupCreator && (
+                <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  Creador
+                </span>
+              )}
+              {isCreator && !isMe && (
+                <>
+                  <button onClick={() => onStartEdit(member)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" aria-label="Editar miembro">
+                    <Pencil className="w-4 h-4 text-gray-500" />
+                  </button>
+                  <button
+                    onClick={() => onDeleteRequest(member.id)}
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    aria-label="Eliminar miembro"
+                  >
+                    <Trash2 className="w-4 h-4 text-gray-500" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )
       })}
