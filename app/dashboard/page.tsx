@@ -1195,7 +1195,10 @@ function Dashboard() {
             style={{ minHeight: 44 }}
           >
             <Users className="w-5 h-5 text-[#FF007A] shrink-0" />
-            <span className="flex-1 text-left text-sm font-medium text-gray-900 dark:text-white">Gastos compartidos</span>
+            <span className="flex-1 min-w-0 text-left">
+              <span className="block text-sm font-semibold text-gray-900 dark:text-white">Gastos compartidos</span>
+              <span className="block text-xs font-normal text-gray-500 dark:text-gray-400 truncate">Dividí gastos con otras personas</span>
+            </span>
             <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
           </button>
 
