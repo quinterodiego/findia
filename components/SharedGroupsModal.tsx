@@ -556,9 +556,14 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
     if (others.length === 0) return null
     if (others.length === 1) {
       const other = others[0]
-      const isMe = other.memberId === hook.myMemberId
-      const verb = isMe ? 'debés' : 'debe'
-      return `${nameFor(other.memberId)} ${verb} ${formatMoneyForCurrency(other.amount, expense.currency)}`
+      const amountText = formatMoneyForCurrency(other.amount, expense.currency)
+      if (other.memberId === hook.myMemberId) {
+        return `${nameFor(other.memberId)} debés ${amountText}`
+      }
+      if (expense.paidByMemberId === hook.myMemberId) {
+        return `${nameFor(other.memberId)} te debe ${amountText}`
+      }
+      return `${nameFor(other.memberId)} debe ${amountText}`
     }
     return `Dividido entre ${others.length + 1} personas`
   }
@@ -1314,7 +1319,11 @@ function DetailView({
                 >
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 dark:text-white truncate">
-                      {nameFor(settlement.paidByMemberId)} pagó a {nameFor(settlement.paidToMemberId)}
+                      {settlement.paidToMemberId === hook.myMemberId
+                        ? `${nameFor(settlement.paidByMemberId)} te pagó`
+                        : settlement.paidByMemberId === hook.myMemberId
+                          ? `Le pagaste a ${nameFor(settlement.paidToMemberId)}`
+                          : `${nameFor(settlement.paidByMemberId)} pagó a ${nameFor(settlement.paidToMemberId)}`}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{formatCivilDate(settlement.date)}</p>
                   </div>
@@ -1652,7 +1661,9 @@ function SettleView({
             style={{ minHeight: 44 }}
           >
             <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {nameFor(b.fromMemberId)} debe {formatMoneyForCurrency(b.amount, b.currency)} a {nameFor(b.toMemberId)}
+              {b.toMemberId === hook.myMemberId
+                ? `${nameFor(b.fromMemberId)} te debe ${formatMoneyForCurrency(b.amount, b.currency)}`
+                : `${nameFor(b.fromMemberId)} debe ${formatMoneyForCurrency(b.amount, b.currency)} a ${nameFor(b.toMemberId)}`}
             </p>
           </button>
         ))}

@@ -1182,6 +1182,23 @@ function Dashboard() {
             </div>
           </motion.div>
 
+          {/* Acceso directo a Gastos compartidos — solo mobile. En desktop ya
+              existe como botón de navegación en el header (línea ~874), al
+              mismo nivel que Presupuesto/Tarjetas, así que no hace falta acá.
+              En mobile, antes solo se llegaba entrando primero a "Más" — esto
+              lo deja a 1 tap desde la pantalla principal, sin abrir ningún
+              menú. Tratamiento neutro (no fuchsia): es navegación, no una
+              acción primaria. */}
+          <button
+            onClick={() => setShowSharedGroupsModal(true)}
+            className="md:hidden w-full flex items-center gap-2 p-3 rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-200/50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors cursor-pointer"
+            style={{ minHeight: 44 }}
+          >
+            <Users className="w-5 h-5 text-[#FF007A] shrink-0" />
+            <span className="flex-1 text-left text-sm font-medium text-gray-900 dark:text-white">Gastos compartidos</span>
+            <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+          </button>
+
           {/* Stats Cards - Diseño limpio y con impacto */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
             {(shouldShowSkeleton && (debtsLoading || incomesLoading || expensesLoading || goalsLoading)) ? (
