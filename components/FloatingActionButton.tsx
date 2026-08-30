@@ -2,37 +2,44 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, CreditCard, DollarSign, TrendingUp, Target, X } from 'lucide-react';
+import { Plus, CreditCard, DollarSign, TrendingUp, Target, Users, X } from 'lucide-react';
 
 interface FloatingActionButtonProps {
-  onAction: (type: 'debt' | 'expense' | 'income' | 'goal') => void;
+  onAction: (type: 'debt' | 'expense' | 'income' | 'goal' | 'shared-expense') => void;
 }
 
 const actions = [
   {
-    type: 'debt' as const,
-    label: 'Agregar Deuda',
-    icon: CreditCard,
-    color: 'from-red-400 to-red-500',
-    description: 'Tarjetas, préstamos, créditos'
+    type: 'shared-expense' as const,
+    label: 'Gasto Compartido',
+    icon: Users,
+    color: 'from-pink-400 to-pink-500',
+    description: 'Dividir un gasto con otros'
   },
   {
     type: 'expense' as const,
-    label: 'Agregar Gasto',
+    label: 'Gasto',
     icon: DollarSign,
     color: 'from-orange-400 to-orange-500',
     description: 'Compras, facturas, gastos'
   },
   {
+    type: 'debt' as const,
+    label: 'Deuda',
+    icon: CreditCard,
+    color: 'from-red-400 to-red-500',
+    description: 'Tarjetas, préstamos, créditos'
+  },
+  {
     type: 'income' as const,
-    label: 'Agregar Ingreso',
+    label: 'Ingreso',
     icon: TrendingUp,
     color: 'from-green-400 to-green-500',
     description: 'Salario, ventas, ingresos'
   },
   {
     type: 'goal' as const,
-    label: 'Agregar Meta',
+    label: 'Meta',
     icon: Target,
     color: 'from-blue-400 to-blue-500',
     description: 'Ahorros, objetivos'
@@ -44,7 +51,7 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
 
   const toggleMenu = () => setIsOpen(!isOpen);
 
-  const handleAction = (type: 'debt' | 'expense' | 'income' | 'goal') => {
+  const handleAction = (type: 'debt' | 'expense' | 'income' | 'goal' | 'shared-expense') => {
     onAction(type);
     setIsOpen(false);
   };
@@ -68,7 +75,7 @@ export default function FloatingActionButton({ onAction }: FloatingActionButtonP
       <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
         <AnimatePresence>
           {isOpen && (
-            <div className="absolute bottom-16 right-0 space-y-3">
+            <div className="absolute bottom-[76px] right-0 flex flex-col items-end gap-3">
               {actions.map((action, index) => {
                 const Icon = action.icon;
                 return (

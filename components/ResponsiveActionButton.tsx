@@ -5,7 +5,7 @@ import FloatingActionButton from './FloatingActionButton';
 import MobileActionSheet from './MobileActionSheet';
 
 interface ResponsiveActionButtonProps {
-  onAction: (type: 'debt' | 'expense' | 'income' | 'goal') => void;
+  onAction: (type: 'debt' | 'expense' | 'income' | 'goal' | 'shared-expense') => void;
 }
 
 export default function ResponsiveActionButton({ onAction }: ResponsiveActionButtonProps) {

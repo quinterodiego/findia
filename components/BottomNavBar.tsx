@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Home, TrendingDown, Plus, CreditCard, MoreHorizontal, X, DollarSign, TrendingUp, Target } from 'lucide-react'
+import { Home, TrendingDown, Plus, CreditCard, MoreHorizontal, X, DollarSign, TrendingUp, Target, Users } from 'lucide-react'
 
 type FilterType = 'all' | 'debt' | 'income' | 'expense' | 'goal'
-type ActionType = 'debt' | 'expense' | 'income' | 'goal'
+type ActionType = 'debt' | 'expense' | 'income' | 'goal' | 'shared-expense'
 
 interface BottomNavBarProps {
   activeFilter: FilterType
@@ -15,9 +15,10 @@ interface BottomNavBarProps {
 }
 
 const ADD_ACTIONS = [
+  { type: 'shared-expense' as const, label: 'Gasto Compartido', icon: Users, color: 'from-pink-400 to-pink-500' },
   { type: 'expense' as const, label: 'Gasto', icon: DollarSign, color: 'from-orange-400 to-orange-500' },
-  { type: 'income' as const, label: 'Ingreso', icon: TrendingUp, color: 'from-green-400 to-green-500' },
   { type: 'debt' as const, label: 'Deuda', icon: CreditCard, color: 'from-red-400 to-red-500' },
+  { type: 'income' as const, label: 'Ingreso', icon: TrendingUp, color: 'from-green-400 to-green-500' },
   { type: 'goal' as const, label: 'Meta', icon: Target, color: 'from-blue-400 to-blue-500' },
 ]
 
@@ -67,8 +68,12 @@ export default function BottomNavBar({ activeFilter, onFilterChange, onAction, o
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  {ADD_ACTIONS.map((action) => {
+                  {ADD_ACTIONS.map((action, index) => {
                     const Icon = action.icon
+                    // Con un número impar de acciones, la última queda sola en
+                    // la fila -- que ocupe el ancho completo en vez de dejar
+                    // una celda vacía a su lado.
+                    const isLastOrphan = index === ADD_ACTIONS.length - 1 && ADD_ACTIONS.length % 2 === 1
                     return (
                       <button
                         key={action.type}
@@ -76,7 +81,7 @@ export default function BottomNavBar({ activeFilter, onFilterChange, onAction, o
                           onAction(action.type)
                           setShowAddSheet(false)
                         }}
-                        className={`flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r ${action.color} text-white cursor-pointer active:scale-95 transition-transform`}
+                        className={`flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r ${action.color} text-white cursor-pointer active:scale-95 transition-transform ${isLastOrphan ? 'col-span-2' : ''}`}
                       >
                         <Icon className="w-6 h-6 shrink-0" />
                         <span className="font-semibold text-sm">{action.label}</span>

@@ -63,8 +63,14 @@ export function useSharedGroups() {
     setGroupsError(null);
     try {
       const data = await requestJson<{ groups: SharedGroupSummary[] }>('/api/shared-groups');
-      setGroups(Array.isArray(data.groups) ? data.groups : []);
+      const fetched = Array.isArray(data.groups) ? data.groups : [];
+      setGroups(fetched);
       setGroupsStale(false);
+      // Devuelve el array recién obtenido -- quien llama (ej. resolver a qué
+      // grupo ir tras "Agregar Gasto compartido") no puede confiar en leer
+      // `groups` del estado inmediatamente después del await: el state
+      // todavía no se actualizó en ese mismo render.
+      return fetched;
     } catch (err) {
       setGroupsError(err instanceof SharedGroupsApiError ? err.message : 'Error desconocido');
       throw err;

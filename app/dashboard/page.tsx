@@ -169,6 +169,7 @@ function Dashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showShareExpenseModal, setShowShareExpenseModal] = useState(false)
   const [showSharedGroupsModal, setShowSharedGroupsModal] = useState(false)
+  const [sharedGroupsEntryIntent, setSharedGroupsEntryIntent] = useState<'add-expense' | undefined>(undefined)
   const [selectedExpenseForShare, setSelectedExpenseForShare] = useState<Expense | null>(null)
   const [sharedExpenses, setSharedExpenses] = useState<Array<Record<string, unknown>>>([])
   const [isSharedExpensesExpanded, setIsSharedExpensesExpanded] = useState(false)
@@ -505,6 +506,19 @@ function Dashboard() {
     setTransactionType(type)
     setShowTransactionModal(true)
   }, [])
+
+  /** Envuelve handleTransactionAction para el FAB: agrega la acción "Gasto
+   * compartido" sin tocar handleTransactionAction ni el modal de
+   * transacciones -- esa acción no abre TransactionModal, abre
+   * SharedGroupsModal con la intención de terminar en Agregar gasto. */
+  const handleFabAction = useCallback((type: TransactionType | 'shared-expense') => {
+    if (type === 'shared-expense') {
+      setSharedGroupsEntryIntent('add-expense')
+      setShowSharedGroupsModal(true)
+      return
+    }
+    handleTransactionAction(type)
+  }, [handleTransactionAction])
 
   const openConfirmModal = useCallback((title: string, message: string, onConfirm: () => void) => {
     setConfirmConfig({ title, message, onConfirm });
@@ -1162,19 +1176,6 @@ function Dashboard() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {/* Quick access desktop a Gastos compartidos — reutiliza la barra de
-                    Filtro Global para mejorar descubrimiento sin agregar una fila/card
-                    nueva. El acceso del header (línea ~874) y el de mobile quedan
-                    intactos; este es un tercer punto de entrada, no un reemplazo. */}
-                <button
-                  onClick={() => setShowSharedGroupsModal(true)}
-                  className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-                >
-                  <Users className="w-4 h-4 text-[#FF007A]" />
-                  <span>Gastos compartidos</span>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </button>
-                <div className="hidden md:block w-px h-5 bg-gray-200 dark:bg-gray-700" />
                 <label htmlFor="global-date-filter" className="text-xs font-medium text-gray-600 dark:text-gray-300">
                   Período:
                 </label>
@@ -1901,7 +1902,7 @@ function Dashboard() {
       {/* Botón Flotante Mejorado */}
       {/* FAB: only on desktop — mobile uses BottomNavBar center button */}
       <div className="hidden md:block">
-        <FloatingActionButton onAction={handleTransactionAction} />
+        <FloatingActionButton onAction={handleFabAction} />
       </div>
 
       {/* Modal Unificado de Transacciones */}
@@ -2859,7 +2860,14 @@ function Dashboard() {
       />
 
       {/* Modal de Gastos Compartidos (grupos) */}
-      <SharedGroupsModal isOpen={showSharedGroupsModal} onClose={() => setShowSharedGroupsModal(false)} />
+      <SharedGroupsModal
+        isOpen={showSharedGroupsModal}
+        onClose={() => {
+          setShowSharedGroupsModal(false)
+          setSharedGroupsEntryIntent(undefined)
+        }}
+        entryIntent={sharedGroupsEntryIntent}
+      />
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -2875,7 +2883,7 @@ function Dashboard() {
             }, 50)
           }
         }}
-        onAction={handleTransactionAction}
+        onAction={handleFabAction}
         onMore={() => setShowBottomNav(!showBottomNav)}
       />
     </div>

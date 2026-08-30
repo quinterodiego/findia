@@ -19,7 +19,7 @@ import {
   Wallet,
   Check,
 } from 'lucide-react'
-import { useSharedGroups, SharedGroupsApiError, type SharedGroupExpenseWithSplits } from '@/hooks/useSharedGroups'
+import { useSharedGroups, SharedGroupsApiError, type SharedGroupExpenseWithSplits, type SharedGroupSummary } from '@/hooks/useSharedGroups'
 import { calculateEqualSplit } from '@/lib/sharedGroupBalances'
 import { formatCurrency, formatNumber } from '@/lib/formatNumber'
 import { getLocalTodayISODate, formatCivilDate } from '@/lib/formatDate'
@@ -30,9 +30,16 @@ import type { SharedGroupMember, SharedGroupPairBalance, SharedGroupSettlement }
 interface SharedGroupsModalProps {
   isOpen: boolean
   onClose: () => void
+  /** Intención de entrada al abrir el modal, ej. desde el FAB "Agregar Gasto
+   * compartido". `'add-expense'` hace que, apenas cargan los grupos, se
+   * resuelva automáticamente hacia el flujo de cargar un gasto (grupo único
+   * -> directo a Agregar gasto; varios grupos -> selector mínimo; 0 grupos ->
+   * mismo comportamiento de siempre). Cualquier otro acceso (navbar, card
+   * mobile, "Más") sigue sin pasar esta prop y abre el modal como siempre. */
+  entryIntent?: 'add-expense'
 }
 
-type View = 'list' | 'create-group' | 'detail' | 'add-expense' | 'settle' | 'members'
+type View = 'list' | 'create-group' | 'detail' | 'add-expense' | 'settle' | 'members' | 'select-group-for-expense'
 
 const PRIMARY_BUTTON = 'bg-gradient-to-r from-[#FF3A5F] to-[#FF007A] hover:opacity-90 transition-opacity text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
 
@@ -80,13 +87,17 @@ function friendlyErrorMessage(err: unknown): string {
   return 'Ocurrió un error inesperado.'
 }
 
-export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModalProps) {
+export default function SharedGroupsModal({ isOpen, onClose, entryIntent }: SharedGroupsModalProps) {
   const { data: session } = useSession()
   const { success: toastSuccess, error: toastError } = useToastContext()
   const hook = useSharedGroups()
 
   const [isMobile, setIsMobile] = useState(false)
   const [view, setView] = useState<View>('list')
+  // Marca que, apenas `hook.groupDetail`/`hook.myMemberId` estén listos tras
+  // abrir un grupo (no antes -- evita el mismo problema de estado parcial que
+  // "Miembros (0)"), hay que saltar automáticamente a Agregar gasto.
+  const [pendingAutoAddExpense, setPendingAutoAddExpense] = useState(false)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [groupMenuOpen, setGroupMenuOpen] = useState(false)
@@ -141,17 +152,63 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  /** Abre un grupo con la intención de terminar en Agregar gasto. Si el
+   * grupo ya tiene 2+ miembros (dato que el summary de la lista ya trae, sin
+   * pedirlo de nuevo) marca `pendingAutoAddExpense` para que el efecto de
+   * abajo dispare `openAddExpense()` recién cuando `hook.groupDetail`/
+   * `hook.myMemberId` estén realmente listos. Si tiene un solo miembro, se
+   * respeta la regla existente: se abre el detalle normal, que ya guía a
+   * "Agregar miembro" sin habilitar el gasto artificialmente. */
+  function resolveGroupForAddExpense(summary: SharedGroupSummary) {
+    setSelectedGroupId(summary.group.id)
+    setView('detail')
+    if (summary.members.length >= 2) {
+      setPendingAutoAddExpense(true)
+    }
+    hook.openGroup(summary.group.id).catch((err) => {
+      setPendingAutoAddExpense(false)
+      toastError(friendlyErrorMessage(err))
+    })
+  }
+
   useEffect(() => {
     if (isOpen) {
       setView('list')
       setSelectedGroupId(null)
       setFormError(null)
-      hook.fetchGroups().catch(() => {})
+      if (entryIntent === 'add-expense') {
+        hook
+          .fetchGroups()
+          .then((groups) => {
+            if (!groups || groups.length === 0) return // 0 grupos: mismo flujo de siempre (crear el primero)
+            if (groups.length === 1) {
+              resolveGroupForAddExpense(groups[0])
+              return
+            }
+            setView('select-group-for-expense')
+          })
+          .catch(() => {})
+      } else {
+        hook.fetchGroups().catch(() => {})
+      }
     } else {
       hook.closeGroup()
+      setPendingAutoAddExpense(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
+
+  // Recién cuando el detalle del grupo terminó de cargar de verdad (mismo
+  // criterio que arregló "Miembros (0)") se dispara el salto automático a
+  // Agregar gasto -- openAddExpense() lee hook.members/hook.myMemberId, que
+  // acá ya están actualizados porque el efecto corre en un render posterior.
+  useEffect(() => {
+    if (pendingAutoAddExpense && !hook.loadingDetail && hook.groupDetail && hook.myMemberId) {
+      setPendingAutoAddExpense(false)
+      openAddExpense()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoAddExpense, hook.loadingDetail, hook.groupDetail, hook.myMemberId])
 
   const activity = useMemo(() => {
     type Item =
@@ -574,7 +631,7 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
 
   const headerTitle =
     view === 'list'
-      ? 'Gastos compartidos'
+      ? 'Gastos Compartidos'
       : view === 'create-group'
         ? 'Nuevo grupo'
         : view === 'add-expense'
@@ -585,12 +642,14 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
             ? 'Saldar'
             : view === 'members'
               ? 'Miembros'
-              : hook.groupDetail?.name || 'Grupo'
+              : view === 'select-group-for-expense'
+                ? 'Agregar gasto compartido'
+                : hook.groupDetail?.name || 'Grupo'
 
   const showBack = view !== 'list'
 
   function handleBack() {
-    if (view === 'create-group') {
+    if (view === 'create-group' || view === 'select-group-for-expense') {
       setView('list')
     } else if (view === 'detail') {
       handleBackToList()
@@ -718,6 +777,25 @@ export default function SharedGroupsModal({ isOpen, onClose }: SharedGroupsModal
                   >
                     {hook.actionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Crear grupo'}
                   </button>
+                </div>
+              )}
+
+              {view === 'select-group-for-expense' && (
+                <div className="p-4 space-y-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">¿En qué grupo?</p>
+                  <div className="space-y-2.5">
+                    {hook.groups.map((summary) => (
+                      <button
+                        key={summary.group.id}
+                        onClick={() => resolveGroupForAddExpense(summary)}
+                        className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer text-left"
+                        style={{ minHeight: 44 }}
+                      >
+                        <span className="font-medium text-gray-900 dark:text-white truncate">{summary.group.name}</span>
+                        <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
