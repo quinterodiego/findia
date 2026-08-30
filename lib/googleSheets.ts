@@ -1,6 +1,8 @@
 import { google } from 'googleapis';
 import bcrypt from 'bcrypt';
-import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption, PDFImportTemplate, SmartTemplate } from '@/types';
+import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption, PDFImportTemplate, SmartTemplate, SharedGroup, SharedGroupMember, SharedGroupExpense, SharedGroupSplit, SharedGroupSettlement, SharedGroupPairBalance } from '@/types';
+import { parseCivilDate } from '@/lib/formatDate';
+import { computeGroupBalances, validateSettlementAgainstBalance, validateSharedGroupExpenseInput } from '@/lib/sharedGroupBalances';
 
 // Configuración de autenticación con Service Account
 const auth = new google.auth.GoogleAuth({
@@ -27,30 +29,86 @@ const SHEETS = {
   CREDIT_CARD_CONSUMPTIONS: 'CreditCardConsumptions',
   PDF_IMPORT_TEMPLATES: 'PDFImportTemplates',
   SHARED_EXPENSES: 'SharedExpenses',
+  // Gastos Compartidos V2 (grupos con N miembros) — coexisten con SHARED_EXPENSES,
+  // que sigue siendo el sistema 1:1 y no se toca.
+  SHARED_GROUPS: 'SharedGroups',
+  SHARED_GROUP_MEMBERS: 'SharedGroupMembers',
+  SHARED_GROUP_EXPENSES: 'SharedGroupExpenses',
+  SHARED_GROUP_SPLITS: 'SharedGroupSplits',
+  SHARED_GROUP_SETTLEMENTS: 'SharedGroupSettlements',
 } as const;
 
 // ============================================================================
 // INICIALIZACIÓN DE HOJAS
 // ============================================================================
 
+// ============================================================================
+// Clasificación de errores de la API de Google Sheets (googleapis/gaxios).
+// Helpers chicos y específicos — no una jerarquía de errores nueva. Se usan
+// para distinguir "la hoja/rango no existe todavía" (seguro tratar como
+// vacío) de un problema real de infraestructura (429/5xx/auth), que nunca
+// debe enmascararse como si el dato simplemente no existiera.
+// ============================================================================
+
+interface GoogleApiErrorShape {
+  code?: number;
+  status?: number | string;
+  message?: string;
+  response?: { status?: number };
+  errors?: Array<{ message?: string }>;
+}
+
+function getGoogleApiErrorStatus(error: unknown): number | undefined {
+  const err = error as GoogleApiErrorShape | undefined;
+  const status = err?.code ?? err?.response?.status;
+  return typeof status === 'number' ? status : undefined;
+}
+
+/** True si el error es un 429 (cuota de lecturas/escrituras excedida) real de Google Sheets. */
+export function isGoogleSheetsRateLimitError(error: unknown): boolean {
+  return getGoogleApiErrorStatus(error) === 429;
+}
+
+/** True si el error es un 5xx (o similar, sin código HTTP claro) de infraestructura de Google. */
+export function isGoogleSheetsInfrastructureError(error: unknown): boolean {
+  const status = getGoogleApiErrorStatus(error);
+  return typeof status === 'number' && status >= 500;
+}
+
 /**
- * Verifica si una hoja existe en el spreadsheet
+ * True SOLO si el error es específicamente "no se pudo interpretar el rango"
+ * (Google Sheets responde 400 con ese mensaje puntual cuando la hoja/tab
+ * referenciada no existe todavía) — la ÚNICA situación en la que corresponde
+ * tratar el error como "sin datos", nunca por defecto ante cualquier 400.
+ */
+function isGoogleSheetsNotFoundError(error: unknown): boolean {
+  const err = error as GoogleApiErrorShape | undefined;
+  if (getGoogleApiErrorStatus(error) !== 400) return false;
+  const message = err?.message || err?.errors?.[0]?.message || '';
+  return /unable to parse range/i.test(message);
+}
+
+/**
+ * Verifica si una hoja existe en el spreadsheet.
+ *
+ * IMPORTANTE: `spreadsheets.get()` trae los metadatos de TODO el spreadsheet
+ * (todas sus hojas) — nunca falla porque una hoja puntual no exista, eso
+ * simplemente no aparece en `response.data.sheets`. Por lo tanto, si esta
+ * llamada TIRA una excepción, nunca es un "la hoja no existe" legítimo: es
+ * siempre un problema de infraestructura (429 de cuota, 5xx transitorio,
+ * error de auth/config, red). Antes se atrapaba cualquier error acá y se
+ * devolvía `false`, lo que hacía que un 429 real terminara interpretándose
+ * como "la hoja no existe" en cada caller. Ahora el error se propaga tal
+ * cual — cada caller ya está dentro de un `async function` con su propio
+ * try/catch que relanza, así que esto no cambia su forma, solo evita que la
+ * excepción real quede enmascarada como `false`.
  */
 async function sheetExists(sheetName: string): Promise<boolean> {
-  try {
-    const response = await sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID,
-    });
-    
-    const sheetExists = response.data.sheets?.some(
-      sheet => sheet.properties?.title === sheetName
-    );
-    
-    return sheetExists || false;
-  } catch (error) {
-    console.error(`Error verificando hoja ${sheetName}:`, error);
-    return false;
-  }
+  const response = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+  });
+
+  return response.data.sheets?.some(sheet => sheet.properties?.title === sheetName) || false;
 }
 
 /**
@@ -3748,4 +3806,1195 @@ export async function saveSmartTemplate(
     console.error('Error guardando smart template:', error);
     throw error;
   }
+}
+
+// ============================================================================
+// OPERACIONES CRUD - SHARED GROUPS (Gastos Compartidos V2)
+// ============================================================================
+// Fase 1: solo persistencia + motor de balances puro (lib/sharedGroupBalances.ts).
+// Convive en paralelo con SHARED_EXPENSES (el sistema 1:1 de más arriba, que
+// NO se toca). Mismo patrón de creación perezosa de hoja que createSharedExpense:
+// cada función "create" verifica/crea su propia hoja antes de escribir, en vez
+// de depender de initializeSheets().
+
+function rowToSharedGroup(row: string[]): SharedGroup {
+  return {
+    id: row[0],
+    name: row[1],
+    createdBy: row[2],
+    createdAt: row[3] || new Date().toISOString(),
+  };
+}
+
+function rowToSharedGroupMember(row: string[]): SharedGroupMember {
+  return {
+    id: row[0],
+    groupId: row[1],
+    userId: row[2] || undefined,
+    name: row[3],
+    email: row[4] || undefined,
+    createdAt: row[5] || new Date().toISOString(),
+  };
+}
+
+function rowToSharedGroupExpense(row: string[]): SharedGroupExpense {
+  return {
+    id: row[0],
+    groupId: row[1],
+    description: row[2],
+    amount: parseFloat(row[3] || '0'),
+    currency: (row[4] as 'pesos' | 'usd') || 'pesos',
+    paidByMemberId: row[5],
+    date: row[6],
+    createdBy: row[7],
+    createdAt: row[8] || new Date().toISOString(),
+  };
+}
+
+function rowToSharedGroupSplit(row: string[]): SharedGroupSplit {
+  return {
+    id: row[0],
+    expenseId: row[1],
+    memberId: row[2],
+    amount: parseFloat(row[3] || '0'),
+  };
+}
+
+function rowToSharedGroupSettlement(row: string[]): SharedGroupSettlement {
+  return {
+    id: row[0],
+    groupId: row[1],
+    paidByMemberId: row[2],
+    paidToMemberId: row[3],
+    amount: parseFloat(row[4] || '0'),
+    currency: (row[5] as 'pesos' | 'usd') || 'pesos',
+    date: row[6],
+    createdBy: row[7],
+    createdAt: row[8] || new Date().toISOString(),
+    notes: row[9] || undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Groups
+// ---------------------------------------------------------------------------
+
+/**
+ * Crea un grupo y agrega automáticamente a su creador como miembro vinculado
+ * (userId = quien crea el grupo). Son 2 escrituras secuenciales a hojas
+ * distintas (SharedGroups, después SharedGroupMembers) — Google Sheets no
+ * tiene transacciones reales entre hojas. Si la segunda escritura fallara, el
+ * grupo quedaría sin ningún miembro (estado parcial); para minimizarlo, el
+ * catch intenta borrar el grupo recién creado (compensación best-effort, NO
+ * una transacción real) antes de relanzar el error original.
+ */
+export async function createSharedGroup(
+  userId: string,
+  data: { name: string; creatorName: string; creatorEmail?: string }
+): Promise<{ group: SharedGroup; creatorMember: SharedGroupMember }> {
+  if (!data.name || data.name.trim().length === 0) {
+    throw new Error('El nombre del grupo no puede estar vacío');
+  }
+  if (!data.creatorName || data.creatorName.trim().length === 0) {
+    throw new Error('Falta el nombre del creador para agregarlo como miembro');
+  }
+
+  await createSheetIfNotExists(SHEETS.SHARED_GROUPS, ['id', 'name', 'createdBy', 'createdAt']);
+  await createSheetIfNotExists(SHEETS.SHARED_GROUP_MEMBERS, ['id', 'groupId', 'userId', 'name', 'email', 'createdAt']);
+
+  const now = new Date().toISOString();
+  const group: SharedGroup = {
+    id: generateId(),
+    name: data.name.trim(),
+    createdBy: userId,
+    createdAt: now,
+  };
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUPS}!A2`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[group.id, group.name, group.createdBy, group.createdAt]],
+    },
+  });
+
+  try {
+    const creatorMember = await createSharedGroupMember(group.id, {
+      userId,
+      name: data.creatorName.trim(),
+      email: data.creatorEmail,
+    });
+    return { group, creatorMember };
+  } catch (error) {
+    try {
+      await deleteSharedGroup(group.id, userId);
+    } catch (cleanupError) {
+      console.error('Error limpiando grupo tras fallo al crear el miembro creador (queda huérfano, sin miembros):', cleanupError);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Grupos donde el usuario es MIEMBRO VINCULADO actualmente
+ * (SharedGroupMembers.userId === userId) — no alcanza con haber sido el
+ * creador, porque otros usuarios registrados también pueden pertenecer al
+ * grupo sin haberlo creado.
+ */
+export async function getSharedGroupsByUser(userId: string): Promise<SharedGroup[]> {
+  const [membersExist, groupsExist] = await Promise.all([
+    sheetExists(SHEETS.SHARED_GROUP_MEMBERS),
+    sheetExists(SHEETS.SHARED_GROUPS),
+  ]);
+  if (!membersExist || !groupsExist) return [];
+
+  const membersResponse = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_MEMBERS}!A2:F`,
+  });
+  const memberRows = membersResponse.data.values || [];
+  const myGroupIds = new Set(memberRows.filter((row) => row[2] === userId).map((row) => row[1]));
+  if (myGroupIds.size === 0) return [];
+
+  const groupsResponse = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUPS}!A2:D`,
+  });
+  const groupRows = groupsResponse.data.values || [];
+
+  return groupRows.filter((row) => myGroupIds.has(row[0])).map(rowToSharedGroup);
+}
+
+/**
+ * Busca un grupo por id, sin validar membresía (eso queda para la capa de
+ * API/permisos de una fase futura). Devuelve null si no existe.
+ */
+export async function getSharedGroupById(groupId: string): Promise<SharedGroup | null> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUPS);
+  if (!exists) return null;
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUPS}!A2:D`,
+  });
+  const rows = response.data.values || [];
+  const row = rows.find((r) => r[0] === groupId);
+  return row ? rowToSharedGroup(row) : null;
+}
+
+/** Solo el creador del grupo puede renombrarlo. */
+export async function updateSharedGroup(
+  groupId: string,
+  userId: string,
+  data: { name: string }
+): Promise<SharedGroup> {
+  if (!data.name || data.name.trim().length === 0) {
+    throw new Error('El nombre del grupo no puede estar vacío');
+  }
+
+  const exists = await sheetExists(SHEETS.SHARED_GROUPS);
+  if (!exists) throw new Error('Grupo no encontrado');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUPS}!A2:D`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === groupId && row[2] === userId);
+  if (rowIndex === -1) throw new Error('Grupo no encontrado o no tenés permisos para modificarlo');
+
+  const newName = data.name.trim();
+  const actualRowIndex = rowIndex + 2;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUPS}!B${actualRowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[newName]] },
+  });
+
+  return { ...rowToSharedGroup(rows[rowIndex]), name: newName };
+}
+
+/**
+ * Elimina la fila del grupo. NO elimina en cascada sus miembros, gastos,
+ * splits ni settlements (riesgo documentado, ver informe de entrega). Solo
+ * el creador puede eliminarlo.
+ */
+export async function deleteSharedGroup(groupId: string, userId: string): Promise<void> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUPS);
+  if (!exists) throw new Error('Grupo no encontrado');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUPS}!A2:D`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === groupId && row[2] === userId);
+  if (rowIndex === -1) throw new Error('Grupo no encontrado o no tenés permisos para eliminarlo');
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: await getSheetId(SHEETS.SHARED_GROUPS),
+              dimension: 'ROWS',
+              startIndex: actualRowIndex - 1,
+              endIndex: actualRowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Members
+// ---------------------------------------------------------------------------
+
+export async function getSharedGroupMembers(groupId: string): Promise<SharedGroupMember[]> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_MEMBERS);
+  if (!exists) return [];
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_MEMBERS}!A2:F`,
+  });
+  const rows = response.data.values || [];
+  return rows.filter((row) => row[1] === groupId).map(rowToSharedGroupMember);
+}
+
+/**
+ * Agrega un miembro al grupo. `userId` es opcional: un miembro sin cuenta
+ * FindIA ("shadow member") se agrega solo con `name`. No hay ninguna
+ * búsqueda ni vinculación automática por email acá — eso queda para una fase
+ * futura. Si se pasa `userId`, se rechaza si ese usuario ya es miembro.
+ */
+export async function createSharedGroupMember(
+  groupId: string,
+  data: { name: string; userId?: string; email?: string }
+): Promise<SharedGroupMember> {
+  if (!data.name || data.name.trim().length === 0) {
+    throw new Error('El nombre del miembro no puede estar vacío');
+  }
+
+  await createSheetIfNotExists(SHEETS.SHARED_GROUP_MEMBERS, ['id', 'groupId', 'userId', 'name', 'email', 'createdAt']);
+
+  if (data.userId) {
+    const existingMembers = await getSharedGroupMembers(groupId);
+    if (existingMembers.some((m) => m.userId === data.userId)) {
+      throw new Error('Ese usuario ya es miembro del grupo');
+    }
+  }
+
+  const now = new Date().toISOString();
+  const member: SharedGroupMember = {
+    id: generateId(),
+    groupId,
+    userId: data.userId || undefined,
+    name: data.name.trim(),
+    email: data.email || undefined,
+    createdAt: now,
+  };
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_MEMBERS}!A2`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[member.id, member.groupId, member.userId || '', member.name, member.email || '', member.createdAt]],
+    },
+  });
+
+  return member;
+}
+
+export async function updateSharedGroupMember(
+  memberId: string,
+  data: { name?: string; userId?: string; email?: string }
+): Promise<SharedGroupMember> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_MEMBERS);
+  if (!exists) throw new Error('Miembro no encontrado');
+
+  if (data.name !== undefined && data.name.trim().length === 0) {
+    throw new Error('El nombre del miembro no puede estar vacío');
+  }
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_MEMBERS}!A2:F`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === memberId);
+  if (rowIndex === -1) throw new Error('Miembro no encontrado');
+
+  const current = rowToSharedGroupMember(rows[rowIndex]);
+  const updated: SharedGroupMember = {
+    ...current,
+    name: data.name !== undefined ? data.name.trim() : current.name,
+    userId: data.userId !== undefined ? data.userId : current.userId,
+    email: data.email !== undefined ? data.email : current.email,
+  };
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_MEMBERS}!C${actualRowIndex}:E${actualRowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[updated.userId || '', updated.name, updated.email || '']],
+    },
+  });
+
+  return updated;
+}
+
+/**
+ * Elimina un miembro. NO verifica si tiene gastos, splits o settlements que
+ * lo referencian — eliminarlo puede dejar esas filas apuntando a un memberId
+ * inexistente (riesgo documentado; computeGroupBalances las ignora
+ * defensivamente si eso llegara a pasar).
+ */
+export async function deleteSharedGroupMember(memberId: string): Promise<void> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_MEMBERS);
+  if (!exists) throw new Error('Miembro no encontrado');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_MEMBERS}!A2:F`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === memberId);
+  if (rowIndex === -1) throw new Error('Miembro no encontrado');
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: await getSheetId(SHEETS.SHARED_GROUP_MEMBERS),
+              dimension: 'ROWS',
+              startIndex: actualRowIndex - 1,
+              endIndex: actualRowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Expenses + Splits
+// ---------------------------------------------------------------------------
+
+export async function getSharedGroupExpenses(groupId: string): Promise<SharedGroupExpense[]> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_EXPENSES);
+  if (!exists) return [];
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_EXPENSES}!A2:I`,
+  });
+  const rows = response.data.values || [];
+  return rows.filter((row) => row[1] === groupId).map(rowToSharedGroupExpense);
+}
+
+/** Lee todos los splits de un conjunto de expenseIds en UNA sola lectura de
+ * hoja (evita leer la hoja completa una vez por cada gasto en un loop). */
+export async function getSharedGroupSplitsForExpenseIds(expenseIds: string[]): Promise<SharedGroupSplit[]> {
+  if (expenseIds.length === 0) return [];
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_SPLITS);
+  if (!exists) return [];
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_SPLITS}!A2:D`,
+  });
+  const rows = response.data.values || [];
+  const expenseIdSet = new Set(expenseIds);
+  return rows.filter((row) => expenseIdSet.has(row[1])).map(rowToSharedGroupSplit);
+}
+
+export async function getSharedGroupSplits(expenseId: string): Promise<SharedGroupSplit[]> {
+  return getSharedGroupSplitsForExpenseIds([expenseId]);
+}
+
+/** Crea las filas de splits para un expenseId ya existente, en un único
+ * append (todas las filas de una sola vez, no una llamada por split). */
+export async function createSharedGroupSplits(
+  expenseId: string,
+  splits: { memberId: string; amount: number }[]
+): Promise<SharedGroupSplit[]> {
+  await createSheetIfNotExists(SHEETS.SHARED_GROUP_SPLITS, ['id', 'expenseId', 'memberId', 'amount']);
+
+  const created: SharedGroupSplit[] = splits.map((s) => ({
+    id: generateId(),
+    expenseId,
+    memberId: s.memberId,
+    amount: s.amount,
+  }));
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_SPLITS}!A2`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: created.map((s) => [s.id, s.expenseId, s.memberId, s.amount]),
+    },
+  });
+
+  return created;
+}
+
+/** Borra todos los splits de un expenseId (de abajo hacia arriba, para no
+ * desincronizar índices de fila entre borrados sucesivos en la misma hoja). */
+export async function deleteSharedGroupSplits(expenseId: string): Promise<void> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_SPLITS);
+  if (!exists) return;
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_SPLITS}!A2:D`,
+  });
+  const rows = response.data.values || [];
+  const rowIndexes = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => row[1] === expenseId)
+    .map(({ index }) => index + 2)
+    .sort((a, b) => b - a);
+
+  if (rowIndexes.length === 0) return;
+
+  const sheetId = await getSheetId(SHEETS.SHARED_GROUP_SPLITS);
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: rowIndexes.map((actualRowIndex) => ({
+        deleteDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: actualRowIndex - 1, endIndex: actualRowIndex },
+        },
+      })),
+    },
+  });
+}
+
+/** Borra solo la fila de SharedGroupExpenses, sin tocar splits — uso interno
+ * exclusivo de la compensación de createSharedGroupExpense (ahí todavía no
+ * hay splits que borrar: fue justamente su creación la que falló). */
+async function deleteSharedGroupExpenseRowOnly(expenseId: string): Promise<void> {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_EXPENSES}!A2:I`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === expenseId);
+  if (rowIndex === -1) return;
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: await getSheetId(SHEETS.SHARED_GROUP_EXPENSES),
+              dimension: 'ROWS',
+              startIndex: actualRowIndex - 1,
+              endIndex: actualRowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+}
+
+/**
+ * Crea un SharedGroupExpense junto con sus splits, tratando la operación como
+ * una unidad lógica — aunque Google Sheets no tiene transacciones reales
+ * entre hojas. Estrategia para minimizar el riesgo de estado parcial:
+ *   1. Se valida TODO (monto, descripción, moneda, pagador y splits
+ *      perteneciendo al grupo, suma exacta en centavos) ANTES de escribir
+ *      una sola fila.
+ *   2. Los N splits se escriben en un único append (una sola llamada a la
+ *      API, no N llamadas), acotando la ventana de riesgo a 2 llamadas
+ *      secuenciales (gasto, después splits).
+ *   3. Si falla el append de splits después de haber creado el gasto, se
+ *      intenta borrar el gasto recién creado (compensación best-effort, NO
+ *      un rollback real) antes de relanzar el error original.
+ * Si ese borrado de compensación también fallara, quedaría un
+ * SharedGroupExpense sin ningún SharedGroupSplit asociado — una fila
+ * huérfana detectable después (riesgo documentado, no resuelto con
+ * infraestructura de transacciones en esta fase).
+ */
+export async function createSharedGroupExpense(
+  groupId: string,
+  userId: string,
+  data: {
+    description: string;
+    amount: number;
+    currency: 'pesos' | 'usd';
+    paidByMemberId: string;
+    date: string;
+    splits: { memberId: string; amount: number }[];
+  }
+): Promise<{ expense: SharedGroupExpense; splits: SharedGroupSplit[] }> {
+  const members = await getSharedGroupMembers(groupId);
+  if (members.length === 0) {
+    throw new Error('El grupo no tiene miembros — no se puede cargar un gasto');
+  }
+  const validMemberIds = members.map((m) => m.id);
+
+  const validation = validateSharedGroupExpenseInput(
+    {
+      description: data.description,
+      amount: data.amount,
+      currency: data.currency,
+      paidByMemberId: data.paidByMemberId,
+      splits: data.splits,
+    },
+    validMemberIds
+  );
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  if (!parseCivilDate(data.date)) {
+    throw new Error('La fecha del gasto no es válida (se espera formato YYYY-MM-DD)');
+  }
+
+  await createSheetIfNotExists(SHEETS.SHARED_GROUP_EXPENSES, [
+    'id', 'groupId', 'description', 'amount', 'currency', 'paidByMemberId', 'date', 'createdBy', 'createdAt',
+  ]);
+
+  const now = new Date().toISOString();
+  const expense: SharedGroupExpense = {
+    id: generateId(),
+    groupId,
+    description: data.description.trim(),
+    amount: data.amount,
+    currency: data.currency,
+    paidByMemberId: data.paidByMemberId,
+    date: data.date,
+    createdBy: userId,
+    createdAt: now,
+  };
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_EXPENSES}!A2`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[
+        expense.id, expense.groupId, expense.description, expense.amount, expense.currency,
+        expense.paidByMemberId, expense.date, expense.createdBy, expense.createdAt,
+      ]],
+    },
+  });
+
+  try {
+    const splits = await createSharedGroupSplits(expense.id, data.splits);
+    return { expense, splits };
+  } catch (error) {
+    try {
+      await deleteSharedGroupExpenseRowOnly(expense.id);
+    } catch (cleanupError) {
+      console.error('Error limpiando gasto tras fallo al crear los splits (queda huérfano, sin splits):', cleanupError);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Actualiza los campos propios de un gasto. Si se cambia `amount`, es
+ * OBLIGATORIO pasar también `splits` (con la nueva suma exacta) — nunca se
+ * permite cambiar el monto sin revalidar/reescribir los splits, para no
+ * romper el invariante suma(splits) === amount.
+ */
+export async function updateSharedGroupExpense(
+  expenseId: string,
+  userId: string,
+  data: {
+    description?: string;
+    amount?: number;
+    currency?: 'pesos' | 'usd';
+    paidByMemberId?: string;
+    date?: string;
+    splits?: { memberId: string; amount: number }[];
+  }
+): Promise<SharedGroupExpense> {
+  if (data.amount !== undefined && !data.splits) {
+    throw new Error('Para cambiar el monto también hay que pasar los nuevos splits');
+  }
+
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_EXPENSES);
+  if (!exists) throw new Error('Gasto no encontrado');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_EXPENSES}!A2:I`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === expenseId && row[7] === userId);
+  if (rowIndex === -1) throw new Error('Gasto no encontrado o no tenés permisos para modificarlo');
+
+  const current = rowToSharedGroupExpense(rows[rowIndex]);
+  const updated: SharedGroupExpense = {
+    ...current,
+    description: data.description !== undefined ? data.description.trim() : current.description,
+    amount: data.amount !== undefined ? data.amount : current.amount,
+    currency: data.currency !== undefined ? data.currency : current.currency,
+    paidByMemberId: data.paidByMemberId !== undefined ? data.paidByMemberId : current.paidByMemberId,
+    date: data.date !== undefined ? data.date : current.date,
+  };
+
+  if (updated.description.trim().length === 0) {
+    throw new Error('La descripción no puede estar vacía');
+  }
+  if (data.date !== undefined && !parseCivilDate(data.date)) {
+    throw new Error('La fecha del gasto no es válida (se espera formato YYYY-MM-DD)');
+  }
+
+  const members = await getSharedGroupMembers(current.groupId);
+  const validMemberIds = members.map((m) => m.id);
+
+  if (data.splits) {
+    const validation = validateSharedGroupExpenseInput(
+      {
+        description: updated.description,
+        amount: updated.amount,
+        currency: updated.currency,
+        paidByMemberId: updated.paidByMemberId,
+        splits: data.splits,
+      },
+      validMemberIds
+    );
+    if (!validation.valid) throw new Error(validation.error);
+  } else if (!validMemberIds.includes(updated.paidByMemberId)) {
+    throw new Error('El pagador debe ser un miembro del grupo');
+  }
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_EXPENSES}!C${actualRowIndex}:G${actualRowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[updated.description, updated.amount, updated.currency, updated.paidByMemberId, updated.date]],
+    },
+  });
+
+  if (data.splits) {
+    await deleteSharedGroupSplits(expenseId);
+    await createSharedGroupSplits(expenseId, data.splits);
+  }
+
+  return updated;
+}
+
+/** Elimina el gasto y, en cascada, todos sus splits (un split sin su gasto no
+ * tiene ningún significado por sí solo). */
+export async function deleteSharedGroupExpense(expenseId: string, userId: string): Promise<void> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_EXPENSES);
+  if (!exists) throw new Error('Gasto no encontrado');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_EXPENSES}!A2:I`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === expenseId && row[7] === userId);
+  if (rowIndex === -1) throw new Error('Gasto no encontrado o no tenés permisos para eliminarlo');
+
+  await deleteSharedGroupSplits(expenseId);
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: await getSheetId(SHEETS.SHARED_GROUP_EXPENSES),
+              dimension: 'ROWS',
+              startIndex: actualRowIndex - 1,
+              endIndex: actualRowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Settlements
+// ---------------------------------------------------------------------------
+
+export async function getSharedGroupSettlements(groupId: string): Promise<SharedGroupSettlement[]> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_SETTLEMENTS);
+  if (!exists) return [];
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_SETTLEMENTS}!A2:J`,
+  });
+  const rows = response.data.values || [];
+  return rows.filter((row) => row[1] === groupId).map(rowToSharedGroupSettlement);
+}
+
+/**
+ * Registra un pago externo entre dos miembros del grupo (NO procesa dinero
+ * real). Antes de escribir, recalcula el balance actual del grupo (gastos +
+ * splits + settlements existentes, una sola lectura de cada hoja) y rechaza
+ * el settlement si supera lo que el pagador efectivamente debe al receptor
+ * en esa moneda — evita generar una deuda invertida por error de carga.
+ */
+export async function createSharedGroupSettlement(
+  groupId: string,
+  userId: string,
+  data: {
+    paidByMemberId: string;
+    paidToMemberId: string;
+    amount: number;
+    currency: 'pesos' | 'usd';
+    date: string;
+    notes?: string;
+  }
+): Promise<SharedGroupSettlement> {
+  if (!Number.isFinite(data.amount) || data.amount <= 0) {
+    throw new Error('El monto del pago debe ser un número finito mayor a 0');
+  }
+  if (data.currency !== 'pesos' && data.currency !== 'usd') {
+    throw new Error("La moneda debe ser 'pesos' o 'usd'");
+  }
+  if (data.paidByMemberId === data.paidToMemberId) {
+    throw new Error('El pagador y el receptor del pago no pueden ser el mismo miembro');
+  }
+  if (!parseCivilDate(data.date)) {
+    throw new Error('La fecha del pago no es válida (se espera formato YYYY-MM-DD)');
+  }
+
+  const members = await getSharedGroupMembers(groupId);
+  const validMemberIds = members.map((m) => m.id);
+  if (!validMemberIds.includes(data.paidByMemberId) || !validMemberIds.includes(data.paidToMemberId)) {
+    throw new Error('El pagador y el receptor deben ser miembros del grupo');
+  }
+
+  const expenses = await getSharedGroupExpenses(groupId);
+  const splits = await getSharedGroupSplitsForExpenseIds(expenses.map((e) => e.id));
+  const existingSettlements = await getSharedGroupSettlements(groupId);
+
+  const currentBalances = computeGroupBalances(
+    members.map((m) => ({ id: m.id })),
+    expenses.map((e) => ({ id: e.id, paidByMemberId: e.paidByMemberId, currency: e.currency })),
+    splits.map((s) => ({ expenseId: s.expenseId, memberId: s.memberId, amount: s.amount })),
+    existingSettlements.map((s) => ({
+      paidByMemberId: s.paidByMemberId,
+      paidToMemberId: s.paidToMemberId,
+      amount: s.amount,
+      currency: s.currency,
+    }))
+  );
+
+  const validation = validateSettlementAgainstBalance(currentBalances, data);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  await createSheetIfNotExists(SHEETS.SHARED_GROUP_SETTLEMENTS, [
+    'id', 'groupId', 'paidByMemberId', 'paidToMemberId', 'amount', 'currency', 'date', 'createdBy', 'createdAt', 'notes',
+  ]);
+
+  const now = new Date().toISOString();
+  const settlement: SharedGroupSettlement = {
+    id: generateId(),
+    groupId,
+    paidByMemberId: data.paidByMemberId,
+    paidToMemberId: data.paidToMemberId,
+    amount: data.amount,
+    currency: data.currency,
+    date: data.date,
+    createdBy: userId,
+    createdAt: now,
+    notes: data.notes || undefined,
+  };
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_SETTLEMENTS}!A2`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[
+        settlement.id, settlement.groupId, settlement.paidByMemberId, settlement.paidToMemberId,
+        settlement.amount, settlement.currency, settlement.date, settlement.createdBy, settlement.createdAt,
+        settlement.notes || '',
+      ]],
+    },
+  });
+
+  return settlement;
+}
+
+/**
+ * Actualiza un settlement. Si cambia algún campo financiero (amount,
+ * currency, paidByMemberId o paidToMemberId), se revalida contra el balance
+ * del grupo EXCLUYENDO el efecto de este mismo settlement (no el balance ya
+ * neteado con él adentro) — para no autorrechazar un pago por su propio
+ * efecto ya aplicado.
+ */
+export async function updateSharedGroupSettlement(
+  settlementId: string,
+  userId: string,
+  data: {
+    paidByMemberId?: string;
+    paidToMemberId?: string;
+    amount?: number;
+    currency?: 'pesos' | 'usd';
+    date?: string;
+    notes?: string;
+  }
+): Promise<SharedGroupSettlement> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_SETTLEMENTS);
+  if (!exists) throw new Error('Pago no encontrado');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_SETTLEMENTS}!A2:J`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === settlementId && row[7] === userId);
+  if (rowIndex === -1) throw new Error('Pago no encontrado o no tenés permisos para modificarlo');
+
+  const current = rowToSharedGroupSettlement(rows[rowIndex]);
+  const updated: SharedGroupSettlement = {
+    ...current,
+    paidByMemberId: data.paidByMemberId !== undefined ? data.paidByMemberId : current.paidByMemberId,
+    paidToMemberId: data.paidToMemberId !== undefined ? data.paidToMemberId : current.paidToMemberId,
+    amount: data.amount !== undefined ? data.amount : current.amount,
+    currency: data.currency !== undefined ? data.currency : current.currency,
+    date: data.date !== undefined ? data.date : current.date,
+    notes: data.notes !== undefined ? data.notes : current.notes,
+  };
+
+  if (!Number.isFinite(updated.amount) || updated.amount <= 0) {
+    throw new Error('El monto del pago debe ser un número finito mayor a 0');
+  }
+  if (updated.paidByMemberId === updated.paidToMemberId) {
+    throw new Error('El pagador y el receptor del pago no pueden ser el mismo miembro');
+  }
+  if (data.date !== undefined && !parseCivilDate(data.date)) {
+    throw new Error('La fecha del pago no es válida (se espera formato YYYY-MM-DD)');
+  }
+
+  const financialFieldsChanged =
+    data.amount !== undefined ||
+    data.currency !== undefined ||
+    data.paidByMemberId !== undefined ||
+    data.paidToMemberId !== undefined;
+
+  if (financialFieldsChanged) {
+    const members = await getSharedGroupMembers(current.groupId);
+    const validMemberIds = members.map((m) => m.id);
+    if (!validMemberIds.includes(updated.paidByMemberId) || !validMemberIds.includes(updated.paidToMemberId)) {
+      throw new Error('El pagador y el receptor deben ser miembros del grupo');
+    }
+
+    const expenses = await getSharedGroupExpenses(current.groupId);
+    const splits = await getSharedGroupSplitsForExpenseIds(expenses.map((e) => e.id));
+    const otherSettlements = (await getSharedGroupSettlements(current.groupId)).filter((s) => s.id !== settlementId);
+
+    const balancesWithoutThisSettlement = computeGroupBalances(
+      members.map((m) => ({ id: m.id })),
+      expenses.map((e) => ({ id: e.id, paidByMemberId: e.paidByMemberId, currency: e.currency })),
+      splits.map((s) => ({ expenseId: s.expenseId, memberId: s.memberId, amount: s.amount })),
+      otherSettlements.map((s) => ({
+        paidByMemberId: s.paidByMemberId,
+        paidToMemberId: s.paidToMemberId,
+        amount: s.amount,
+        currency: s.currency,
+      }))
+    );
+
+    const validation = validateSettlementAgainstBalance(balancesWithoutThisSettlement, updated);
+    if (!validation.valid) throw new Error(validation.error);
+  }
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_SETTLEMENTS}!C${actualRowIndex}:J${actualRowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[
+        updated.paidByMemberId, updated.paidToMemberId, updated.amount, updated.currency,
+        updated.date, updated.createdBy, updated.createdAt, updated.notes || '',
+      ]],
+    },
+  });
+
+  return updated;
+}
+
+/**
+ * Elimina un settlement. NO revalida retroactivamente otros settlements
+ * posteriores del mismo grupo (riesgo documentado: en un caso extremo, borrar
+ * un pago viejo podría dejar un pago más nuevo matemáticamente "excedido"
+ * respecto del balance recalculado — no se resuelve con infraestructura de
+ * versionado en esta fase).
+ */
+export async function deleteSharedGroupSettlement(settlementId: string, userId: string): Promise<void> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_SETTLEMENTS);
+  if (!exists) throw new Error('Pago no encontrado');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_SETTLEMENTS}!A2:J`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === settlementId && row[7] === userId);
+  if (rowIndex === -1) throw new Error('Pago no encontrado o no tenés permisos para eliminarlo');
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: await getSheetId(SHEETS.SHARED_GROUP_SETTLEMENTS),
+              dimension: 'ROWS',
+              startIndex: actualRowIndex - 1,
+              endIndex: actualRowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+}
+
+// ============================================================================
+// FASE 2 — helpers de autorización, integridad y agregación para las API
+// routes de Gastos Compartidos V2. NINGUNA función de Fase 1 de arriba se
+// modifica; esto solo agrega funciones nuevas que las reutilizan.
+// ============================================================================
+
+/**
+ * Resuelve la membresía vinculada del usuario autenticado en un grupo.
+ * Única fuente de verdad para "pertenece al grupo": busca por
+ * SharedGroupMember.userId — NUNCA por email — así que un shadow member
+ * (sin userId) nunca puede matchear un usuario autenticado.
+ */
+export async function getSharedGroupMemberForUser(groupId: string, userId: string): Promise<SharedGroupMember | null> {
+  const members = await getSharedGroupMembers(groupId);
+  return members.find((m) => m.userId === userId) || null;
+}
+
+/** Lee members + expenses + splits + settlements de un grupo en 4 lecturas
+ * totales — el insumo listo para computeGroupBalances /
+ * findFirstSettlementBrokenByReplay sin leer ninguna hoja más de una vez. */
+export async function getSharedGroupBalanceInputs(groupId: string): Promise<{
+  members: SharedGroupMember[];
+  expenses: SharedGroupExpense[];
+  splits: SharedGroupSplit[];
+  settlements: SharedGroupSettlement[];
+}> {
+  const members = await getSharedGroupMembers(groupId);
+  const expenses = await getSharedGroupExpenses(groupId);
+  const splits = await getSharedGroupSplitsForExpenseIds(expenses.map((e) => e.id));
+  const settlements = await getSharedGroupSettlements(groupId);
+  return { members, expenses, splits, settlements };
+}
+
+/**
+ * Chequea si un miembro está referenciado por algún gasto, split o
+ * settlement de su propio grupo (paidByMemberId, split.memberId,
+ * paidByMemberId/paidToMemberId de settlements). 3 lecturas (expenses,
+ * splits, settlements) — se usa para bloquear el borrado de un miembro con
+ * movimientos asociados, en vez de dejar filas huérfanas.
+ */
+export async function isSharedGroupMemberReferenced(groupId: string, memberId: string): Promise<boolean> {
+  const expenses = await getSharedGroupExpenses(groupId);
+  if (expenses.some((e) => e.paidByMemberId === memberId)) return true;
+
+  const splits = await getSharedGroupSplitsForExpenseIds(expenses.map((e) => e.id));
+  if (splits.some((s) => s.memberId === memberId)) return true;
+
+  const settlements = await getSharedGroupSettlements(groupId);
+  if (settlements.some((s) => s.paidByMemberId === memberId || s.paidToMemberId === memberId)) return true;
+
+  return false;
+}
+
+/** Borra todas las filas de `sheetName` cuya columna `matchColumnIndex` sea
+ * exactamente `matchValue`, en un único batchUpdate. Devuelve los ids
+ * (columna 0) de las filas borradas — útil para encadenar (ej. expenseIds
+ * borrados, para después borrar sus splits). Uso interno de
+ * deleteSharedGroupCascade. */
+async function deleteRowsMatching(sheetName: string, matchColumnIndex: number, matchValue: string, range: string): Promise<string[]> {
+  const exists = await sheetExists(sheetName);
+  if (!exists) return [];
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!${range}` });
+  const rows = response.data.values || [];
+  const matches = rows.map((row, index) => ({ row, index })).filter(({ row }) => row[matchColumnIndex] === matchValue);
+  if (matches.length === 0) return [];
+
+  const sheetId = await getSheetId(sheetName);
+  const rowIndexesDesc = matches.map(({ index }) => index + 2).sort((a, b) => b - a);
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: rowIndexesDesc.map((actualRowIndex) => ({
+        deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: actualRowIndex - 1, endIndex: actualRowIndex } },
+      })),
+    },
+  });
+  return matches.map(({ row }) => row[0]);
+}
+
+/** Igual que deleteRowsMatching pero contra un CONJUNTO de valores posibles
+ * (ej. borrar los splits de N expenseIds a la vez, en una sola lectura). */
+async function deleteRowsMatchingAny(sheetName: string, matchColumnIndex: number, matchValues: string[], range: string): Promise<void> {
+  if (matchValues.length === 0) return;
+  const exists = await sheetExists(sheetName);
+  if (!exists) return;
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: `${sheetName}!${range}` });
+  const rows = response.data.values || [];
+  const valueSet = new Set(matchValues);
+  const matches = rows.map((row, index) => ({ row, index })).filter(({ row }) => valueSet.has(row[matchColumnIndex]));
+  if (matches.length === 0) return;
+
+  const sheetId = await getSheetId(sheetName);
+  const rowIndexesDesc = matches.map(({ index }) => index + 2).sort((a, b) => b - a);
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: rowIndexesDesc.map((actualRowIndex) => ({
+        deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: actualRowIndex - 1, endIndex: actualRowIndex } },
+      })),
+    },
+  });
+}
+
+/**
+ * Borra un grupo completo en cascada: splits -> expenses -> settlements ->
+ * members -> group. Solo el creador puede ejecutarlo (lanza Error si no).
+ * Google Sheets no tiene transacciones reales entre hojas: si un paso
+ * intermedio falla, la operación queda parcialmente aplicada y el error se
+ * relanza tal cual — no se intenta revertir lo ya borrado (no es factible de
+ * forma segura sin una transacción real; ver informe de entrega). Lee cada
+ * hoja involucrada exactamente una vez.
+ */
+export async function deleteSharedGroupCascade(groupId: string, userId: string): Promise<void> {
+  const group = await getSharedGroupById(groupId);
+  if (!group) throw new Error('Grupo no encontrado');
+  if (group.createdBy !== userId) throw new Error('Solo el creador del grupo puede eliminarlo');
+
+  const expenseIds = await deleteRowsMatching(SHEETS.SHARED_GROUP_EXPENSES, 1, groupId, 'A2:I');
+  await deleteRowsMatchingAny(SHEETS.SHARED_GROUP_SPLITS, 1, expenseIds, 'A2:D');
+  await deleteRowsMatching(SHEETS.SHARED_GROUP_SETTLEMENTS, 1, groupId, 'A2:J');
+  await deleteRowsMatching(SHEETS.SHARED_GROUP_MEMBERS, 1, groupId, 'A2:F');
+  await deleteRowsMatching(SHEETS.SHARED_GROUPS, 0, groupId, 'A2:D');
+}
+
+async function safeGetValues(range: string): Promise<string[][]> {
+  try {
+    const resp = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
+    return (resp.data.values || []) as string[][];
+  } catch (error) {
+    // Solo "el rango/hoja no existe todavía" es seguro tratar como vacío.
+    // Cualquier otro error (429, 5xx, auth) se relanza — antes se atrapaba
+    // todo por igual, lo que enmascaraba un 429 real como "sin datos".
+    if (isGoogleSheetsNotFoundError(error)) return [];
+    throw error;
+  }
+}
+
+/**
+ * Resumen de TODOS los grupos donde el usuario es miembro vinculado, cada
+ * uno con su balance ya calculado — en exactamente 5 lecturas TOTALES (una
+ * por hoja V2), sin importar cuántos grupos tenga el usuario. La alternativa
+ * ingenua ("por cada grupo, leer y calcular su balance") escala linealmente
+ * con la cantidad de grupos y fue explícitamente la causa del 429 real
+ * detectado en Fase 1 — se evita a propósito acá agregando todo en memoria
+ * después de leer cada hoja una sola vez.
+ */
+export async function getSharedGroupsSummaryForUser(userId: string): Promise<Array<{
+  group: SharedGroup;
+  myMemberId: string;
+  balances: SharedGroupPairBalance[];
+  // Fase 3 (frontend): id+name de cada miembro, para que la lista de grupos
+  // pueda mostrar "Ana te debe $X" y la cantidad de personas SIN pedir
+  // /members por cada grupo (evita el N+1 que causó el 429 real).
+  members: Array<{ id: string; name: string }>;
+}>> {
+  const [groupRows, memberRows, expenseRows, splitRows, settlementRows] = await Promise.all([
+    safeGetValues(`${SHEETS.SHARED_GROUPS}!A2:D`),
+    safeGetValues(`${SHEETS.SHARED_GROUP_MEMBERS}!A2:F`),
+    safeGetValues(`${SHEETS.SHARED_GROUP_EXPENSES}!A2:I`),
+    safeGetValues(`${SHEETS.SHARED_GROUP_SPLITS}!A2:D`),
+    safeGetValues(`${SHEETS.SHARED_GROUP_SETTLEMENTS}!A2:J`),
+  ]);
+
+  const allMembers = memberRows.map(rowToSharedGroupMember);
+  const myMemberships = allMembers.filter((m) => m.userId === userId);
+  if (myMemberships.length === 0) return [];
+
+  const allGroups = groupRows.map(rowToSharedGroup);
+  const allExpenses = expenseRows.map(rowToSharedGroupExpense);
+  const allSplits = splitRows.map(rowToSharedGroupSplit);
+  const allSettlements = settlementRows.map(rowToSharedGroupSettlement);
+
+  const summaries: Array<{
+    group: SharedGroup;
+    myMemberId: string;
+    balances: SharedGroupPairBalance[];
+    members: Array<{ id: string; name: string }>;
+  }> = [];
+
+  for (const membership of myMemberships) {
+    const group = allGroups.find((g) => g.id === membership.groupId);
+    if (!group) continue; // membresía huérfana (grupo borrado sin cascada en algún momento anterior a Fase 2): se ignora
+
+    const groupMembers = allMembers.filter((m) => m.groupId === group.id);
+    const groupExpenses = allExpenses.filter((e) => e.groupId === group.id);
+    const groupExpenseIds = new Set(groupExpenses.map((e) => e.id));
+    const groupSplits = allSplits.filter((s) => groupExpenseIds.has(s.expenseId));
+    const groupSettlements = allSettlements.filter((s) => s.groupId === group.id);
+
+    const balances = computeGroupBalances(
+      groupMembers.map((m) => ({ id: m.id })),
+      groupExpenses.map((e) => ({ id: e.id, paidByMemberId: e.paidByMemberId, currency: e.currency })),
+      groupSplits.map((s) => ({ expenseId: s.expenseId, memberId: s.memberId, amount: s.amount })),
+      groupSettlements.map((s) => ({
+        paidByMemberId: s.paidByMemberId,
+        paidToMemberId: s.paidToMemberId,
+        amount: s.amount,
+        currency: s.currency,
+      }))
+    );
+
+    summaries.push({
+      group,
+      myMemberId: membership.id,
+      balances,
+      members: groupMembers.map((m) => ({ id: m.id, name: m.name })),
+    });
+  }
+
+  return summaries;
 }

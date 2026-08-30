@@ -41,6 +41,7 @@ import ThemeToggle from '@/components/ThemeToggle'
 import { useToast, ToastContainer } from '@/components/Toast'
 import ShareExpenseModal from '@/components/ShareExpenseModal'
 import SharedExpensesSection from '@/components/SharedExpensesSection'
+import SharedGroupsModal from '@/components/SharedGroupsModal'
 import FixedExpensesTable from '@/components/FixedExpensesTable'
 import { useFixedExpenses } from '@/hooks/useFixedExpenses'
 import DashboardAnalytics from '@/components/DashboardAnalytics'
@@ -167,6 +168,7 @@ function Dashboard() {
   const [selectedConsumption, setSelectedConsumption] = useState<{ id: string; merchant: string } | null>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showShareExpenseModal, setShowShareExpenseModal] = useState(false)
+  const [showSharedGroupsModal, setShowSharedGroupsModal] = useState(false)
   const [selectedExpenseForShare, setSelectedExpenseForShare] = useState<Expense | null>(null)
   const [sharedExpenses, setSharedExpenses] = useState<Array<Record<string, unknown>>>([])
   const [isSharedExpensesExpanded, setIsSharedExpensesExpanded] = useState(false)
@@ -864,6 +866,20 @@ function Dashboard() {
                 >
                   <TrendingUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   <span>Presupuesto</span>
+                </button>
+              </div>
+
+              {/* Botón de Gastos Compartidos - Solo Desktop */}
+              <div className="relative dropdown-container hidden md:block">
+                <button
+                  onClick={() => {
+                    setShowSharedGroupsModal(true)
+                  }}
+                  className="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                  title="Gastos compartidos"
+                >
+                  <Users className="w-5 h-5 text-[#FF007A]" />
+                  <span>Gastos compartidos</span>
                 </button>
               </div>
 
@@ -2672,6 +2688,16 @@ function Dashboard() {
                     </button>
                   </div>
                 </div>
+                <button
+                  onClick={() => {
+                    setShowSharedGroupsModal(true)
+                    setShowBottomNav(false)
+                  }}
+                  className="w-full flex items-center gap-2 p-3 mb-3 rounded-xl bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30 transition-colors cursor-pointer text-left"
+                >
+                  <Users className="w-5 h-5 text-[#FF007A]" />
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">Gastos compartidos</span>
+                </button>
                 <div className="grid grid-cols-2 gap-3">
                   {/* Sección Tarjetas de Crédito */}
                   <div className="space-y-2">
@@ -2798,6 +2824,9 @@ function Dashboard() {
         expense={selectedExpenseForShare}
         onShare={handleShareExpense}
       />
+
+      {/* Modal de Gastos Compartidos (grupos) */}
+      <SharedGroupsModal isOpen={showSharedGroupsModal} onClose={() => setShowSharedGroupsModal(false)} />
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />

@@ -63,6 +63,86 @@ export interface SharedExpenseBalance {
   balance: number // Balance neto (positivo = te deben, negativo = debes)
 }
 
+// ============================================================================
+// GASTOS COMPARTIDOS V2 — grupos con N miembros (Splitwise-like).
+// Convive en paralelo con SharedExpense (1:1) de arriba; no lo reemplaza ni lo
+// modifica. Nomenclatura deliberadamente distinta (SharedGroup*, nunca
+// SharedExpense) para evitar cualquier colisión de nombres o de datos.
+// ============================================================================
+
+export interface SharedGroup {
+  id: string
+  name: string
+  createdBy: string // userId del creador
+  createdAt: string
+}
+
+/**
+ * Un miembro del grupo. `userId` puede no existir todavía (miembro sin cuenta
+ * FindIA, agregado solo por nombre) — el flujo de vinculación posterior a un
+ * userId real es una fase futura, no implementada acá.
+ */
+export interface SharedGroupMember {
+  id: string
+  groupId: string
+  userId?: string
+  name: string
+  email?: string
+  createdAt: string
+}
+
+export interface SharedGroupExpense {
+  id: string
+  groupId: string
+  description: string
+  amount: number
+  currency: 'pesos' | 'usd'
+  paidByMemberId: string // SharedGroupMember.id de quien pagó
+  date: string // "YYYY-MM-DD", fecha civil (ver lib/formatDate.ts)
+  createdBy: string // userId de quien cargó el gasto
+  createdAt: string
+}
+
+/** Una línea de división de un SharedGroupExpense. La suma de amount de todos
+ * los splits de un mismo expenseId debe ser exactamente igual a expense.amount
+ * (comparado en centavos). */
+export interface SharedGroupSplit {
+  id: string
+  expenseId: string
+  memberId: string
+  amount: number
+}
+
+/** Registro de un pago externo entre dos miembros del grupo (no procesa
+ * dinero real, solo lo asienta para que el motor de balances lo descuente). */
+export interface SharedGroupSettlement {
+  id: string
+  groupId: string
+  paidByMemberId: string
+  paidToMemberId: string
+  amount: number
+  currency: 'pesos' | 'usd'
+  date: string
+  createdBy: string
+  createdAt: string
+  notes?: string
+}
+
+/** Balance neto entre un par de miembros, en una moneda: fromMemberId le debe
+ * `amount` a toMemberId. Solo se listan pares con deuda pendiente (amount > 0);
+ * un par saldado simplemente no aparece. */
+export interface SharedGroupPairBalance {
+  fromMemberId: string
+  toMemberId: string
+  currency: 'pesos' | 'usd'
+  amount: number
+}
+
+export interface SharedGroupBalanceResult {
+  groupId: string
+  balances: SharedGroupPairBalance[]
+}
+
 export interface Goal {
   id: string
   name: string
