@@ -1080,7 +1080,7 @@ function ListView({
   if (hook.groups.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-8 gap-3 text-center">
-        <div className="-mt-8 md:-mt-10 flex flex-col items-center gap-3">
+        <div className="md:-mt-10 flex flex-col items-center gap-3">
           <div className="w-16 h-16 rounded-full bg-pink-50 dark:bg-pink-900/20 flex items-center justify-center">
             <Users className="w-8 h-8 text-[#FF007A]" />
           </div>
