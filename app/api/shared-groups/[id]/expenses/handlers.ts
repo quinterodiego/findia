@@ -1,13 +1,9 @@
-import {
-  getSharedGroupById,
-  getSharedGroupMembers,
-  getSharedGroupExpenses,
-  getSharedGroupSplitsForExpenseIds,
-  createSharedGroupExpense,
-} from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { calculateEqualSplit } from '@/lib/sharedGroupBalances'
 import type { SharedGroupSplit } from '@/types'
 import { ApiError, wrapPhase1Call } from '../../_lib/apiError'
+
+const repository = getSharedGroupsRepository()
 
 /**
  * GET /api/shared-groups/[id]/expenses — solo miembros vinculados. Devuelve
@@ -17,15 +13,15 @@ import { ApiError, wrapPhase1Call } from '../../_lib/apiError'
  * splits se leen UNA sola vez para todo el grupo y se agrupan en memoria.
  */
 export async function listSharedGroupExpensesForUser(groupId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const members = await getSharedGroupMembers(groupId)
+  const members = await repository.getMembers(groupId)
   const isMember = members.some((m) => m.userId === userId)
   if (!isMember) throw new ApiError(403, 'No pertenecés a este grupo')
 
-  const expenses = await getSharedGroupExpenses(groupId)
-  const splits = await getSharedGroupSplitsForExpenseIds(expenses.map((e) => e.id))
+  const expenses = await repository.getExpenses(groupId)
+  const splits = await repository.getSplitsForExpenseIds(expenses.map((e) => e.id))
 
   const splitsByExpenseId = new Map<string, SharedGroupSplit[]>()
   for (const s of splits) {
@@ -53,10 +49,10 @@ export async function listSharedGroupExpensesForUser(groupId: string, userId: st
  * createSharedGroupExpense (Fase 1), sin duplicar esa lógica acá.
  */
 export async function createSharedGroupExpenseForUser(groupId: string, userId: string, body: unknown) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const members = await getSharedGroupMembers(groupId)
+  const members = await repository.getMembers(groupId)
   const isMember = members.some((m) => m.userId === userId)
   if (!isMember) throw new ApiError(403, 'No pertenecés a este grupo')
 
@@ -114,6 +110,6 @@ export async function createSharedGroupExpenseForUser(groupId: string, userId: s
   }
 
   return wrapPhase1Call(() =>
-    createSharedGroupExpense(groupId, userId, { description, amount, currency, paidByMemberId, date, splits })
+    repository.createExpense(groupId, userId, { description, amount, currency, paidByMemberId, date, splits })
   )
 }

@@ -1,17 +1,11 @@
-import {
-  getSharedGroupById,
-  getSharedGroupMembers,
-  getSharedGroupMemberForUser,
-  getSharedGroupInvitationsByMember,
-  getSharedGroupInvitationsByTargetEmail,
-  getSharedGroupInvitationsByGroup,
-  createSharedGroupInvitation,
-} from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { normalizeInvitationEmail, canCreateInvitation, isInvitationPending } from '@/lib/sharedGroupInvitations'
 import { sendSharedGroupInvitationNotification } from '@/lib/email'
 import { buildSharedGroupInvitationUrl } from '../../_lib/invitationUrl'
 import { ApiError, wrapPhase1Call } from '../../_lib/apiError'
 import type { SharedGroupInvitation } from '@/types'
+
+const repository = getSharedGroupsRepository()
 
 /**
  * POST /api/shared-groups/[id]/invitations — cualquier miembro VINCULADO del
@@ -39,17 +33,17 @@ export async function sendSharedGroupInvitationForUser(
   userId: string,
   body: unknown
 ): Promise<{ invitation: SharedGroupInvitation; token: string; emailSent: boolean }> {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const requester = await getSharedGroupMemberForUser(groupId, userId)
+  const requester = await repository.getMemberForUser(groupId, userId)
   if (!requester) throw new ApiError(403, 'No pertenecés a este grupo')
 
   const rawMemberId = (body as { memberId?: unknown })?.memberId
   const memberId = typeof rawMemberId === 'string' ? rawMemberId : ''
   if (!memberId) throw new ApiError(400, 'memberId es requerido')
 
-  const members = await getSharedGroupMembers(groupId)
+  const members = await repository.getMembers(groupId)
   const targetMember = members.find((m) => m.id === memberId)
   if (!targetMember) throw new ApiError(404, 'El miembro no pertenece a este grupo')
 
@@ -60,11 +54,11 @@ export async function sendSharedGroupInvitationForUser(
   const normalizedEmail = normalizeInvitationEmail(targetMember.email)
 
   // Duplicados — dos ejes distintos, ambos 409:
-  const existingForMember = await getSharedGroupInvitationsByMember(groupId, memberId)
+  const existingForMember = await repository.getInvitationsByMember(groupId, memberId)
   const memberCheck = canCreateInvitation(targetMember, existingForMember)
   if (!memberCheck.valid) throw new ApiError(409, memberCheck.error || 'No se puede invitar a este miembro')
 
-  const existingForEmail = await getSharedGroupInvitationsByTargetEmail(normalizedEmail)
+  const existingForEmail = await repository.getInvitationsByTargetEmail(normalizedEmail)
   const pendingForThisGroupAndEmail = existingForEmail.filter(
     (inv) => inv.groupId === groupId && inv.memberId !== memberId && isInvitationPending(inv)
   )
@@ -73,7 +67,7 @@ export async function sendSharedGroupInvitationForUser(
   }
 
   const { invitation, token } = await wrapPhase1Call(() =>
-    createSharedGroupInvitation(groupId, memberId, userId, normalizedEmail)
+    repository.createInvitation(groupId, memberId, userId, normalizedEmail)
   )
 
   const inviteUrl = buildSharedGroupInvitationUrl(invitation.id, token)
@@ -97,12 +91,12 @@ export async function sendSharedGroupInvitationForUser(
  * (reutiliza getSharedGroupInvitationsByGroup ya existente de Fase 4.1).
  */
 export async function listSharedGroupInvitationsForGroupForUser(groupId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const requester = await getSharedGroupMemberForUser(groupId, userId)
+  const requester = await repository.getMemberForUser(groupId, userId)
   if (!requester) throw new ApiError(403, 'No pertenecés a este grupo')
 
-  const invitations = await getSharedGroupInvitationsByGroup(groupId)
+  const invitations = await repository.getInvitationsByGroup(groupId)
   return invitations.filter((inv) => inv.status === 'pending')
 }

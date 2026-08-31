@@ -1,12 +1,8 @@
-import {
-  getSharedGroupById,
-  getSharedGroupMemberForUser,
-  updateSharedGroup,
-  deleteSharedGroupCascade,
-} from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { ApiError, wrapPhase1Call } from '../_lib/apiError'
 
 const MAX_NAME_LENGTH = 80
+const repository = getSharedGroupsRepository()
 
 /**
  * GET /api/shared-groups/[id]
@@ -16,10 +12,10 @@ const MAX_NAME_LENGTH = 80
  * creado).
  */
 export async function getSharedGroupDetailForUser(groupId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const member = await getSharedGroupMemberForUser(groupId, userId)
+  const member = await repository.getMemberForUser(groupId, userId)
   if (!member) throw new ApiError(403, 'No pertenecés a este grupo')
 
   return { group, myMemberId: member.id }
@@ -27,7 +23,7 @@ export async function getSharedGroupDetailForUser(groupId: string, userId: strin
 
 /** PUT /api/shared-groups/[id] — solo el creador puede renombrar. */
 export async function renameSharedGroupForUser(groupId: string, userId: string, body: unknown) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
   if (group.createdBy !== userId) throw new ApiError(403, 'Solo el creador del grupo puede renombrarlo')
 
@@ -36,7 +32,7 @@ export async function renameSharedGroupForUser(groupId: string, userId: string, 
   if (!name) throw new ApiError(400, 'El nombre del grupo es requerido')
   if (name.length > MAX_NAME_LENGTH) throw new ApiError(400, `El nombre del grupo no puede superar los ${MAX_NAME_LENGTH} caracteres`)
 
-  return wrapPhase1Call(() => updateSharedGroup(groupId, userId, { name }))
+  return wrapPhase1Call(() => repository.updateGroup(groupId, userId, { name }))
 }
 
 /**
@@ -48,9 +44,9 @@ export async function renameSharedGroupForUser(groupId: string, userId: string, 
  * esa posibilidad (ver informe de entrega para la justificación completa).
  */
 export async function deleteSharedGroupForUser(groupId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
   if (group.createdBy !== userId) throw new ApiError(403, 'Solo el creador del grupo puede eliminarlo')
 
-  await wrapPhase1Call(() => deleteSharedGroupCascade(groupId, userId))
+  await wrapPhase1Call(() => repository.deleteGroupCascade(groupId, userId))
 }

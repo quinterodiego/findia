@@ -1,6 +1,8 @@
-import { getSharedGroupById, getSharedGroupBalanceInputs, updateSharedGroupSettlement, deleteSharedGroupSettlement } from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { findFirstSettlementBrokenByReplay } from '@/lib/sharedGroupBalances'
 import { ApiError, wrapPhase1Call } from '../../../_lib/apiError'
+
+const repository = getSharedGroupsRepository()
 
 /**
  * PUT /api/shared-groups/[id]/settlements/[settlementId] — solo el autor
@@ -21,10 +23,10 @@ export async function updateSharedGroupSettlementForUser(
   userId: string,
   body: unknown
 ) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const { members, expenses, splits, settlements } = await getSharedGroupBalanceInputs(groupId)
+  const { members, expenses, splits, settlements } = await repository.getBalanceInputs(groupId)
   const target = settlements.find((s) => s.id === settlementId)
   if (!target) throw new ApiError(404, 'Pago no encontrado')
   if (target.createdBy !== userId) throw new ApiError(403, 'Solo el autor del pago puede editarlo')
@@ -107,7 +109,7 @@ export async function updateSharedGroupSettlementForUser(
     }
   }
 
-  return wrapPhase1Call(() => updateSharedGroupSettlement(settlementId, userId, data))
+  return wrapPhase1Call(() => repository.updateSettlement(settlementId, userId, data))
 }
 
 /**
@@ -117,10 +119,10 @@ export async function updateSharedGroupSettlementForUser(
  * quedaría pagando de más, se rechaza con 409.
  */
 export async function deleteSharedGroupSettlementForUser(groupId: string, settlementId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const { members, expenses, splits, settlements } = await getSharedGroupBalanceInputs(groupId)
+  const { members, expenses, splits, settlements } = await repository.getBalanceInputs(groupId)
   const target = settlements.find((s) => s.id === settlementId)
   if (!target) throw new ApiError(404, 'Pago no encontrado')
   if (target.createdBy !== userId) throw new ApiError(403, 'Solo el autor del pago puede eliminarlo')
@@ -143,5 +145,5 @@ export async function deleteSharedGroupSettlementForUser(groupId: string, settle
     )
   }
 
-  await wrapPhase1Call(() => deleteSharedGroupSettlement(settlementId, userId))
+  await wrapPhase1Call(() => repository.deleteSettlement(settlementId, userId))
 }

@@ -73,12 +73,12 @@ async function main() {
 
     console.log('\n=== D) ACCEPT: token incorrecto -> 403 genérico ===')
     await expectApiError('Token incorrecto -> 403', 403, () =>
-      acceptSharedGroupInvitationForUser(sentLaura.invitation.id, LAURA_REAL_USER_ID, 'laura.invite.test@email.com', { token: 'token-incorrecto' })
+      acceptSharedGroupInvitationForUser(sentLaura.invitation.id, LAURA_REAL_USER_ID, 'laura.invite.test@email.com', false, { token: 'token-incorrecto' })
     )
 
     console.log('\n=== E) ACCEPT: email de sesión no coincide -> 403 genérico ===')
     await expectApiError('Email no coincide -> 403', 403, () =>
-      acceptSharedGroupInvitationForUser(sentLaura.invitation.id, LAURA_REAL_USER_ID, 'otro-email@test.com', { token: sentLaura.token })
+      acceptSharedGroupInvitationForUser(sentLaura.invitation.id, LAURA_REAL_USER_ID, 'otro-email@test.com', false, { token: sentLaura.token })
     )
 
     console.log('\n=== F) ACCEPT correcto: linkea exactamente el member existente ===')
@@ -86,6 +86,7 @@ async function main() {
       sentLaura.invitation.id,
       LAURA_REAL_USER_ID,
       'Laura.Invite.Test@Email.com', // mayúsculas/espacios distintos a propósito -- debe normalizar igual
+      false,
       { token: sentLaura.token }
     )
     check('Invitation pasó a accepted', accepted.status === 'accepted')
@@ -102,18 +103,19 @@ async function main() {
       sentLaura.invitation.id,
       LAURA_REAL_USER_ID,
       'laura.invite.test@email.com',
+      false,
       { token: sentLaura.token }
     )
     check('Segundo accept devuelve status accepted sin lanzar', acceptedAgain.status === 'accepted')
 
     console.log('\n=== H) REJECT sobre una invitación ya accepted -> 409 ===')
     await expectApiError('Reject sobre accepted -> 409', 409, () =>
-      rejectSharedGroupInvitationForUser(sentLaura.invitation.id, 'laura.invite.test@email.com', { token: sentLaura.token })
+      rejectSharedGroupInvitationForUser(sentLaura.invitation.id, 'laura.invite.test@email.com', false, { token: sentLaura.token })
     )
 
     console.log('\n=== I) SEND a Juan, luego REJECT correcto ===')
     const sentJuan = await sendSharedGroupInvitationForUser(groupId, DIEGO_USER_ID, { memberId: juanMemberId })
-    const rejected = await rejectSharedGroupInvitationForUser(sentJuan.invitation.id, 'juan.invite.test@email.com', { token: sentJuan.token })
+    const rejected = await rejectSharedGroupInvitationForUser(sentJuan.invitation.id, 'juan.invite.test@email.com', false, { token: sentJuan.token })
     check('Invitation de Juan pasó a rejected', rejected.status === 'rejected')
 
     const membersAfterReject = await getSharedGroupMembers(groupId)
@@ -121,7 +123,7 @@ async function main() {
     check('Juan sigue shadow (reject no linkea member)', juanAfterReject?.userId === undefined)
 
     console.log('\n=== J) REJECT doble -> idempotente ===')
-    const rejectedAgain = await rejectSharedGroupInvitationForUser(sentJuan.invitation.id, 'juan.invite.test@email.com', { token: sentJuan.token })
+    const rejectedAgain = await rejectSharedGroupInvitationForUser(sentJuan.invitation.id, 'juan.invite.test@email.com', false, { token: sentJuan.token })
     check('Segundo reject devuelve rejected sin lanzar', rejectedAgain.status === 'rejected')
 
     console.log('\n=== K) Reinvitar a Juan tras el rechazo: crea una fila NUEVA ===')

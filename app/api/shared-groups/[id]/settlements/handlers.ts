@@ -1,16 +1,18 @@
-import { getSharedGroupById, getSharedGroupMembers, getSharedGroupSettlements, createSharedGroupSettlement } from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { ApiError, wrapPhase1Call } from '../../_lib/apiError'
+
+const repository = getSharedGroupsRepository()
 
 /** GET /api/shared-groups/[id]/settlements — solo miembros vinculados. */
 export async function listSharedGroupSettlementsForUser(groupId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const members = await getSharedGroupMembers(groupId)
+  const members = await repository.getMembers(groupId)
   const isMember = members.some((m) => m.userId === userId)
   if (!isMember) throw new ApiError(403, 'No pertenecés a este grupo')
 
-  return getSharedGroupSettlements(groupId)
+  return repository.getSettlements(groupId)
 }
 
 /**
@@ -27,10 +29,10 @@ export async function listSharedGroupSettlementsForUser(groupId: string, userId:
  * duplica acá.
  */
 export async function createSharedGroupSettlementForUser(groupId: string, userId: string, body: unknown) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const members = await getSharedGroupMembers(groupId)
+  const members = await repository.getMembers(groupId)
   const isMember = members.some((m) => m.userId === userId)
   if (!isMember) throw new ApiError(403, 'No pertenecés a este grupo')
 
@@ -56,6 +58,6 @@ export async function createSharedGroupSettlementForUser(groupId: string, userId
   const notes = typeof b.notes === 'string' ? b.notes : undefined
 
   return wrapPhase1Call(() =>
-    createSharedGroupSettlement(groupId, userId, { paidByMemberId, paidToMemberId, amount, currency, date, notes })
+    repository.createSettlement(groupId, userId, { paidByMemberId, paidToMemberId, amount, currency, date, notes })
   )
 }

@@ -64,6 +64,20 @@ function formatAmountForInput(value: number): string {
   return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger
 }
 
+/** Formatea en vivo mientras se escribe (punto de miles, coma decimal) --
+ * misma convención que formatAmountForInput/parseAmount, pero sin perder una
+ * coma decimal "en progreso" (ej. mientras se escribe "45," antes del
+ * segundo dígito decimal), que un simple round-trip parseAmount->
+ * formatAmountForInput en cada tecla sí perdería. */
+function formatAmountLive(raw: string): string {
+  const cleaned = raw.replace(/[^\d,]/g, '')
+  const firstComma = cleaned.indexOf(',')
+  const integerPart = firstComma === -1 ? cleaned : cleaned.slice(0, firstComma)
+  const decimalPart = firstComma === -1 ? '' : cleaned.slice(firstComma + 1).replace(/,/g, '').slice(0, 2)
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return firstComma === -1 ? formattedInteger : `${formattedInteger},${decimalPart}`
+}
+
 function parseAmount(value: string): number {
   if (!value || value.trim() === '') return 0
   const normalized = value.replace(/\./g, '').replace(',', '.')
@@ -565,11 +579,14 @@ export default function SharedGroupsModal({ isOpen, onClose, entryIntent }: Shar
       return
     }
     try {
-      await hook.addMember(selectedGroupId!, { name, email: newMemberEmail.trim() || undefined })
+      const member = await hook.addMember(selectedGroupId!, { name, email: newMemberEmail.trim() || undefined })
       setNewMemberName('')
       setNewMemberEmail('')
       setShowAddMemberForm(false)
-      toastSuccess('Miembro agregado')
+      // Fase 4.4.1: si el backend lo linkeó directamente (usuario FindIA
+      // elegible), avisarlo explícitamente -- sin mencionar el motivo de
+      // elegibilidad, solo el resultado observable.
+      toastSuccess(member.userId ? `${member.name} ya usa FindIA y fue agregado al grupo.` : 'Persona agregada.')
     } catch (err) {
       setFormError(friendlyErrorMessage(err))
     }
@@ -1628,7 +1645,7 @@ function AddExpenseView({
             type="text"
             inputMode="decimal"
             value={amountInput}
-            onChange={(e) => setAmountInput(e.target.value)}
+            onChange={(e) => setAmountInput(formatAmountLive(e.target.value))}
             placeholder="45.000"
             className="w-full pl-7 pr-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
@@ -1760,7 +1777,7 @@ function AddExpenseView({
                               type="text"
                               inputMode="decimal"
                               value={exactAmounts[memberId] || ''}
-                              onChange={(e) => setExactAmount(memberId, e.target.value)}
+                              onChange={(e) => setExactAmount(memberId, formatAmountLive(e.target.value))}
                               className="w-full pl-6 pr-2 py-2 text-sm text-right border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
                             />
                           </div>
@@ -1909,7 +1926,7 @@ function SettleView({
             type="text"
             inputMode="decimal"
             value={amountInput}
-            onChange={(e) => setAmountInput(e.target.value)}
+            onChange={(e) => setAmountInput(formatAmountLive(e.target.value))}
             className="w-full pl-7 pr-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl outline-none focus:outline-none focus:ring-2 focus:ring-[#FF3A5F] focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>
@@ -2076,8 +2093,10 @@ function MembersView({
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {isMe ? 'Vos' : member.name}
-                  {!member.userId && !isMe && (
-                    <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">Sin cuenta FindIA</span>
+                  {!isMe && (
+                    <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
+                      {member.userId ? 'Usuario de FindIA' : 'Sin cuenta FindIA'}
+                    </span>
                   )}
                 </p>
                 {member.email && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{member.email}</p>}
@@ -2104,7 +2123,7 @@ function MembersView({
                 )}
               </div>
             </div>
-            {(canInvite || pendingInvitation) && (
+            {!member.userId && (canInvite || pendingInvitation) && (
               <div className="mt-2.5 pt-2.5 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-2">
                 {pendingInvitation ? (
                   <>

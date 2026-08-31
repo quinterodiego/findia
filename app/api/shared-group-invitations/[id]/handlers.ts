@@ -1,6 +1,8 @@
-import { getSharedGroupInvitationById, getSharedGroupById, updateSharedGroupInvitation } from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { ApiError, wrapPhase1Call } from '@/app/api/shared-groups/_lib/apiError'
 import type { SharedGroupInvitation } from '@/types'
+
+const repository = getSharedGroupsRepository()
 
 /**
  * DELETE /api/shared-group-invitations/[id] — "cancelar". NO es un borrado
@@ -15,10 +17,10 @@ import type { SharedGroupInvitation } from '@/types'
  * es una acción del receptor).
  */
 export async function cancelSharedGroupInvitationForUser(invitationId: string, userId: string): Promise<SharedGroupInvitation> {
-  const invitation = await getSharedGroupInvitationById(invitationId)
+  const invitation = await repository.getInvitationById(invitationId)
   if (!invitation) throw new ApiError(404, 'Invitación no encontrada')
 
-  const group = await getSharedGroupById(invitation.groupId)
+  const group = await repository.getGroupById(invitation.groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
   const canCancel = invitation.invitedByUserId === userId || group.createdBy === userId
@@ -32,5 +34,5 @@ export async function cancelSharedGroupInvitationForUser(invitationId: string, u
     throw new ApiError(409, `Esta invitación ya fue ${label}, no se puede cancelar`)
   }
 
-  return wrapPhase1Call(() => updateSharedGroupInvitation(invitationId, 'cancelled'))
+  return wrapPhase1Call(() => repository.updateInvitationStatus(invitationId, 'cancelled'))
 }

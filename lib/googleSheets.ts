@@ -197,6 +197,8 @@ export async function initializeSheets() {
       'image',
       'createdAt',
       'lastLogin',
+      'googleVerifiedAt',
+      'googleOnlyIdentity',
     ]);
     
     // Verificar y actualizar headers de Users si falta la columna password
@@ -279,7 +281,32 @@ export async function initializeSheets() {
       }
     } catch (error) {
     }
-    
+
+    // Verificar y agregar las columnas de identidad (googleVerifiedAt /
+    // googleOnlyIdentity) si faltan. A diferencia de la migración de
+    // 'password' de arriba, estas son columnas puramente NUEVAS al final de
+    // la fila -- nunca reordenan ni reescriben datos existentes. Una fila
+    // vieja que quede sin estas columnas simplemente se lee como
+    // "desconocido" (ver getUserByEmail), nunca se infiere un valor.
+    try {
+      const identityHeadersResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEETS.USERS}!A1:Z1`,
+      });
+      const currentIdentityHeaders = identityHeadersResponse.data.values?.[0] || [];
+      if (!currentIdentityHeaders.includes('googleVerifiedAt') || !currentIdentityHeaders.includes('googleOnlyIdentity')) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${SHEETS.USERS}!A1:I1`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [['id', 'email', 'password', 'name', 'image', 'createdAt', 'lastLogin', 'googleVerifiedAt', 'googleOnlyIdentity']],
+          },
+        });
+      }
+    } catch (error) {
+    }
+
     // Crear hoja de Expenses
     await createSheetIfNotExists(SHEETS.EXPENSES, [
       'id',
@@ -877,14 +904,14 @@ export async function getUserByEmail(email: string) {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.USERS}!A2:G`,
+      range: `${SHEETS.USERS}!A2:I`,
     });
-    
+
     const rows = response.data.values || [];
     const user = rows.find(row => row[1]?.toLowerCase() === email.toLowerCase());
-    
+
     if (!user || !user[0]) return null;
-    
+
     return {
       id: user[0],
       email: user[1],
@@ -893,6 +920,9 @@ export async function getUserByEmail(email: string) {
       image: user[4],
       createdAt: user[5],
       lastLogin: user[6],
+      // Fase 4.4.1: nunca se infiere -- ausente/legacy queda undefined, no false.
+      googleVerifiedAt: user[7] || undefined,
+      googleOnlyIdentity: user[8] === 'true' ? true : user[8] === 'false' ? false : undefined,
     };
   } catch (error) {
     console.error('Error buscando usuario:', error);
@@ -909,28 +939,42 @@ export async function saveUser(user: {
   name?: string | null;
   image?: string | null;
   password?: string;
+  /** Fase 4.4.1: true SOLO cuando este llamado corresponde a un login real
+   * por Google que acaba de ocurrir (ver lib/auth.ts). Nunca lo pasa
+   * registerUser. */
+  markGoogleVerified?: boolean;
+  /**
+   * Fase 4.4.1 -- semántica CONSERVADORA, ver lib/userIdentity.ts:
+   *   true  -> SOLO cuando se sabe con certeza que esta fila se está
+   *            creando desde cero mediante Google (nunca existió antes).
+   *   false -> SOLO cuando se sabe con certeza que esta fila se está
+   *            creando desde cero mediante Credentials.
+   *   undefined (omitido) -> NO tocar el valor existente. Se preserva tal
+   *            cual estaba (nunca se convierte una ausencia en `false`).
+   */
+  googleOnlyIdentity?: boolean;
 }): Promise<string> {
   try {
     // Primero verificar si la hoja tiene el formato correcto
     try {
       const headersResponse = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEETS.USERS}!A1:G1`,
+        range: `${SHEETS.USERS}!A1:I1`,
       });
-      
+
       const headers = headersResponse.data.values?.[0] || [];
-      if (!headers.includes('password')) {
+      if (!headers.includes('password') || !headers.includes('googleVerifiedAt') || !headers.includes('googleOnlyIdentity')) {
         // Ejecutar migración automáticamente
         await initializeSheets();
       }
     } catch (migrationError) {
     }
-    
+
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.USERS}!A2:G`,
+      range: `${SHEETS.USERS}!A2:I`,
     });
-    
+
     const rows = response.data.values || [];
     // Buscar por ID primero, luego por email como fallback (para usuarios de Google)
     let existingUserIndex = rows.findIndex(row => row[0] === user.id);
@@ -938,7 +982,7 @@ export async function saveUser(user: {
       // Si no se encuentra por ID, buscar por email (para casos donde el ID cambió)
       existingUserIndex = rows.findIndex(row => row[1]?.toLowerCase() === user.email.toLowerCase());
     }
-    
+
     const now = new Date().toISOString();
 
     // Si se encontró por email pero con ID diferente, usar el ID existente
@@ -946,6 +990,18 @@ export async function saveUser(user: {
     const createdAt = existingUserIndex !== -1 ? rows[existingUserIndex][5] : now;
     // Preservar el hash existente si no se proporciona password nuevo (ej: login con Google)
     const existingPassword = existingUserIndex !== -1 ? (rows[existingUserIndex][2] || '') : '';
+    const existingGoogleVerifiedAt = existingUserIndex !== -1 ? (rows[existingUserIndex][7] || '') : '';
+    const existingGoogleOnlyIdentityRaw = existingUserIndex !== -1 ? rows[existingUserIndex][8] : undefined;
+
+    const finalGoogleVerifiedAt = user.markGoogleVerified ? now : existingGoogleVerifiedAt;
+    // Conservador: solo se escribe un valor explícito si el llamador lo pasa;
+    // si no, se preserva EXACTAMENTE lo que ya había (nunca undefined/legacy -> 'false').
+    const finalGoogleOnlyIdentity =
+      user.googleOnlyIdentity !== undefined
+        ? (user.googleOnlyIdentity ? 'true' : 'false')
+        : existingGoogleOnlyIdentityRaw === 'true' || existingGoogleOnlyIdentityRaw === 'false'
+          ? existingGoogleOnlyIdentityRaw
+          : '';
 
     const userData = [
       finalUserId,
@@ -955,8 +1011,10 @@ export async function saveUser(user: {
       user.image || '',
       createdAt, // Mantener createdAt original si existe
       now, // lastLogin siempre se actualiza
+      finalGoogleVerifiedAt,
+      finalGoogleOnlyIdentity,
     ];
-    
+
     if (existingUserIndex === -1) {
       // Crear nuevo usuario
       await sheets.spreadsheets.values.append({
@@ -972,14 +1030,14 @@ export async function saveUser(user: {
       const actualRowNumber = existingUserIndex + 2;
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEETS.USERS}!A${actualRowNumber}:G${actualRowNumber}`,
+        range: `${SHEETS.USERS}!A${actualRowNumber}:I${actualRowNumber}`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [userData],
         },
       });
     }
-    
+
     // Retornar el ID final para que se use consistentemente
     return finalUserId;
   } catch (error) {
@@ -1024,15 +1082,17 @@ export async function registerUser(email: string, password: string, name: string
     const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
     
-    // Crear usuario
+    // Crear usuario -- googleOnlyIdentity: false explícito porque esta fila
+    // se crea desde cero mediante Credentials (Fase 4.4.1, ver lib/userIdentity.ts).
     await saveUser({
       id: userId,
       email,
       password: hashedPassword,
       name,
       image: null,
+      googleOnlyIdentity: false,
     });
-    
+
     return { id: userId, email, name };
   } catch (error) {
     console.error('Error registrando usuario:', error);

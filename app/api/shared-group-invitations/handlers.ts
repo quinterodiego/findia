@@ -1,6 +1,8 @@
-import { getSharedGroupInvitationsWithDetailsForTargetEmail } from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { normalizeInvitationEmail } from '@/lib/sharedGroupInvitations'
 import { toPublicInvitationWithDetails, type PublicSharedGroupInvitationWithDetails } from '@/app/api/shared-groups/_lib/invitationDto'
+
+const repository = getSharedGroupsRepository()
 
 /**
  * GET /api/shared-group-invitations — invitaciones PENDING dirigidas al
@@ -19,6 +21,6 @@ export async function listMySharedGroupInvitationsForUser(
   if (!userEmail) return []
 
   const normalized = normalizeInvitationEmail(userEmail)
-  const invitations = await getSharedGroupInvitationsWithDetailsForTargetEmail(normalized)
+  const invitations = await repository.getInvitationsWithDetailsForTargetEmail(normalized)
   return invitations.map(toPublicInvitationWithDetails)
 }

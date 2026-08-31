@@ -1,14 +1,10 @@
-import {
-  getSharedGroupInvitationById,
-  getSharedGroupMembers,
-  linkSharedGroupMemberToUser,
-  updateSharedGroupInvitation,
-} from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { normalizeInvitationEmail, verifyInvitationToken } from '@/lib/sharedGroupInvitations'
 import { ApiError, wrapPhase1Call } from '@/app/api/shared-groups/_lib/apiError'
 import type { SharedGroupInvitation } from '@/types'
 
 const GENERIC_UNAUTHORIZED = 'Invitación no autorizada'
+const repository = getSharedGroupsRepository()
 
 /**
  * POST /api/shared-group-invitations/[id]/accept
@@ -55,7 +51,7 @@ export async function acceptSharedGroupInvitationForUser(
   const rawToken = (body as { token?: unknown })?.token
   const token = typeof rawToken === 'string' ? rawToken : ''
 
-  const invitation = await getSharedGroupInvitationById(invitationId)
+  const invitation = await repository.getInvitationById(invitationId)
   if (!invitation) throw new ApiError(404, 'Invitación no encontrada')
 
   if (token) {
@@ -77,7 +73,7 @@ export async function acceptSharedGroupInvitationForUser(
 
   // A partir de acá, token + email ya están probados: los mensajes pueden
   // ser específicos sin filtrar información a un atacante sin el token.
-  const members = await getSharedGroupMembers(invitation.groupId)
+  const members = await repository.getMembers(invitation.groupId)
   const member = members.find((m) => m.id === invitation.memberId)
   if (!member) throw new ApiError(404, 'El miembro de esta invitación ya no existe')
 
@@ -106,10 +102,10 @@ export async function acceptSharedGroupInvitationForUser(
     throw new ApiError(409, 'Este miembro ya está vinculado a otra cuenta')
   }
 
-  // Orden obligatorio: 1) linkear el member, 2) recién después marcar la
-  // invitación como accepted (updateSharedGroupInvitation ya setea
-  // respondedAt). Si falla entre medio, un retry es seguro: linkear es
-  // idempotente (Caso B) y este mismo flujo completa el paso 2 solo.
-  await wrapPhase1Call(() => linkSharedGroupMemberToUser(member.id, userId))
-  return wrapPhase1Call(() => updateSharedGroupInvitation(invitationId, 'accepted'))
+  // Fase DB-4.1: link + accept ahora es UNA operación de repository
+  // (acceptInvitationAndLinkMember) en vez de 2 llamadas separadas -- en
+  // Postgres es una transacción real (todo o nada); en Sheets sigue siendo
+  // el mismo orden best-effort de siempre (link primero, accept después).
+  const result = await wrapPhase1Call(() => repository.acceptInvitationAndLinkMember(invitationId, userId))
+  return result.invitation
 }

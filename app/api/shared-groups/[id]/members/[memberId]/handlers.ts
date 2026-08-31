@@ -1,14 +1,9 @@
-import {
-  getSharedGroupById,
-  getSharedGroupMembers,
-  updateSharedGroupMember,
-  deleteSharedGroupMember,
-  isSharedGroupMemberReferenced,
-} from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { ApiError, wrapPhase1Call } from '../../../_lib/apiError'
 
 const MAX_NAME_LENGTH = 80
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const repository = getSharedGroupsRepository()
 
 /**
  * PUT /api/shared-groups/[id]/members/[memberId] — solo el creador del
@@ -22,11 +17,11 @@ export async function editSharedGroupMemberForUser(
   userId: string,
   body: unknown
 ) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
   if (group.createdBy !== userId) throw new ApiError(403, 'Solo el creador del grupo puede editar miembros')
 
-  const members = await getSharedGroupMembers(groupId)
+  const members = await repository.getMembers(groupId)
   const target = members.find((m) => m.id === memberId)
   if (!target) throw new ApiError(404, 'Miembro no encontrado')
 
@@ -57,7 +52,7 @@ export async function editSharedGroupMemberForUser(
     }
   }
 
-  return wrapPhase1Call(() => updateSharedGroupMember(memberId, data))
+  return wrapPhase1Call(() => repository.updateMember(memberId, data))
 }
 
 /**
@@ -68,11 +63,11 @@ export async function editSharedGroupMemberForUser(
  * propio grupo en esta fase).
  */
 export async function deleteSharedGroupMemberForUser(groupId: string, memberId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
   if (group.createdBy !== userId) throw new ApiError(403, 'Solo el creador del grupo puede eliminar miembros')
 
-  const members = await getSharedGroupMembers(groupId)
+  const members = await repository.getMembers(groupId)
   const target = members.find((m) => m.id === memberId)
   if (!target) throw new ApiError(404, 'Miembro no encontrado')
 
@@ -81,10 +76,10 @@ export async function deleteSharedGroupMemberForUser(groupId: string, memberId: 
     throw new ApiError(409, 'No se puede eliminar al miembro vinculado al creador del grupo')
   }
 
-  const referenced = await isSharedGroupMemberReferenced(groupId, memberId)
+  const referenced = await repository.isMemberReferenced(groupId, memberId)
   if (referenced) {
     throw new ApiError(409, 'No podés eliminar este miembro porque tiene movimientos asociados')
   }
 
-  await wrapPhase1Call(() => deleteSharedGroupMember(memberId))
+  await wrapPhase1Call(() => repository.deleteMember(memberId))
 }

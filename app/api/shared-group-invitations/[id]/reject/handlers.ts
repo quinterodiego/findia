@@ -1,9 +1,10 @@
-import { getSharedGroupInvitationById, updateSharedGroupInvitation } from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { normalizeInvitationEmail, verifyInvitationToken } from '@/lib/sharedGroupInvitations'
 import { ApiError, wrapPhase1Call } from '@/app/api/shared-groups/_lib/apiError'
 import type { SharedGroupInvitation } from '@/types'
 
 const GENERIC_UNAUTHORIZED = 'Invitación no autorizada'
+const repository = getSharedGroupsRepository()
 
 /**
  * POST /api/shared-group-invitations/[id]/reject — mismas validaciones de
@@ -28,7 +29,7 @@ export async function rejectSharedGroupInvitationForUser(
   const rawToken = (body as { token?: unknown })?.token
   const token = typeof rawToken === 'string' ? rawToken : ''
 
-  const invitation = await getSharedGroupInvitationById(invitationId)
+  const invitation = await repository.getInvitationById(invitationId)
   if (!invitation) throw new ApiError(404, 'Invitación no encontrada')
 
   if (token) {
@@ -52,5 +53,5 @@ export async function rejectSharedGroupInvitationForUser(
     throw new ApiError(409, `Esta invitación ya fue ${label}`)
   }
 
-  return wrapPhase1Call(() => updateSharedGroupInvitation(invitationId, 'rejected'))
+  return wrapPhase1Call(() => repository.updateInvitationStatus(invitationId, 'rejected'))
 }

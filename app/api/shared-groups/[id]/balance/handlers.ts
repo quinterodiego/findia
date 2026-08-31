@@ -1,6 +1,8 @@
-import { getSharedGroupById, getSharedGroupBalanceInputs } from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { computeGroupBalances } from '@/lib/sharedGroupBalances'
 import { ApiError } from '../../_lib/apiError'
+
+const repository = getSharedGroupsRepository()
 
 /**
  * GET /api/shared-groups/[id]/balance — solo miembros vinculados. Lee
@@ -10,10 +12,10 @@ import { ApiError } from '../../_lib/apiError'
  * totales (grupo + las 4 de balance inputs).
  */
 export async function getSharedGroupBalanceForUser(groupId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const { members, expenses, splits, settlements } = await getSharedGroupBalanceInputs(groupId)
+  const { members, expenses, splits, settlements } = await repository.getBalanceInputs(groupId)
   const isMember = members.some((m) => m.userId === userId)
   if (!isMember) throw new ApiError(403, 'No pertenecés a este grupo')
 

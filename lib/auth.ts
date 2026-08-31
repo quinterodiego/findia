@@ -74,6 +74,13 @@ export const authOptions: NextAuthOptions = {
         try {
           // Verificar si el usuario ya existe por email
           const existingUser = await getUserByEmail(user.email);
+          // Fase 4.4.1: esta es la ÚNICA condición que autoriza marcar
+          // googleOnlyIdentity=true -- que getUserByEmail no haya encontrado
+          // NADA para este email, es decir que la fila se crea desde cero
+          // acá mismo. Si existingUser existe (fila vieja o Credentials
+          // previa), jamás se toca ese campo (ver saveUser: se omite y
+          // preserva tal cual).
+          const isNewRow = !existingUser;
 
           // Usar el ID existente si el usuario ya está registrado,
           // o generar uno nuevo basado en el ID de NextAuth (user.id)
@@ -101,6 +108,8 @@ export const authOptions: NextAuthOptions = {
             name: user.name || null,
             image: user.image || null,
             // No hay password para usuarios de Google
+            markGoogleVerified: true,
+            ...(isNewRow ? { googleOnlyIdentity: true } : {}),
           });
 
           // Actualizar el ID del usuario para que NextAuth lo use consistentemente

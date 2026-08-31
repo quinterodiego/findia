@@ -1,12 +1,8 @@
-import {
-  getSharedGroupById,
-  getSharedGroupMembers,
-  getSharedGroupExpenses,
-  updateSharedGroupExpense,
-  deleteSharedGroupExpense,
-} from '@/lib/googleSheets'
+import { getSharedGroupsRepository } from '@/lib/repositories/sharedGroups'
 import { calculateEqualSplit } from '@/lib/sharedGroupBalances'
 import { ApiError, wrapPhase1Call } from '../../../_lib/apiError'
+
+const repository = getSharedGroupsRepository()
 
 /**
  * PUT /api/shared-groups/[id]/expenses/[expenseId] — solo el autor
@@ -27,14 +23,14 @@ export async function updateSharedGroupExpenseForUser(
   userId: string,
   body: unknown
 ) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const members = await getSharedGroupMembers(groupId)
+  const members = await repository.getMembers(groupId)
   const isMember = members.some((m) => m.userId === userId)
   if (!isMember) throw new ApiError(403, 'No pertenecés a este grupo')
 
-  const expenses = await getSharedGroupExpenses(groupId)
+  const expenses = await repository.getExpenses(groupId)
   const target = expenses.find((e) => e.id === expenseId)
   if (!target) throw new ApiError(404, 'Gasto no encontrado')
   if (target.createdBy !== userId) throw new ApiError(403, 'Solo el autor del gasto puede editarlo')
@@ -122,19 +118,19 @@ export async function updateSharedGroupExpenseForUser(
     }
   }
 
-  return wrapPhase1Call(() => updateSharedGroupExpense(expenseId, userId, data))
+  return wrapPhase1Call(() => repository.updateExpense(expenseId, userId, data))
 }
 
 /** DELETE /api/shared-groups/[id]/expenses/[expenseId] — solo el autor.
  * deleteSharedGroupExpense (Fase 1) ya borra los splits en cascada. */
 export async function deleteSharedGroupExpenseForUser(groupId: string, expenseId: string, userId: string) {
-  const group = await getSharedGroupById(groupId)
+  const group = await repository.getGroupById(groupId)
   if (!group) throw new ApiError(404, 'Grupo no encontrado')
 
-  const expenses = await getSharedGroupExpenses(groupId)
+  const expenses = await repository.getExpenses(groupId)
   const target = expenses.find((e) => e.id === expenseId)
   if (!target) throw new ApiError(404, 'Gasto no encontrado')
   if (target.createdBy !== userId) throw new ApiError(403, 'Solo el autor del gasto puede eliminarlo')
 
-  await wrapPhase1Call(() => deleteSharedGroupExpense(expenseId, userId))
+  await wrapPhase1Call(() => repository.deleteExpense(expenseId, userId))
 }
