@@ -176,6 +176,12 @@ export default function SharedGroupsModal({ isOpen, onClose, entryIntent }: Shar
       setView('list')
       setSelectedGroupId(null)
       setFormError(null)
+      // En paralelo con fetchGroups() de abajo (0 requests nuevos al cargar
+      // el dashboard: esto SOLO corre cuando el modal se abre explícitamente,
+      // igual que fetchGroups). Independiente del entryIntent -- el usuario
+      // siempre puede tener invitaciones pendientes sin importar por qué
+      // abrió el modal.
+      hook.fetchMyInvitations().catch(() => {})
       if (entryIntent === 'add-expense') {
         hook
           .fetchGroups()
@@ -605,6 +611,47 @@ export default function SharedGroupsModal({ isOpen, onClose, entryIntent }: Shar
   }
 
   // ---------------------------------------------------------------------------
+  // Invitaciones (Fase 4.4)
+  // ---------------------------------------------------------------------------
+
+  async function handleAcceptInvitation(invitationId: string) {
+    const groupName = hook.myInvitations.find((inv) => inv.id === invitationId)?.groupName
+    try {
+      await hook.acceptInvitation(invitationId)
+      toastSuccess(groupName ? `Ya sos parte de ${groupName}.` : 'Invitación aceptada')
+    } catch (err) {
+      toastError(friendlyErrorMessage(err))
+    }
+  }
+
+  async function handleRejectInvitation(invitationId: string) {
+    try {
+      await hook.rejectInvitation(invitationId)
+      toastSuccess('Invitación rechazada.')
+    } catch (err) {
+      toastError(friendlyErrorMessage(err))
+    }
+  }
+
+  async function handleSendInvitation(memberId: string) {
+    try {
+      const result = await hook.sendInvitation(selectedGroupId!, memberId)
+      toastSuccess(result.emailSent ? 'Invitación enviada.' : 'La invitación fue creada, pero no pudimos enviar el email.')
+    } catch (err) {
+      toastError(friendlyErrorMessage(err))
+    }
+  }
+
+  async function handleCancelInvitation(invitationId: string) {
+    try {
+      await hook.cancelInvitation(selectedGroupId!, invitationId)
+      toastSuccess('Invitación cancelada')
+    } catch (err) {
+      toastError(friendlyErrorMessage(err))
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Actividad (expenses + settlements unificados, orden cronológico)
   // ---------------------------------------------------------------------------
 
@@ -752,6 +799,8 @@ export default function SharedGroupsModal({ isOpen, onClose, entryIntent }: Shar
                     setFormError(null)
                     setView('create-group')
                   }}
+                  onAcceptInvitation={handleAcceptInvitation}
+                  onRejectInvitation={handleRejectInvitation}
                 />
               )}
 
@@ -802,7 +851,10 @@ export default function SharedGroupsModal({ isOpen, onClose, entryIntent }: Shar
               {view === 'detail' && (
                 <DetailView
                   hook={hook}
-                  onGoMembers={() => setView('members')}
+                  onGoMembers={() => {
+                    setView('members')
+                    if (selectedGroupId) hook.fetchGroupInvitations(selectedGroupId).catch(() => {})
+                  }}
                   onGoAddExpense={openAddExpense}
                   onGoSettle={openSettle}
                   onEditExpense={openEditExpense}
@@ -894,6 +946,9 @@ export default function SharedGroupsModal({ isOpen, onClose, entryIntent }: Shar
                   onSaveEdit={handleSaveEditMember}
                   onDeleteRequest={setConfirmDeleteMemberId}
                   formError={formError}
+                  currentUserId={session?.user?.id}
+                  onSendInvitation={handleSendInvitation}
+                  onCancelInvitation={handleCancelInvitation}
                 />
               )}
             </div>
@@ -1129,56 +1184,105 @@ function ListView({
   hook,
   onOpenGroup,
   onCreateGroup,
+  onAcceptInvitation,
+  onRejectInvitation,
 }: {
   hook: HookApi
   onOpenGroup: (groupId: string) => void
   onCreateGroup: () => void
+  onAcceptInvitation: (invitationId: string) => void
+  onRejectInvitation: (invitationId: string) => void
 }) {
+  const invitationsSection = hook.myInvitations.length > 0 && (
+    <div className="p-3 pb-0 space-y-2.5">
+      {hook.myInvitations.map((inv) => {
+        const isActing = hook.invitationActionId === inv.id
+        return (
+          <div key={inv.id} className="p-3.5 rounded-2xl border border-[#FF007A]/30 bg-pink-50/60 dark:bg-pink-900/10 dark:border-pink-900/40">
+            <p className="text-sm text-gray-800 dark:text-gray-100">
+              <span className="font-semibold">{inv.inviterName}</span> te invitó a{' '}
+              <span className="font-semibold">{inv.groupName}</span>
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <button
+                onClick={() => onAcceptInvitation(inv.id)}
+                disabled={isActing}
+                className={`flex-1 py-2 rounded-xl font-semibold text-sm ${PRIMARY_BUTTON} disabled:opacity-60`}
+                style={{ minHeight: 40 }}
+              >
+                {isActing ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Aceptar'}
+              </button>
+              <button
+                onClick={() => onRejectInvitation(inv.id)}
+                disabled={isActing}
+                className="flex-1 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:opacity-60"
+                style={{ minHeight: 40 }}
+              >
+                Rechazar
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+
   if (hook.loadingGroups && hook.groups.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center p-8">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-      </div>
+      <>
+        {invitationsSection}
+        <div className="h-full flex items-center justify-center p-8">
+          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        </div>
+      </>
     )
   }
 
   if (hook.groupsError && hook.groups.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-8 gap-3 text-center">
-        <AlertCircle className="w-8 h-8 text-red-400" />
-        <p className="text-sm text-gray-600 dark:text-gray-400">{hook.groupsError}</p>
-        <button
-          onClick={() => hook.fetchGroups().catch(() => {})}
-          className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer"
-        >
-          Reintentar
-        </button>
-      </div>
+      <>
+        {invitationsSection}
+        <div className="h-full flex flex-col items-center justify-center p-8 gap-3 text-center">
+          <AlertCircle className="w-8 h-8 text-red-400" />
+          <p className="text-sm text-gray-600 dark:text-gray-400">{hook.groupsError}</p>
+          <button
+            onClick={() => hook.fetchGroups().catch(() => {})}
+            className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer"
+          >
+            Reintentar
+          </button>
+        </div>
+      </>
     )
   }
 
   if (hook.groups.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-8 gap-3 text-center">
-        <div className="md:-mt-10 flex flex-col items-center gap-3">
-          <div className="w-16 h-16 rounded-full bg-pink-50 dark:bg-pink-900/20 flex items-center justify-center">
-            <Users className="w-8 h-8 text-[#FF007A]" />
+      <>
+        {invitationsSection}
+        <div className="h-full flex flex-col items-center justify-center p-8 gap-3 text-center">
+          <div className="md:-mt-10 flex flex-col items-center gap-3">
+            <div className="w-16 h-16 rounded-full bg-pink-50 dark:bg-pink-900/20 flex items-center justify-center">
+              <Users className="w-8 h-8 text-[#FF007A]" />
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-[240px]">Dividí gastos con tu pareja, familia o amigos.</p>
+            <button
+              onClick={onCreateGroup}
+              className={`mt-2 px-5 py-3 rounded-xl font-semibold ${PRIMARY_BUTTON}`}
+              style={{ minHeight: 44 }}
+            >
+              Crear mi primer grupo
+            </button>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 max-w-[240px]">Dividí gastos con tu pareja, familia o amigos.</p>
-          <button
-            onClick={onCreateGroup}
-            className={`mt-2 px-5 py-3 rounded-xl font-semibold ${PRIMARY_BUTTON}`}
-            style={{ minHeight: 44 }}
-          >
-            Crear mi primer grupo
-          </button>
         </div>
-      </div>
+      </>
     )
   }
 
   return (
-    <div className="p-3 space-y-2.5">
+    <>
+      {invitationsSection}
+      <div className="p-3 space-y-2.5">
       {hook.groups.map(({ group, myMemberId, balances, members }) => {
         const myBalances = balances.filter((b) => b.fromMemberId === myMemberId || b.toMemberId === myMemberId)
         return (
@@ -1220,7 +1324,8 @@ function ListView({
           </button>
         )
       })}
-    </div>
+      </div>
+    </>
   )
 }
 
@@ -1870,6 +1975,9 @@ function MembersView({
   onSaveEdit,
   onDeleteRequest,
   formError,
+  currentUserId,
+  onSendInvitation,
+  onCancelInvitation,
 }: {
   hook: HookApi
   isCreator: boolean
@@ -1889,6 +1997,9 @@ function MembersView({
   onSaveEdit: () => void
   onDeleteRequest: (memberId: string) => void
   formError: string | null
+  currentUserId?: string
+  onSendInvitation: (memberId: string) => void
+  onCancelInvitation: (invitationId: string) => void
 }) {
   return (
     <div className="p-4 space-y-3">
@@ -1956,38 +2067,69 @@ function MembersView({
             </div>
           )
         }
+        const pendingInvitation = hook.groupInvitations.find((inv) => inv.memberId === member.id)
+        const canInvite = !!member.email && !member.userId && !pendingInvitation
+        const canCancelInvitation = !!pendingInvitation && (pendingInvitation.invitedByUserId === currentUserId || isCreator)
         return (
-          <div key={member.id} className="flex items-center justify-between p-3.5 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {isMe ? 'Vos' : member.name}
-                {!member.userId && !isMe && (
-                  <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">Sin cuenta FindIA</span>
+          <div key={member.id} className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {isMe ? 'Vos' : member.name}
+                  {!member.userId && !isMe && (
+                    <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">Sin cuenta FindIA</span>
+                  )}
+                </p>
+                {member.email && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{member.email}</p>}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {isGroupCreator && (
+                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Creador
+                  </span>
                 )}
-              </p>
-              {member.email && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{member.email}</p>}
+                {isCreator && !isMe && (
+                  <>
+                    <button onClick={() => onStartEdit(member)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" aria-label="Editar miembro">
+                      <Pencil className="w-4 h-4 text-gray-500" />
+                    </button>
+                    <button
+                      onClick={() => onDeleteRequest(member.id)}
+                      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                      aria-label="Eliminar miembro"
+                    >
+                      <Trash2 className="w-4 h-4 text-gray-500" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {isGroupCreator && (
-                <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Creador
-                </span>
-              )}
-              {isCreator && !isMe && (
-                <>
-                  <button onClick={() => onStartEdit(member)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" aria-label="Editar miembro">
-                    <Pencil className="w-4 h-4 text-gray-500" />
-                  </button>
+            {(canInvite || pendingInvitation) && (
+              <div className="mt-2.5 pt-2.5 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-2">
+                {pendingInvitation ? (
+                  <>
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Invitación pendiente</span>
+                    {canCancelInvitation && (
+                      <button
+                        onClick={() => onCancelInvitation(pendingInvitation.id)}
+                        disabled={hook.actionLoading}
+                        className="text-xs text-gray-500 dark:text-gray-400 underline cursor-pointer disabled:opacity-60"
+                      >
+                        Cancelar invitación
+                      </button>
+                    )}
+                  </>
+                ) : (
                   <button
-                    onClick={() => onDeleteRequest(member.id)}
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    aria-label="Eliminar miembro"
+                    onClick={() => onSendInvitation(member.id)}
+                    disabled={hook.actionLoading}
+                    className="text-xs font-semibold text-[#FF007A] cursor-pointer disabled:opacity-60"
                   >
-                    <Trash2 className="w-4 h-4 text-gray-500" />
+                    Invitar a FindIA
                   </button>
-                </>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )
       })}

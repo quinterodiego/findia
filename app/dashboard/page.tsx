@@ -304,6 +304,14 @@ function Dashboard() {
       setTransactionType(open)
       setShowTransactionModal(true)
     }
+    // Mismo mecanismo que ?open=expense|... de arriba, para el CTA "Ir a
+    // Gastos compartidos" post-accept de la invitación (Fase 4.3.1). Abre
+    // el modal exactamente como los 3 accesos manuales existentes (navbar,
+    // card mobile, "Más") -- el fetch de grupos lo sigue disparando el
+    // propio SharedGroupsModal en su efecto de `isOpen`, sin nada nuevo acá.
+    if (searchParams.get('open') === 'shared-groups') {
+      setShowSharedGroupsModal(true)
+    }
     if (filter) {
       setFilterType(filter)
     }

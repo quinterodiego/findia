@@ -10,11 +10,11 @@ interface FloatingActionButtonProps {
 
 const actions = [
   {
-    type: 'shared-expense' as const,
-    label: 'Gasto Compartido',
-    icon: Users,
-    color: 'from-pink-400 to-pink-500',
-    description: 'Dividir un gasto con otros'
+    type: 'debt' as const,
+    label: 'Deuda',
+    icon: CreditCard,
+    color: 'from-red-400 to-red-500',
+    description: 'Tarjetas, préstamos, créditos'
   },
   {
     type: 'expense' as const,
@@ -24,11 +24,11 @@ const actions = [
     description: 'Compras, facturas, gastos'
   },
   {
-    type: 'debt' as const,
-    label: 'Deuda',
-    icon: CreditCard,
-    color: 'from-red-400 to-red-500',
-    description: 'Tarjetas, préstamos, créditos'
+    type: 'shared-expense' as const,
+    label: 'Gasto compartido',
+    icon: Users,
+    color: 'from-pink-400 to-pink-500',
+    description: 'Dividir un gasto con otros'
   },
   {
     type: 'income' as const,

@@ -8,6 +8,10 @@ import { signIn } from 'next-auth/react'
 interface RegisterFormProps {
   onClose?: () => void
   onStateChange?: (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => void
+  /** A dónde volver después de registrarse + autenticarse. Default EXACTO
+   * al comportamiento actual ('/dashboard') si no se pasa. Debe ser una
+   * ruta interna propia, nunca tomada de un query param arbitrario. */
+  callbackUrl?: string
 }
 
 interface FieldErrors {
@@ -24,7 +28,7 @@ interface RegisterFormData {
   confirmPassword: string
 }
 
-export default function RegisterForm({ onClose, onStateChange }: RegisterFormProps) {
+export default function RegisterForm({ onClose, onStateChange, callbackUrl = '/dashboard' }: RegisterFormProps) {
   const [formData, setFormData] = useState<RegisterFormData>({
     name: '',
     email: '',
@@ -198,15 +202,15 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
           email: formData.email,
           password: formData.password,
           redirect: false,
-          callbackUrl: '/dashboard'
+          callbackUrl
         })
-        
+
         // Mostrar spinner de redirección
         setIsRedirecting(true)
-        
+
         // Redirigir al dashboard
         setTimeout(() => {
-          window.location.href = '/dashboard'
+          window.location.href = callbackUrl
         }, 1500)
       }, 2000)
     } catch (error) {
@@ -220,8 +224,8 @@ export default function RegisterForm({ onClose, onStateChange }: RegisterFormPro
     try {
       setIsGoogleLoading(true)
       setGoogleError(null)
-      await signIn('google', { 
-        callbackUrl: '/dashboard',
+      await signIn('google', {
+        callbackUrl,
         redirect: true
       })
     } catch (err) {

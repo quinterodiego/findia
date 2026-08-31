@@ -1,8 +1,9 @@
 import { google } from 'googleapis';
 import bcrypt from 'bcrypt';
-import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption, PDFImportTemplate, SmartTemplate, SharedGroup, SharedGroupMember, SharedGroupExpense, SharedGroupSplit, SharedGroupSettlement, SharedGroupPairBalance } from '@/types';
+import type { Debt, Payment, CreditCard, CreditCardPayment, CreditCardConsumption, PDFImportTemplate, SmartTemplate, SharedGroup, SharedGroupMember, SharedGroupExpense, SharedGroupSplit, SharedGroupSettlement, SharedGroupPairBalance, SharedGroupInvitation, SharedGroupInvitationWithDetails } from '@/types';
 import { parseCivilDate } from '@/lib/formatDate';
 import { computeGroupBalances, validateSettlementAgainstBalance, validateSharedGroupExpenseInput } from '@/lib/sharedGroupBalances';
+import { normalizeInvitationEmail, generateInvitationToken, hashInvitationToken, validateInvitationTransition } from '@/lib/sharedGroupInvitations';
 
 // Configuración de autenticación con Service Account
 const auth = new google.auth.GoogleAuth({
@@ -36,6 +37,7 @@ const SHEETS = {
   SHARED_GROUP_EXPENSES: 'SharedGroupExpenses',
   SHARED_GROUP_SPLITS: 'SharedGroupSplits',
   SHARED_GROUP_SETTLEMENTS: 'SharedGroupSettlements',
+  SHARED_GROUP_INVITATIONS: 'SharedGroupInvitations',
 } as const;
 
 // ============================================================================
@@ -3875,6 +3877,20 @@ function rowToSharedGroupSettlement(row: string[]): SharedGroupSettlement {
   };
 }
 
+function rowToSharedGroupInvitation(row: string[]): SharedGroupInvitation {
+  return {
+    id: row[0],
+    groupId: row[1],
+    memberId: row[2],
+    invitedByUserId: row[3],
+    targetEmail: row[4],
+    status: (row[5] as SharedGroupInvitation['status']) || 'pending',
+    tokenHash: row[6],
+    createdAt: row[7] || new Date().toISOString(),
+    respondedAt: row[8] || undefined,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Groups
 // ---------------------------------------------------------------------------
@@ -4153,6 +4169,58 @@ export async function updateSharedGroupMember(
   });
 
   return updated;
+}
+
+/**
+ * Vincula un SharedGroupMember shadow ya existente a una cuenta real. Nunca
+ * crea un member nuevo ni toca name/email — escribe EXCLUSIVAMENTE la
+ * columna userId (C), y solo si hace falta. Es el único lugar de todo el
+ * código donde un userId de member se escribe fuera del alta inicial
+ * (createSharedGroupMember) — pensado para llamarse exclusivamente desde el
+ * handler server-side de accept de una invitación (Fase 4.2), nunca desde
+ * el endpoint público de edición de member, que sigue ignorando cualquier
+ * userId que el cliente envíe (sin cambios).
+ *
+ * Idempotente y retry-safe: si el member ya está vinculado exactamente a
+ * `userId`, no escribe nada (no-op) y devuelve el member tal cual — cubre
+ * el reintento de un accept que falló después de linkear pero antes de
+ * marcar la invitación como accepted. Si está vinculado a un userId
+ * DISTINTO, nunca lo sobreescribe: lanza un error de conflicto. Siempre
+ * relee la fila antes de escribir (no confía en un `member` cacheado que le
+ * pase el caller), para no perder una vinculación concurrente.
+ */
+export async function linkSharedGroupMemberToUser(memberId: string, userId: string): Promise<SharedGroupMember> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_MEMBERS);
+  if (!exists) throw new Error('Miembro no encontrado');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_MEMBERS}!A2:F`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === memberId);
+  if (rowIndex === -1) throw new Error('Miembro no encontrado');
+
+  const current = rowToSharedGroupMember(rows[rowIndex]);
+
+  if (current.userId === userId) {
+    return current;
+  }
+  if (current.userId) {
+    throw new Error('Este miembro ya está vinculado a otra cuenta');
+  }
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_MEMBERS}!C${actualRowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[userId]],
+    },
+  });
+
+  return { ...current, userId };
 }
 
 /**
@@ -4776,6 +4844,246 @@ export async function deleteSharedGroupSettlement(settlementId: string, userId: 
           deleteDimension: {
             range: {
               sheetId: await getSheetId(SHEETS.SHARED_GROUP_SETTLEMENTS),
+              dimension: 'ROWS',
+              startIndex: actualRowIndex - 1,
+              endIndex: actualRowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+}
+
+// ============================================================================
+// FASE 4.1 — Invitaciones de Gastos Compartidos V2: modelo + persistencia.
+// Solo CRUD y validaciones de integridad de datos. Autorización (quién puede
+// invitar/aceptar/rechazar/cancelar) y las reglas de negocio de duplicados
+// (canCreateInvitation, en lib/sharedGroupInvitations.ts) quedan para la API
+// de Fase 4.2 — nada de esto se enforce automáticamente acá salvo la
+// integridad básica (que el grupo y el member existan) y la validez de la
+// transición de estado, que es un invariante del propio dato, no un permiso.
+// ============================================================================
+
+/** Lee TODAS las invitaciones en una sola lectura — igual patrón que el resto
+ * de Fase 1/2: nunca se lee esta hoja dentro de un loop por grupo. Las
+ * funciones de abajo filtran en memoria a partir de esta única lectura. */
+export async function getAllSharedGroupInvitations(): Promise<SharedGroupInvitation[]> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_INVITATIONS);
+  if (!exists) return [];
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_INVITATIONS}!A2:I`,
+  });
+  const rows = response.data.values || [];
+  return rows.map(rowToSharedGroupInvitation);
+}
+
+export async function getSharedGroupInvitationById(invitationId: string): Promise<SharedGroupInvitation | null> {
+  const invitations = await getAllSharedGroupInvitations();
+  return invitations.find((inv) => inv.id === invitationId) || null;
+}
+
+export async function getSharedGroupInvitationsByGroup(groupId: string): Promise<SharedGroupInvitation[]> {
+  const invitations = await getAllSharedGroupInvitations();
+  return invitations.filter((inv) => inv.groupId === groupId);
+}
+
+/** Todas las invitaciones (cualquier status) de un member puntual dentro de
+ * su grupo — insumo de canCreateInvitation() para detectar duplicados. */
+export async function getSharedGroupInvitationsByMember(groupId: string, memberId: string): Promise<SharedGroupInvitation[]> {
+  const invitations = await getAllSharedGroupInvitations();
+  return invitations.filter((inv) => inv.groupId === groupId && inv.memberId === memberId);
+}
+
+export async function getSharedGroupInvitationsByTargetEmail(targetEmail: string): Promise<SharedGroupInvitation[]> {
+  const normalized = normalizeInvitationEmail(targetEmail);
+  const invitations = await getAllSharedGroupInvitations();
+  return invitations.filter((inv) => inv.targetEmail === normalized);
+}
+
+/**
+ * Invitaciones PENDING dirigidas a `targetEmail`, enriquecidas con
+ * `groupName`/`inviterName` para que la UI pueda mostrar "Diego te invitó a
+ * Casa" sin resolver nada del lado del cliente. Costo: 1 lectura
+ * (invitations) +, solo si hay al menos una pending, 2 lecturas más
+ * (SharedGroups y SharedGroupMembers completos, una sola vez cada una,
+ * filtradas en memoria) — nunca "por cada invitación, leer su grupo/su
+ * invitador" (mismo criterio anti-N+1 que getSharedGroupsSummaryForUser).
+ */
+export async function getSharedGroupInvitationsWithDetailsForTargetEmail(
+  targetEmail: string
+): Promise<SharedGroupInvitationWithDetails[]> {
+  const invitations = await getSharedGroupInvitationsByTargetEmail(targetEmail);
+  const pending = invitations.filter((inv) => inv.status === 'pending');
+  if (pending.length === 0) return [];
+
+  const [groupRows, memberRows] = await Promise.all([
+    safeGetValues(`${SHEETS.SHARED_GROUPS}!A2:D`),
+    safeGetValues(`${SHEETS.SHARED_GROUP_MEMBERS}!A2:F`),
+  ]);
+  const allGroups = groupRows.map(rowToSharedGroup);
+  const allMembers = memberRows.map(rowToSharedGroupMember);
+
+  return pending.map((inv) => {
+    const group = allGroups.find((g) => g.id === inv.groupId);
+    const inviterMember = allMembers.find((m) => m.groupId === inv.groupId && m.userId === inv.invitedByUserId);
+    return {
+      ...inv,
+      groupName: group?.name || 'Grupo',
+      inviterName: inviterMember?.name || 'Alguien',
+    };
+  });
+}
+
+/**
+ * Crea una invitación `pending` para un member YA EXISTENTE — nunca crea el
+ * member (eso sigue siendo responsabilidad exclusiva de
+ * createSharedGroupMember, sin tocar acá). El token plano se genera y se
+ * devuelve UNA sola vez, junto con la invitación: es la única función de
+ * todo este módulo que tiene el token en texto plano en algún momento;
+ * ninguna lectura posterior puede reconstruirlo, porque solo se persiste su
+ * hash (`tokenHash`) — nunca se loggea el token en ningún punto de esta
+ * función.
+ *
+ * NO valida acá si ya existe una invitación pending para el mismo member ni
+ * si conviene bloquear por duplicado — esa decisión de negocio (409 o no)
+ * queda para la API de Fase 4.2, apoyada en canCreateInvitation()/
+ * getSharedGroupInvitationsByMember() de arriba. Acá solo se valida
+ * integridad de datos: que el grupo y el member realmente existan y que el
+ * member pertenezca a ese grupo.
+ */
+export async function createSharedGroupInvitation(
+  groupId: string,
+  memberId: string,
+  invitedByUserId: string,
+  targetEmail: string
+): Promise<{ invitation: SharedGroupInvitation; token: string }> {
+  const group = await getSharedGroupById(groupId);
+  if (!group) throw new Error('Grupo no encontrado');
+
+  const members = await getSharedGroupMembers(groupId);
+  const member = members.find((m) => m.id === memberId);
+  if (!member) throw new Error('El miembro no pertenece a este grupo');
+
+  const normalizedEmail = normalizeInvitationEmail(targetEmail);
+  if (!normalizedEmail) throw new Error('El email de la invitación es requerido');
+
+  await createSheetIfNotExists(SHEETS.SHARED_GROUP_INVITATIONS, [
+    'id', 'groupId', 'memberId', 'invitedByUserId', 'targetEmail', 'status', 'tokenHash', 'createdAt', 'respondedAt',
+  ]);
+
+  const token = generateInvitationToken();
+  const tokenHash = hashInvitationToken(token);
+  const now = new Date().toISOString();
+
+  const invitation: SharedGroupInvitation = {
+    id: generateId(),
+    groupId,
+    memberId,
+    invitedByUserId,
+    targetEmail: normalizedEmail,
+    status: 'pending',
+    tokenHash,
+    createdAt: now,
+  };
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_INVITATIONS}!A2`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[
+        invitation.id, invitation.groupId, invitation.memberId, invitation.invitedByUserId,
+        invitation.targetEmail, invitation.status, invitation.tokenHash, invitation.createdAt,
+        invitation.respondedAt || '',
+      ]],
+    },
+  });
+
+  return { invitation, token };
+}
+
+/**
+ * Aplica una transición de estado (pending -> accepted/rejected/cancelled)
+ * a una invitación existente, validada con validateInvitationTransition
+ * antes de escribir — nunca permite reabrir un estado terminal.
+ *
+ * NO valida quién puede aceptar/rechazar/cancelar (autorización — API de
+ * Fase 4.2) ni vincula SharedGroupMember.userId: ese link es un paso
+ * separado y explícito que hará el endpoint de accept en 4.2, llamando
+ * PRIMERO a updateSharedGroupMember con el userId real y RECIÉN DESPUÉS a
+ * esta función (ver informe: ese orden sobrevive mejor a una falla parcial
+ * entre ambos writes — si el link al member ya se aplicó pero este segundo
+ * write falla, un reintento de accept es seguro; al revés, dejaría la
+ * invitación "aceptada" sin que el member tenga acceso real).
+ */
+export async function updateSharedGroupInvitation(
+  invitationId: string,
+  newStatus: SharedGroupInvitation['status']
+): Promise<SharedGroupInvitation> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_INVITATIONS);
+  if (!exists) throw new Error('Invitación no encontrada');
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_INVITATIONS}!A2:I`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === invitationId);
+  if (rowIndex === -1) throw new Error('Invitación no encontrada');
+
+  const current = rowToSharedGroupInvitation(rows[rowIndex]);
+  const transition = validateInvitationTransition(current.status, newStatus);
+  if (!transition.valid) throw new Error(transition.error);
+
+  const respondedAt = new Date().toISOString();
+  const updated: SharedGroupInvitation = { ...current, status: newStatus, respondedAt };
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_INVITATIONS}!F${actualRowIndex}:I${actualRowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[updated.status, updated.tokenHash, updated.createdAt, updated.respondedAt || '']],
+    },
+  });
+
+  return updated;
+}
+
+/**
+ * Borrado FÍSICO de una invitación — pensado para cascada administrativa
+ * (ej. si más adelante se borra el member al que apunta) o limpieza, NO
+ * para el flujo normal de "cancelar" (eso es
+ * updateSharedGroupInvitation(id, 'cancelled'), que preserva el historial
+ * en vez de borrar la fila). Silenciosamente no hace nada si la hoja o la
+ * fila no existen — pensado para poder llamarse desde una cascada sin tener
+ * que verificar antes si hay algo que borrar.
+ */
+export async function deleteSharedGroupInvitation(invitationId: string): Promise<void> {
+  const exists = await sheetExists(SHEETS.SHARED_GROUP_INVITATIONS);
+  if (!exists) return;
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEETS.SHARED_GROUP_INVITATIONS}!A2:I`,
+  });
+  const rows = response.data.values || [];
+  const rowIndex = rows.findIndex((row) => row[0] === invitationId);
+  if (rowIndex === -1) return;
+
+  const actualRowIndex = rowIndex + 2;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: await getSheetId(SHEETS.SHARED_GROUP_INVITATIONS),
               dimension: 'ROWS',
               startIndex: actualRowIndex - 1,
               endIndex: actualRowIndex,

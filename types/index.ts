@@ -143,6 +143,44 @@ export interface SharedGroupBalanceResult {
   balances: SharedGroupPairBalance[]
 }
 
+/**
+ * Invitación para vincular un SharedGroupMember (shadow) a una cuenta FindIA
+ * real. La invitación NUNCA crea el member — apunta a uno ya existente
+ * (`memberId`); el vínculo real (`SharedGroupMember.userId`) sigue siendo la
+ * única fuente de verdad de "quién es este miembro", esta entidad solo
+ * registra el estado del proceso de invitación en sí.
+ *
+ * `tokenHash` es lo único persistido del token de invitación — el token
+ * plano solo existe en memoria en el momento de crearla (ver
+ * lib/googleSheets.ts#createSharedGroupInvitation y
+ * lib/sharedGroupInvitations.ts).
+ */
+export interface SharedGroupInvitation {
+  id: string
+  groupId: string
+  memberId: string
+  invitedByUserId: string
+  targetEmail: string
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled'
+  tokenHash: string
+  createdAt: string
+  respondedAt?: string
+}
+
+/**
+ * SharedGroupInvitation + los dos datos que la UI necesita para mostrar
+ * "Diego te invitó a Casa" sin que el frontend tenga que resolverlos —
+ * ver getSharedGroupInvitationsWithDetailsForTargetEmail en
+ * lib/googleSheets.ts (Fase 4.4). `groupName` sale de SharedGroup.name;
+ * `inviterName` sale del SharedGroupMember del propio invitador dentro de
+ * ESE grupo (mismo criterio que el resto de la UI: los nombres se muestran
+ * siempre desde el member, nunca desde la cuenta global de Users).
+ */
+export interface SharedGroupInvitationWithDetails extends SharedGroupInvitation {
+  groupName: string
+  inviterName: string
+}
+
 export interface Goal {
   id: string
   name: string

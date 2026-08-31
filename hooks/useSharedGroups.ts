@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import type { SharedGroup, SharedGroupMember, SharedGroupExpense, SharedGroupSplit, SharedGroupSettlement, SharedGroupPairBalance } from '@/types';
+import type { PublicSharedGroupInvitation, PublicSharedGroupInvitationWithDetails } from '@/app/api/shared-groups/_lib/invitationDto';
 
 export interface SharedGroupSummary {
   group: SharedGroup;
@@ -57,6 +58,25 @@ export function useSharedGroups() {
 
   // Loading específico de acciones (crear/editar/borrar) para deshabilitar botones y evitar doble submit.
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Invitaciones recibidas por el usuario actual (Fase 4.4) — se muestran
+  // como sección "Invitaciones" arriba de la lista de grupos, dentro de
+  // ListView. Se cargan SOLO cuando el modal se abre (junto a fetchGroups),
+  // nunca en el dashboard ni con polling.
+  const [myInvitations, setMyInvitations] = useState<PublicSharedGroupInvitationWithDetails[]>([]);
+  const [myInvitationsLoading, setMyInvitationsLoading] = useState(false);
+  const [myInvitationsError, setMyInvitationsError] = useState<string | null>(null);
+  // id de la invitación siendo aceptada/rechazada en este momento -- para
+  // deshabilitar SOLO esa card, no todo el listado (varias invitaciones
+  // pueden convivir sin bloquearse entre sí).
+  const [invitationActionId, setInvitationActionId] = useState<string | null>(null);
+
+  // Invitaciones pendientes del grupo actualmente abierto (Fase 4.4) — para
+  // que MembersView sepa, por cada shadow member, si ya tiene una invitación
+  // en camino. Se cargan solo al entrar a la vista de miembros, no junto con
+  // openGroup().
+  const [groupInvitations, setGroupInvitations] = useState<PublicSharedGroupInvitation[]>([]);
+  const [groupInvitationsLoading, setGroupInvitationsLoading] = useState(false);
 
   const fetchGroups = useCallback(async () => {
     setLoadingGroups(true);
@@ -397,6 +417,117 @@ export function useSharedGroups() {
     [fetchSettlements, fetchBalance]
   );
 
+  // ---------------------------------------------------------------------------
+  // Invitaciones (Fase 4.4) — dos listas con propósitos distintos:
+  // "mis invitaciones" (recibidas, cualquier grupo) vs "invitaciones del
+  // grupo abierto" (enviadas, para saber qué shadow member ya tiene una
+  // pendiente). Ninguna se carga sola/con polling; ambas requieren un
+  // llamado explícito del componente.
+  // ---------------------------------------------------------------------------
+
+  const fetchMyInvitations = useCallback(async () => {
+    setMyInvitationsLoading(true);
+    setMyInvitationsError(null);
+    try {
+      const data = await requestJson<{ invitations: PublicSharedGroupInvitationWithDetails[] }>('/api/shared-group-invitations');
+      const fetched = Array.isArray(data.invitations) ? data.invitations : [];
+      setMyInvitations(fetched);
+      return fetched;
+    } catch (err) {
+      setMyInvitationsError(err instanceof SharedGroupsApiError ? err.message : 'Error desconocido');
+      throw err;
+    } finally {
+      setMyInvitationsLoading(false);
+    }
+  }, []);
+
+  /** Acepta una invitación recibida DESDE DENTRO de FINDIA (sin token — solo
+   * funciona si la sesión actual es de Google; ver accept/handlers.ts). Si
+   * el backend la rechaza por no ser una sesión verificada, el error queda
+   * disponible para que la card lo muestre inline (no se traga). Al tener
+   * éxito: la saca de `myInvitations` y refresca `groups` de inmediato
+   * (el usuario ya está viendo la lista, no alcanza con marcarla `stale`). */
+  const acceptInvitation = useCallback(
+    async (invitationId: string) => {
+      setInvitationActionId(invitationId);
+      try {
+        await requestJson(`/api/shared-group-invitations/${invitationId}/accept`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        setMyInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
+        await fetchGroups();
+      } finally {
+        setInvitationActionId(null);
+      }
+    },
+    [fetchGroups]
+  );
+
+  /** Rechaza una invitación recibida desde dentro de FINDIA (mismo canal sin
+   * token que acceptInvitation). No toca members ni groups. */
+  const rejectInvitation = useCallback(async (invitationId: string) => {
+    setInvitationActionId(invitationId);
+    try {
+      await requestJson(`/api/shared-group-invitations/${invitationId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      setMyInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
+    } finally {
+      setInvitationActionId(null);
+    }
+  }, []);
+
+  const fetchGroupInvitations = useCallback(async (groupId: string) => {
+    setGroupInvitationsLoading(true);
+    try {
+      const data = await requestJson<{ invitations: PublicSharedGroupInvitation[] }>(`/api/shared-groups/${groupId}/invitations`);
+      const fetched = Array.isArray(data.invitations) ? data.invitations : [];
+      setGroupInvitations(fetched);
+      return fetched;
+    } finally {
+      setGroupInvitationsLoading(false);
+    }
+  }, []);
+
+  /** Envía una invitación a un shadow member del grupo abierto. Refresca
+   * SOLO groupInvitations (para que "Invitar a FINDIA" pase a "Invitación
+   * pendiente" de inmediato) — no toca expenses/settlements/balance. */
+  const sendInvitation = useCallback(
+    async (groupId: string, memberId: string) => {
+      setActionLoading(true);
+      try {
+        const result = await requestJson<{ invitation: PublicSharedGroupInvitation; emailSent: boolean }>(
+          `/api/shared-groups/${groupId}/invitations`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId }) }
+        );
+        await fetchGroupInvitations(groupId);
+        return result;
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [fetchGroupInvitations]
+  );
+
+  /** Cancela una invitación pendiente enviada por este grupo. El member NO
+   * se toca -- vuelve a quedar disponible para re-invitar. */
+  const cancelInvitation = useCallback(
+    async (groupId: string, invitationId: string) => {
+      setActionLoading(true);
+      try {
+        await requestJson(`/api/shared-group-invitations/${invitationId}`, { method: 'DELETE' });
+        await fetchGroupInvitations(groupId);
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [fetchGroupInvitations]
+  );
+
   return {
     // Lista
     groups,
@@ -434,6 +565,22 @@ export function useSharedGroups() {
     createSettlement,
     updateSettlement,
     deleteSettlement,
+
+    // Invitaciones recibidas (inbox dentro de ListView)
+    myInvitations,
+    myInvitationsLoading,
+    myInvitationsError,
+    invitationActionId,
+    fetchMyInvitations,
+    acceptInvitation,
+    rejectInvitation,
+
+    // Invitaciones enviadas por el grupo abierto (MembersView)
+    groupInvitations,
+    groupInvitationsLoading,
+    fetchGroupInvitations,
+    sendInvitation,
+    cancelInvitation,
 
     // Acciones en curso (para disabled de botones / evitar doble submit)
     actionLoading,

@@ -10,9 +10,13 @@ interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
   initialMode?: 'login' | 'register'
+  /** Propagado tal cual a LoginForm/RegisterForm. Opcional — si no se pasa,
+   * ambos formularios mantienen su default de '/dashboard' sin ningún
+   * cambio de comportamiento. */
+  callbackUrl?: string
 }
 
-export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, initialMode = 'login', callbackUrl }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode)
   const [isProcessing, setIsProcessing] = useState(false)
   const [loginIsProcessing, setLoginIsProcessing] = useState(false)
@@ -118,6 +122,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                       onClose={onClose}
                       onStateChange={handleLoginStateChange}
                       onSwitchToRegister={() => setMode('register')}
+                      callbackUrl={callbackUrl}
                     />
                   </motion.div>
                 )}
@@ -130,7 +135,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <RegisterForm onClose={onClose} onStateChange={handleRegisterStateChange} />
+                    <RegisterForm onClose={onClose} onStateChange={handleRegisterStateChange} callbackUrl={callbackUrl} />
                   </motion.div>
                 )}
 

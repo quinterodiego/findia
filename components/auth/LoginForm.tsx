@@ -10,6 +10,12 @@ interface LoginFormProps {
   onClose?: () => void
   onStateChange?: (isLoading: boolean, showSuccess: boolean, isRedirecting: boolean) => void
   onSwitchToRegister?: () => void
+  /** A dónde volver después de un login exitoso. Default EXACTO al
+   * comportamiento actual ('/dashboard') si no se pasa — solo la página de
+   * invitación pasa un valor distinto. Debe ser una ruta interna propia
+   * (nunca un valor arbitrario de query params) para no introducir un open
+   * redirect. */
+  callbackUrl?: string
 }
 
 interface FieldErrors {
@@ -22,7 +28,7 @@ interface LoginFormData {
   password: string
 }
 
-export default function LoginForm({ onForgotPassword, onClose, onStateChange, onSwitchToRegister }: LoginFormProps) {
+export default function LoginForm({ onForgotPassword, onClose, onStateChange, onSwitchToRegister, callbackUrl = '/dashboard' }: LoginFormProps) {
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: ''
@@ -125,7 +131,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
         email: formData.email,
         password: formData.password,
         redirect: false,
-        callbackUrl: '/dashboard'
+        callbackUrl
       })
       
       if (result?.error) {
@@ -141,7 +147,7 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
           setIsRedirecting(true)
           // Redirigir al dashboard
           setTimeout(() => {
-            window.location.href = '/dashboard'
+            window.location.href = callbackUrl
           }, 1500)
         }, 2000)
       }
@@ -156,8 +162,8 @@ export default function LoginForm({ onForgotPassword, onClose, onStateChange, on
     try {
       setIsGoogleLoading(true)
       setGoogleError(null)
-      await signIn('google', { 
-        callbackUrl: '/dashboard',
+      await signIn('google', {
+        callbackUrl,
         redirect: true
       })
     } catch (err) {

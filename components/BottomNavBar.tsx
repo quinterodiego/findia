@@ -15,9 +15,9 @@ interface BottomNavBarProps {
 }
 
 const ADD_ACTIONS = [
-  { type: 'shared-expense' as const, label: 'Gasto Compartido', icon: Users, color: 'from-pink-400 to-pink-500' },
-  { type: 'expense' as const, label: 'Gasto', icon: DollarSign, color: 'from-orange-400 to-orange-500' },
   { type: 'debt' as const, label: 'Deuda', icon: CreditCard, color: 'from-red-400 to-red-500' },
+  { type: 'expense' as const, label: 'Gasto', icon: DollarSign, color: 'from-orange-400 to-orange-500' },
+  { type: 'shared-expense' as const, label: 'Gasto compartido', icon: Users, color: 'from-pink-400 to-pink-500' },
   { type: 'income' as const, label: 'Ingreso', icon: TrendingUp, color: 'from-green-400 to-green-500' },
   { type: 'goal' as const, label: 'Meta', icon: Target, color: 'from-blue-400 to-blue-500' },
 ]

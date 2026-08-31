@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 /**
  * Obtiene la URL base de la aplicación (producción o desarrollo)
  */
-function getBaseUrl(): string {
+export function getBaseUrl(): string {
   // Prioridad 1: URL explícita desde variable de entorno
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL;
@@ -309,6 +309,104 @@ export async function sendSharedExpenseCancelledNotification(
     subject: `🚫 ${ownerName} canceló el gasto compartido: ${expenseName}`,
     html,
   });
+}
+
+/** Escapa HTML básico — usado solo para datos que el usuario controla
+ * (nombre de grupo, nombre de invitador) antes de interpolarlos en el email
+ * de invitación. Los templates de arriba (legacy) no lo hacían; se agrega
+ * acá porque es la única plantilla nueva de esta fase, sin tocar las
+ * existentes. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Construye el asunto/HTML del email de invitación a un grupo de Gastos
+ * Compartidos — separado de sendSharedGroupInvitationNotification() para
+ * poder testear el contenido (escaping, ausencia de lenguaje técnico, link)
+ * sin enviar ningún email real.
+ */
+export function buildSharedGroupInvitationEmail(
+  inviterName: string,
+  groupName: string,
+  inviteUrl: string
+): { subject: string; html: string } {
+  const safeInviterName = escapeHtml(inviterName);
+  const safeGroupName = escapeHtml(groupName);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Invitación a compartir gastos - FindIA</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #FF3A5F 0%, #FF007A 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">FindIA</h1>
+        <p style="color: white; margin: 5px 0 0 0; opacity: 0.9;">Gastos Compartidos</p>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
+        <h2 style="color: #333; margin-top: 0;">¡Hola!</h2>
+        <p style="color: #666; font-size: 16px;">
+          <strong>${safeInviterName}</strong> te invitó al grupo <strong>${safeGroupName}</strong>.
+        </p>
+        <p style="color: #666; font-size: 16px;">
+          Podés compartir gastos, ver cuánto debe cada persona y registrar pagos desde FindIA.
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${inviteUrl}"
+             style="background: linear-gradient(135deg, #FF3A5F 0%, #FF007A 100%);
+                    color: white;
+                    padding: 12px 30px;
+                    text-decoration: none;
+                    border-radius: 6px;
+                    display: inline-block;
+                    font-weight: bold;
+                    font-size: 16px;">
+            Ver invitación
+          </a>
+        </div>
+
+        <p style="color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+          Este email fue enviado desde FindIA. Si no esperabas recibir este mensaje, podés ignorarlo.
+        </p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return {
+    subject: `${inviterName} te invitó a compartir gastos en FindIA`,
+    html,
+  };
+}
+
+/**
+ * Envía el email de invitación a un grupo de Gastos Compartidos V2. Sigue
+ * exactamente la convención de las funciones sendSharedExpense*Notification
+ * de arriba (mismo transporter, mismo sendEmail(), mismo Promise<boolean>).
+ * `inviteUrl` ya debe venir armada por el caller (ver
+ * app/api/shared-groups/[id]/invitations/handlers.ts) — esta función no
+ * conoce nada de SharedGroup/SharedGroupMember/token, solo arma y manda el
+ * email con los 3 datos que necesita.
+ */
+export async function sendSharedGroupInvitationNotification(
+  toEmail: string,
+  inviterName: string,
+  groupName: string,
+  inviteUrl: string
+): Promise<boolean> {
+  const { subject, html } = buildSharedGroupInvitationEmail(inviterName, groupName, inviteUrl);
+  return await sendEmail({ to: toEmail, subject, html });
 }
 
 /**
