@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { isGoogleSheetsRateLimitError, isGoogleSheetsInfrastructureError } from '@/lib/googleSheets'
+import { isPostgresConnectivityError } from '@/lib/repositories/sharedGroups/pgErrors'
 
 const FRIENDLY_INFRA_MESSAGE = 'No pudimos actualizar los datos en este momento. Intentá nuevamente en unos segundos.'
+const FRIENDLY_POSTGRES_UNAVAILABLE_MESSAGE = 'Gastos compartidos no está disponible temporalmente. Probá de nuevo en unos minutos.'
 
 /**
  * Error tipado para las rutas de Gastos Compartidos V2, con el status HTTP
@@ -15,6 +17,9 @@ const FRIENDLY_INFRA_MESSAGE = 'No pudimos actualizar los datos en este momento.
  *       provocado retroactivamente por un update/delete de otro registro)
  *   429 rate-limit real de Google Sheets (detectado explícitamente)
  *   500/503 error de infraestructura inesperado/transitorio (nunca 400)
+ *   503 Postgres/Neon no disponible (DB-7A.1 -- ver isPostgresConnectivityError).
+ *       Nunca implica fallback a Sheets: el backend seleccionado sigue siendo
+ *       el mismo, esto solo controla qué status/mensaje ve el cliente.
  */
 export class ApiError extends Error {
   status: number
@@ -48,6 +53,14 @@ export function handleApiError(error: unknown, label: string): NextResponse {
     return NextResponse.json({ error: FRIENDLY_INFRA_MESSAGE }, { status: 503 })
   }
 
+  if (isPostgresConnectivityError(error)) {
+    // Nunca loggear la connection string completa -- acá solo llega el error
+    // de conexión de `pg`/Drizzle (mensaje tipo "connect ECONNREFUSED ..."),
+    // nunca DATABASE_URL ni credenciales.
+    console.error(`Error de conectividad a Postgres en ${label}:`, error)
+    return NextResponse.json({ error: FRIENDLY_POSTGRES_UNAVAILABLE_MESSAGE }, { status: 503 })
+  }
+
   console.error(`Error en ${label}:`, error)
   return NextResponse.json({ error: 'Error inesperado' }, { status: 500 })
 }
@@ -78,6 +91,15 @@ export async function wrapPhase1Call<T>(fn: () => Promise<T>): Promise<T> {
     }
     if (isGoogleSheetsInfrastructureError(error)) {
       throw new ApiError(503, FRIENDLY_INFRA_MESSAGE)
+    }
+
+    // DB-7A.1: antes de asumir que cualquier error no reconocido es una
+    // violación de regla de negocio (400), descartar que sea en realidad
+    // Postgres/Neon caído -- si no se hiciera esto, un ECONNREFUSED real
+    // terminaría como "400 Solicitud inválida: connect ECONNREFUSED ..."
+    // con el mensaje crudo del driver filtrado al cliente.
+    if (isPostgresConnectivityError(error)) {
+      throw new ApiError(503, FRIENDLY_POSTGRES_UNAVAILABLE_MESSAGE)
     }
 
     throw new ApiError(400, error instanceof Error ? error.message : 'Solicitud inválida')
