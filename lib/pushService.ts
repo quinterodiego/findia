@@ -1,5 +1,5 @@
 import webpush from 'web-push';
-import { google } from 'googleapis';
+import { getPushSubscriptionsRepository } from '@/lib/repositories/pushSubscriptions';
 
 let vapidInitialized = false;
 
@@ -15,89 +15,21 @@ function initWebPush() {
   vapidInitialized = true;
 }
 
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
-
-const sheets = google.sheets({ version: 'v4', auth });
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID;
-const SHEET = 'PushSubscriptions';
-const HEADERS = ['userId', 'endpoint', 'p256dh', 'auth', 'createdAt'];
-
-async function ensureSheet() {
-  const res = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
-  const exists = res.data.sheets?.some((s) => s.properties?.title === SHEET);
-  if (!exists) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      requestBody: { requests: [{ addSheet: { properties: { title: SHEET } } }] },
-    });
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET}!A1`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [HEADERS] },
-    });
-  }
-}
-
 export async function saveSubscription(userId: string, subscription: PushSubscriptionJSON) {
-  await ensureSheet();
   const { endpoint, keys } = subscription;
-
-  // Eliminar suscripción previa del mismo endpoint antes de guardar
-  await removeSubscriptionByEndpoint(endpoint!);
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET}!A:E`,
-    valueInputOption: 'RAW',
-    requestBody: {
-      values: [[userId, endpoint, keys?.p256dh, keys?.auth, new Date().toISOString()]],
-    },
-  });
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    throw new Error('Suscripción de push inválida: falta endpoint o keys');
+  }
+  await getPushSubscriptionsRepository().subscribe(userId, { endpoint, p256dh: keys.p256dh, auth: keys.auth });
 }
 
 export async function removeSubscriptionByEndpoint(endpoint: string) {
-  try {
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET}!A:E`,
-    });
-    const rows = res.data.values || [];
-    const kept = rows.filter((row, i) => i === 0 || row[1] !== endpoint);
-    await sheets.spreadsheets.values.clear({ spreadsheetId: SPREADSHEET_ID, range: `${SHEET}!A:E` });
-    if (kept.length > 0) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET}!A1`,
-        valueInputOption: 'RAW',
-        requestBody: { values: kept },
-      });
-    }
-  } catch {
-    // Hoja aún no existe, ignorar
-  }
+  await getPushSubscriptionsRepository().unsubscribe(endpoint);
 }
 
 export async function getSubscriptions(userId: string): Promise<webpush.PushSubscription[]> {
-  try {
-    await ensureSheet();
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET}!A:E`,
-    });
-    return (res.data.values || [])
-      .slice(1)
-      .filter((row) => row[0] === userId)
-      .map((row) => ({ endpoint: row[1], keys: { p256dh: row[2], auth: row[3] } }));
-  } catch {
-    return [];
-  }
+  const records = await getPushSubscriptionsRepository().getSubscriptionsForUser(userId);
+  return records.map((r) => ({ endpoint: r.endpoint, keys: { p256dh: r.p256dh, auth: r.auth } }));
 }
 
 export interface NotificationPayload {

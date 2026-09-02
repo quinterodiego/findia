@@ -1,8 +1,7 @@
 /**
- * Schema Drizzle de Gastos Compartidos V2 (Fase DB-2). SOLO estas 6 tablas
- * -- ningún otro módulo de FINDIA se migra en esta fase, y nada de este
- * archivo está conectado todavía a ningún handler/hook/componente real.
- * FINDIA sigue leyendo/escribiendo exclusivamente Google Sheets.
+ * Schema Drizzle de Gastos Compartidos V2 (Fase DB-2) + PushSubscriptions
+ * (Fase DB-8.1). Ningún otro módulo de FINDIA se migra en estas fases.
+ * FINDIA sigue leyendo/escribiendo Google Sheets para todo lo demás.
  *
  * Decisiones de la auditoría DB-1, con las correcciones pedidas:
  *
@@ -154,5 +153,32 @@ export const sharedGroupInvitations = pgTable(
       .where(sql`${table.status} = 'pending'`),
     index('shared_group_invitations_target_email_status_idx').on(table.targetEmail, table.status),
     index('shared_group_invitations_group_member_status_idx').on(table.groupId, table.memberId, table.status),
+  ]
+)
+
+/**
+ * Fase DB-8.1 -- PushSubscriptions. El endpoint de push (emitido por el
+ * servicio de push del navegador, ej. FCM) identifica de forma GLOBAL una
+ * suscripción -- no está scopeado a un usuario de FINDIA. Confirmado por el
+ * comportamiento ya existente en `lib/pushService.ts`: re-suscribirse con el
+ * mismo endpoint (mismo browser/dispositivo, sea el mismo usuario u otro que
+ * inició sesión después) siempre reemplaza la fila anterior de ese endpoint,
+ * nunca convive con ella. `UNIQUE(endpoint)` + upsert reproduce exactamente
+ * ese comportamiento de forma atómica, eliminando el patrón anterior de
+ * leer-toda-la-hoja → borrar-todo → reescribir-sobrevivientes.
+ */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(), // soft reference a Users (Sheets) -- sin FK
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('push_subscriptions_endpoint_unique').on(table.endpoint),
+    index('push_subscriptions_user_id_idx').on(table.userId),
   ]
 )
