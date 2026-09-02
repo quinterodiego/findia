@@ -5,6 +5,7 @@ import Providers from "@/components/Providers";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import ChromeIOSBanner from "@/components/ChromeIOSBanner";
 import UpdateAvailableBanner from "@/components/UpdateAvailableBanner";
+import RegisterServiceWorker from "@/components/RegisterServiceWorker";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -135,6 +136,7 @@ export default function RootLayout({
       <body className={`${inter.variable} antialiased font-sans`} suppressHydrationWarning>
         <Providers>
           {children}
+          <RegisterServiceWorker />
           <ChromeIOSBanner />
           <PWAInstallBanner />
           <UpdateAvailableBanner />

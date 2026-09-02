@@ -21,6 +21,19 @@ export default withPWA({
   skipWaiting: false, // Cambiar a false para que el usuario tenga control
   disable: process.env.NODE_ENV === "development",
   buildExcludes: [
+    // Fase DB-8.1 -- misma categoría de problema que routes-manifest.json
+    // (ya excluido abajo): son manifiestos internos de build de Next.js,
+    // nunca rutas HTTP servibles. Sin excluirlos, Workbox los agrega al
+    // precache igual (los detecta como asset emitido por webpack) y el
+    // fetch da 404 en cuanto el Service Worker intenta instalarse -- eso
+    // hace fallar la instalación completa (queda "redundant", nunca activa).
+    /app-build-manifest\.json$/,
+    /build-manifest\.json$/,
+    /react-loadable-manifest\.json$/,
+    /next-font-manifest\.(json|js)$/,
+    /middleware-manifest\.json$/,
+    /middleware-build-manifest\.js$/,
+    /middleware-react-loadable-manifest\.js$/,
     /routes-manifest\.json$/,
     ({ asset }: { asset: { name: string }; compilation: unknown }) => {
       if (asset.name === 'routes-manifest.json') {
