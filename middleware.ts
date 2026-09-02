@@ -1,6 +1,9 @@
 /**
  * Fase DB-7A.1 — maintenance freeze de Shared Groups V2, único punto de
  * aplicación server-side (en vez de editar cada uno de los 14 route.ts).
+ * Extendido en DB-8.1 (cutover) con el freeze independiente de
+ * PushSubscriptions -- dos predicados separados, cada uno con su propia
+ * env var, evaluados en el mismo middleware para no duplicar el archivo.
  * Corre ANTES que cualquier handler, incluso antes del chequeo de sesión de
  * cada ruta -- por eso una mutación bloqueada nunca llega a tocar el
  * repositorio (Sheets o Postgres, sea cual sea el backend activo).
@@ -23,15 +26,22 @@
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { shouldBlockForMaintenance, SHARED_GROUPS_MAINTENANCE_MESSAGE } from '@/lib/sharedGroupsMaintenance'
+import { shouldBlockForMaintenance as shouldBlockSharedGroups, SHARED_GROUPS_MAINTENANCE_MESSAGE } from '@/lib/sharedGroupsMaintenance'
+import { shouldBlockForMaintenance as shouldBlockPushSubscriptions, PUSH_SUBSCRIPTIONS_MAINTENANCE_MESSAGE } from '@/lib/pushSubscriptionsMaintenance'
 
 export function middleware(request: NextRequest) {
-  if (shouldBlockForMaintenance(request.method, request.nextUrl.pathname)) {
+  const { method, nextUrl } = request
+
+  if (shouldBlockSharedGroups(method, nextUrl.pathname)) {
     return NextResponse.json({ error: SHARED_GROUPS_MAINTENANCE_MESSAGE }, { status: 503 })
   }
+  if (shouldBlockPushSubscriptions(method, nextUrl.pathname)) {
+    return NextResponse.json({ error: PUSH_SUBSCRIPTIONS_MAINTENANCE_MESSAGE }, { status: 503 })
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/api/shared-groups/:path*', '/api/shared-group-invitations/:path*'],
+  matcher: ['/api/shared-groups/:path*', '/api/shared-group-invitations/:path*', '/api/push/subscribe'],
 }
