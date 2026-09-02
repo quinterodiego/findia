@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
+import { isAuthorizedMigrationRequest } from '@/lib/migrationAuth'
 import type { Subcategory } from '@/types'
 
 // Configuración de autenticación con Service Account
@@ -20,17 +21,14 @@ const NEW_SUBCATEGORIES = [
   { name: 'Refrigerios', icon: '☕' },
 ]
 
+function unauthorizedMigrationResponse(): NextResponse {
+  return NextResponse.json({ error: 'No autorizado. Se requiere token de migración.' }, { status: 401 })
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Verificar que se pase un token de seguridad (opcional pero recomendado)
-    const authHeader = request.headers.get('authorization')
-    const expectedToken = process.env.MIGRATION_TOKEN || 'migration-secret-token'
-    
-    if (authHeader !== `Bearer ${expectedToken}`) {
-      return NextResponse.json(
-        { error: 'No autorizado. Se requiere token de migración.' },
-        { status: 401 }
-      )
+    if (!isAuthorizedMigrationRequest(request)) {
+      return unauthorizedMigrationResponse()
     }
 
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID
@@ -185,9 +183,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// También permitir GET para verificar el estado sin ejecutar
-export async function GET() {
+// También permitir GET para verificar el estado sin ejecutar -- mismo gate
+// que POST: antes no requería ningún token y filtraba conteos de usuarios/
+// categorías a cualquiera que lo pidiera.
+export async function GET(request: NextRequest) {
   try {
+    if (!isAuthorizedMigrationRequest(request)) {
+      return unauthorizedMigrationResponse()
+    }
+
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID
 
     if (!spreadsheetId) {
