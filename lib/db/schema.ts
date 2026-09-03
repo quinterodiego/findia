@@ -23,7 +23,7 @@
  *   -- NUNCA como `unique()` inline con WHERE, que Postgres no soporta así.
  */
 import { sql } from 'drizzle-orm'
-import { pgTable, pgEnum, text, numeric, timestamp, date, uniqueIndex, index, check } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, text, numeric, timestamp, date, uniqueIndex, index, check, boolean } from 'drizzle-orm/pg-core'
 
 export const currencyEnum = pgEnum('currency', ['pesos', 'usd'])
 export const invitationStatusEnum = pgEnum('invitation_status', ['pending', 'accepted', 'rejected', 'cancelled'])
@@ -167,6 +167,66 @@ export const sharedGroupInvitations = pgTable(
  * ese comportamiento de forma atómica, eliminando el patrón anterior de
  * leer-toda-la-hoja → borrar-todo → reescribir-sobrevivientes.
  */
+/**
+ * Fase DB-8.2 -- Categories + Subcategories. Identidad preservada TAL CUAL
+ * respecto de Sheets, sin normalizar (auditoría DB-8.2 §2):
+ *
+ *   - `categories.userId` es literalmente el EMAIL del usuario (no el
+ *     userId interno que usan Shared Groups V2/PushSubscriptions) --
+ *     así es como ya funciona en Sheets (`app/api/categories/route.ts`
+ *     filtra por `session.user.email`, nunca por `session.user.id`).
+ *   - `subcategories.userId` se preserva igual de inconsistente que en
+ *     Sheets -- casi siempre `''` (las subcategorías son globales, nunca
+ *     se filtran por usuario), a veces un email real (el script de
+ *     migración histórico `add-subcategories` escribía el email; el flujo
+ *     normal de creación siempre escribe `''`). Columna preservada, nunca
+ *     usada para filtrar -- igual que hoy.
+ *
+ * `UNIQUE(userId, name)` en categories y `UNIQUE(categoryId, name)` en
+ * subcategories son CONSTRAINTS NUEVAS que no existían en Sheets -- cierran
+ * exactamente la race condition de creación de duplicados que ya
+ * documentó DB-8 Audit (ambas rutas hacían read-then-append sin lock).
+ * Antes de aplicar el import real se valida que NINGÚN duplicado
+ * histórico exista ya en los datos reales (si existiera, aborta -- nunca
+ * se decide en silencio cuál copia conservar).
+ */
+export const categories = pgTable(
+  'categories',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(), // email, no el userId interno -- ver comentario arriba
+    name: text('name').notNull(),
+    color: text('color').notNull(),
+    icon: text('icon').notNull(),
+    type: text('type').notNull(), // 'income' | 'expense' | 'saving' | 'custom' -- sin pgEnum a propósito, un tipo nuevo no requiere migración de schema
+    isDefault: boolean('is_default').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('categories_user_name_unique').on(table.userId, table.name),
+    index('categories_user_id_idx').on(table.userId),
+  ]
+)
+
+export const subcategories = pgTable(
+  'subcategories',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().default(''), // preservado tal cual, nunca se filtra por esto -- ver comentario arriba
+    categoryId: text('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    icon: text('icon').notNull(),
+    isDefault: boolean('is_default').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('subcategories_category_name_unique').on(table.categoryId, table.name),
+    index('subcategories_category_id_idx').on(table.categoryId),
+  ]
+)
+
 export const pushSubscriptions = pgTable(
   'push_subscriptions',
   {
